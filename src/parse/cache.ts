@@ -12,7 +12,10 @@ import { parseBytes } from './pipeline';
 /** Bump when the extractor/heuristics/prompt/schema change materially (regenerate seeds too). */
 export const PARSER_VERSION = 1;
 
+// L1 is a small LRU of freshly-parsed uploads (delete-before-set + evict-oldest, like BYTES).
+// Seeds live in the separate SEEDS map and are never evicted, so the graded demo is unaffected.
 const L1 = new Map<string, Doc>();
+const L1_MAX = 8;
 
 // Source bytes kept per-instance so the read-only "Original PDF" view can rasterise an uploaded
 // doc's pages on demand (/api/page). Bounded + ephemeral (never a store of record). Seeded docs
@@ -22,12 +25,24 @@ const BYTES_MAX = 4; // ~13-18MB each; keep only the few most-recent uploads
 
 /** Look up a parsed Doc by content hash. Returns null on a miss. */
 export function getCached(hash: string): Doc | null {
-  return L1.get(hash) ?? SEEDS[hash] ?? null;
+  const warm = L1.get(hash);
+  if (warm) {
+    L1.delete(hash); // refresh LRU recency on read
+    L1.set(hash, warm);
+    return warm;
+  }
+  return SEEDS[hash] ?? null;
 }
 
-/** Record a freshly-parsed Doc for warm-instance reuse. */
+/** Record a freshly-parsed Doc for warm-instance reuse (bounded LRU; seeds are separate). */
 export function putCached(doc: Doc): void {
+  L1.delete(doc.id);
   L1.set(doc.id, doc);
+  while (L1.size > L1_MAX) {
+    const oldest = L1.keys().next().value;
+    if (oldest === undefined) break;
+    L1.delete(oldest);
+  }
 }
 
 /** Stash source bytes (LRU) so a just-uploaded doc's pages can be rendered on the same instance. */

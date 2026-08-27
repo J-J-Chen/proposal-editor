@@ -14,6 +14,11 @@ function isBold(fontName: string, weight: string): boolean {
   return weight === 'bold' || /-(Semi ?bold|Bold|Black|Heavy)/i.test(fontName);
 }
 
+/** Free a native mupdf handle (WASM heap hygiene) — same discipline as render.ts. */
+function drop(handle: unknown): void {
+  (handle as { destroy?: () => void })?.destroy?.();
+}
+
 /**
  * Extract every non-empty text line from a PDF, in mupdf's native reading order
  * (block order, then line order within a block). Native order already keeps easy.pdf's
@@ -23,46 +28,48 @@ function isBold(fontName: string, weight: string): boolean {
  */
 export function extractLines(bytes: Uint8Array): RawLine[] {
   const doc = mupdf.Document.openDocument(bytes, 'application/pdf');
-  const out: Omit<RawLine, 'idx'>[] = [];
-  const pageCount = doc.countPages();
+  try {
+    const out: Omit<RawLine, 'idx'>[] = [];
+    const pageCount = doc.countPages();
 
-  for (let p = 0; p < pageCount; p++) {
-    const page = doc.loadPage(p);
-    const st = page.toStructuredText('preserve-whitespace');
-    let json: { blocks?: RawBlock[] };
-    try {
-      json = JSON.parse(st.asJSON());
-    } finally {
-      // free the native structured-text handle promptly (WASM heap hygiene)
-      (st as { destroy?: () => void }).destroy?.();
-    }
-    for (const b of json.blocks ?? []) {
-      if (b.type !== 'text') continue;
-      for (const ln of b.lines ?? []) {
-        const text = ln.text ?? '';
-        if (!text.trim()) continue;
-        const { x, y, w, h } = ln.bbox;
-        out.push({
-          text,
-          x0: x,
-          y0: y,
-          x1: x + w,
-          y1: y + h,
-          size: ln.font?.size ?? 0,
-          bold: isBold(ln.font?.name ?? '', ln.font?.weight ?? 'normal'),
-          font: ln.font?.name ?? '',
-          page: p + 1, // Block.page is 1-based
-        });
+    for (let p = 0; p < pageCount; p++) {
+      const page = doc.loadPage(p);
+      try {
+        const st = page.toStructuredText('preserve-whitespace');
+        let json: { blocks?: RawBlock[] };
+        try {
+          json = JSON.parse(st.asJSON());
+        } finally {
+          drop(st); // free the native structured-text handle promptly
+        }
+        for (const b of json.blocks ?? []) {
+          if (b.type !== 'text') continue;
+          for (const ln of b.lines ?? []) {
+            const text = ln.text ?? '';
+            if (!text.trim()) continue;
+            const { x, y, w, h } = ln.bbox;
+            out.push({
+              text,
+              x0: x,
+              y0: y,
+              x1: x + w,
+              y1: y + h,
+              size: ln.font?.size ?? 0,
+              bold: isBold(ln.font?.name ?? '', ln.font?.weight ?? 'normal'),
+              font: ln.font?.name ?? '',
+              page: p + 1, // Block.page is 1-based
+            });
+          }
+        }
+      } finally {
+        drop(page); // free each Page as we go (was leaking on cache-miss parse)
       }
     }
+
+    return out.map((l, idx) => ({ ...l, idx }));
+  } finally {
+    drop(doc); // free the Document handle (was leaking on cache-miss parse)
   }
-
-  return out.map((l, idx) => ({ ...l, idx }));
-}
-
-/** Cheap page count without a full extract (used by cache/meta paths). */
-export function countPages(bytes: Uint8Array): number {
-  return mupdf.Document.openDocument(bytes, 'application/pdf').countPages();
 }
 
 // ── Shapes we read out of mupdf's JSON (only the fields we use) ──
