@@ -46,4 +46,31 @@ export interface KbSearchResponse {
   candidates: KbCandidate[];
 }
 
+// POST /api/suggest — the proactive editorial "Refine" pass (Track G / CP7). This track owns it.
+// Adds LLM-grounded suggestions ON TOP of the client-side deterministic scan (src/refine/scan.ts).
+// The Suggestion shape is byte-identical to refine/scan.ts's `Suggestion`, so the two lists MERGE
+// cleanly: concat(clientScan, serverSuggestions) then dedupe by `id` (= `${category}:${blockId}`).
+// The only delta is `category`: these values are NOT yet in RefineCategory — the FE folds
+// `LlmRefineCategory` into that union (+ CAT_LABEL + chip CSS) during its merge. why/evidence always
+// quote the block's OWN text; the KB/voice signal steers server-side only and never enters the payload.
+export type LlmRefineCategory = 'wordiness' | 'clarity' | 'consistency';
+
+export interface LlmSuggestion {
+  id: string; // `${category}:${blockId}` — same convention as the deterministic scan
+  blockId: string;
+  category: LlmRefineCategory;
+  title: string; // imperative, short
+  why: string; // grounded — built server-side around a verbatim span of the block
+  instruction: string; // entity-safe seed handed to /api/edit on "Make this fix"
+  evidence: string; // the verbatim span that triggered it
+}
+
+export interface SuggestRequest {
+  doc: Doc; // the parsed Doc (doc.id = content hash → the per-doc cache key)
+}
+export interface SuggestResponse {
+  suggestions: LlmSuggestion[];
+  cached: boolean;
+}
+
 export type { Block, Doc };
