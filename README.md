@@ -166,7 +166,10 @@ Speed-first, and *intentional* scope beats feature count. Explicit cuts:
   the line before this gate.
 - **Over-eager edits** — the model "improving" things it wasn't asked to. Mitigated by the
   explicit "do exactly what's asked and nothing more" rule and by tuning toward small, surgical
-  edits so a one-word fix reads as one word in the card.
+  edits so a one-word fix reads as one word in the card. This was the only *genuine* failure on the
+  hard.pdf holdout (§5): 4 minor cases where an aggressive "change tone" / "rewrite" replaced the
+  firm's own name (MECO → "we / our team", ×3) or dropped a branded term ("Standard of Care", ×1) —
+  fixed by a firmer surgical-edit constraint and by covering the firm's own name in the protected set.
 - **Parse edge cases** — duplicated/overlapping cover text, headings glued to body text,
   multi-column reading order (all seen in `easy.pdf` pages 1–2), and tables. The hybrid parse
   targets these; genuinely adversarial layouts and `hard.pdf` are a known, stated limit.
@@ -257,6 +260,34 @@ trials, over-weighting the hard "rewrite in our voice" / "change tone" cases):
 > present in the original). Reproduce:
 > `node scripts/eval/run.mjs --base <url> --sha <sha> --out eval.json` (artifact not committed —
 > it contains verbatim proposal text).
+>
+> ---
+>
+> **hard.pdf — holdout, additive $-fidelity.** Dataset: the **hard.pdf holdout** (never tuned to).
+> 198 trials (22 blocks × 9 phrasings), including **all 8 $-bearing blocks**. Deploy `5c6a0ae` ·
+> `claude-sonnet-4-5` @ temp 0.2 · cross-model extractor **gpt-4.1**.
+>
+> **Headline:** **every** closed-class entity ($ / numbers / dates / IDs) was preserved **100%
+> strict *and* value-aware** across all 198 holdout trials — no entity was ever swapped to a
+> different real value.
+>
+> **Per-entity-class (preserved/total, strict | value-aware):** money 72/72 (100% | 100%) ·
+> project-no 9/9 · year 72/72 · date 18/18 · zip 9/9 · program-id 117/117 · quantity 9/9 ·
+> proper-noun 671/765 (88% | 743/765 97%) → **ALL 977/1071 (91% strict | 1049/1071 98%
+> value-aware)**.
+>
+> **Leaks:** 0/198. **Effectiveness:** applied-of-applicable 161/192 · changed-substantial
+> 178/189 · tighten-didn't-grow 21/22. Mean length drift 8.2%.
+>
+> **Violations (22 proper-noun flags, hand-adjudicated):** 18 are **parse artifacts** (missing
+> spaces like "Highway58", run-on lists — not editor failures; being fixed upstream). 4 are
+> **genuine + minor**: aggressive "change tone" / "rewrite" replaced the firm's *own* name (MECO →
+> "we / our team") ×3, and dropped a branded term ("Standard of Care") ×1.
+>
+> **Anti-overfit (holdout integrity):** no test-entity name lives in the instrument — closed-class
+> entities are matched by generic regex, proper nouns by a generic capitalized-phrase + acronym
+> detector with a domain-generic stoplist; the **identical code path** scores easy and hard;
+> hard.pdf is an **untouched holdout**; every violation is listed above.
 
 ---
 
