@@ -28,11 +28,22 @@ import { IconCheck, IconFolder, IconShield } from './icons';
 
 type View = 'open' | 'reading' | 'editor';
 
-/** easy.pdf's real sha256 — cache-hits Track A's committed parse seed (the real 76-block Doc). */
-const SAMPLE = {
-  hash: '03dd3ee8dd7962eb11fd67dd223cfdcdcd0e4f8957aa8622ac24d929cd8c5829',
-  filename: 'easy.pdf',
-};
+/** The bundled sample proposals — each sha256 cache-hits a committed parse seed (a real Doc). */
+type Sample = { hash: string; filename: string; title: string; subtitle: string };
+const SAMPLES: Sample[] = [
+  {
+    hash: '03dd3ee8dd7962eb11fd67dd223cfdcdcd0e4f8957aa8622ac24d929cd8c5829',
+    filename: 'easy.pdf',
+    title: 'Statement of Qualifications — City of Dixon',
+    subtitle: 'Sample proposal — open this to try it out',
+  },
+  {
+    hash: '02d30cdbbdf08ce1f8a743b233665e4d6f5550343e1a96cc4da0223733851bf9',
+    filename: 'hard.pdf',
+    title: 'Statement of Qualifications — City of Kirksville',
+    subtitle: 'Larger sample — 19 pages, denser layout',
+  },
+];
 const FIRM = 'MECO Engineering Company, Inc.';
 
 function relTime(iso: string): string {
@@ -59,7 +70,7 @@ function OpenScreen({
   onFile,
   error,
 }: {
-  onSample: () => void;
+  onSample: (s: Sample) => void;
   onFile: (f: File) => void;
   error: string | null;
 }) {
@@ -95,13 +106,15 @@ function OpenScreen({
         </button>
         <span className="bs-or">Choose a PDF from your computer — or drag it here.</span>
       </div>
-      <button className="recent" onClick={onSample}>
-        <span className="thumb" />
-        <span className="rt">
-          <b>Statement of Qualifications — City of Dixon</b>
-          <span>Sample proposal — open this to try it out</span>
-        </span>
-      </button>
+      {SAMPLES.map((s) => (
+        <button key={s.hash} className="recent" onClick={() => onSample(s)}>
+          <span className="thumb" />
+          <span className="rt">
+            <b>{s.title}</b>
+            <span>{s.subtitle}</span>
+          </span>
+        </button>
+      ))}
       {error && (
         <div className="pane-note warn" style={{ maxWidth: 480 }}>
           {error}
@@ -264,7 +277,7 @@ export function Editor() {
     }
   }, []);
 
-  const openSample = useCallback(() => openDoc(SAMPLE.hash, SAMPLE.filename), [openDoc]);
+  const openSample = useCallback((s: Sample) => openDoc(s.hash, s.filename), [openDoc]);
 
   const onFile = useCallback(
     async (f: File) => {
