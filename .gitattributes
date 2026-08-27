@@ -1,0 +1,3 @@
+# Append-only logs: auto-resolve parallel-append conflicts by keeping BOTH sides.
+# (Parallel sessions each append dated entries; union merge unions them, no conflict.)
+docs/decisions.md merge=union
