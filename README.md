@@ -44,10 +44,12 @@ never committed** — it lives only in `.env.local` (gitignored).
   engineer needs written down.
 
 **Deploy:** Vercel (Next.js 16 / React 19), personal account. **Live:**
-https://proposal-editor-sandy.vercel.app — deployed commit `5c6a0ae`
-(`5c6a0ae0b164fe79f71f1ae7a622326a03fd81d4`), 2026-08-27. `scripts/e2e-verify.mjs` exercises the
-**API layer** (parse + edit routes) against the live URL; the full browser click-through on
-`easy.pdf` (open/upload → select → AI edit → keep → undo/redo) was verified separately by hand.
+https://proposal-editor-sandy.vercel.app — deployed commit `710ccac`
+(`710ccacb6beefc40dfe9c1c804e1eaaef40f025d`), 2026-08-27. `scripts/e2e-verify.mjs` (the
+**API layer** — parse + edit routes) passes against this live deploy (all checks green); the full
+browser click-through on `easy.pdf` (open/upload → select → AI edit → keep → undo/redo) was
+verified separately by hand. *(The eval numbers in §5 were recorded against the prior deploy
+`5c6a0ae`; a re-run against `710ccac` appends there.)*
 
 ---
 
