@@ -1,5 +1,7 @@
 # Checkpoint 5 — Evaluation + README
 
+> **STATUS — DONE.** Eval run + graded README shipped; the recorded numbers live in `README.md` §5. Historical plan below.
+
 **Goal:** run one real evaluation **against the shipped edit route** and report actual
 numbers (not just a method), then fill in the graded README. Required for grading.
 

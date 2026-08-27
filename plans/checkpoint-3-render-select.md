@@ -1,5 +1,7 @@
 # Checkpoint 3 — Render + Select
 
+> **STATUS — BUILT.** Block render + click-to-select shipped. Historical plan below.
+
 **Goal:** render the block model as a clean, readable document and let the user select a
 block and open an edit affordance.
 

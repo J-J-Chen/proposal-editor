@@ -410,3 +410,19 @@ identical content → same key → hit; bounded spend unchanged.
 content and does NOT leak the original doc's evidence; a genuine resubmit still hits the cache.
 **Rejected:** validating the supplied id against a server-known doc (more state, same outcome as
 just hashing the content); trusting doc.id (the vulnerability).
+
+### 2026-08-27 — Corrections (docs truth pass): model id, Vercel Blob, KB status
+**Decision:** Three record-corrections after a code-vs-docs audit (Codex, via 58); appended
+rather than edited into the historical entries, per the append-only convention.
+- **Model id:** earlier entries name `claude-sonnet-5` / `claude-opus-5` for the structuring
+  pass; the code uses **`claude-sonnet-4-5`** (`src/lib/ai.ts`, `AI_MODELS.anthropicMain`) for
+  every live call (edit, structuring, suggest). No `opus`/`sonnet-5` model is used;
+  `claude-haiku-4-5` is configured but currently unconsumed.
+- **Vercel Blob:** the later "single `/api/parse`, no Blob, dropped `@vercel/blob`" note was
+  **not carried out** — `@vercel/blob` remains a dependency and the client-upload path
+  (`/api/blob/upload` + `src/lib/blob.ts` + `src/lib/client.ts`) ships, used to ferry a large
+  PDF's bytes on a cache miss. The earlier "Blob for the upload only" entry is the accurate one.
+- **KB corpus:** `src/kb/` now exists (`voice.ts`/`facts.ts`/`index.ts`) and powers the firm
+  voice card + Refine voice sourcing; the "no `/kb/` corpus yet" notes are superseded. (The
+  "Add similar experience" insert UI remains unbuilt.)
+**Why:** the docs are graded; a reviewer diffing docs against the code should find them aligned.

@@ -2,6 +2,8 @@
 
 _Date: 2026-08-26 · Owner: John Chen (J-J-Chen) · Deadline: TBD from Buoyant_
 
+> **STATUS — historical master plan.** The app is built and deployed; the current source of truth is the graded `README.md` + `docs/`. Kept unedited to show how the work evolved (the brief asks to see that).
+
 This is the saved initial plan. Priorities and checkpoints below; per-checkpoint detail
 lives in the sibling `checkpoint-*.md` files. **Milestones are not strict** — reorder or
 cut to keep momentum. **Speed first; correctness/tests are good but not important.**
