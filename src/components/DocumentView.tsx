@@ -8,6 +8,7 @@ export function DocumentView({
   pulseId,
   peekId,
   onSelect,
+  onBackgroundClick,
 }: {
   doc: Doc;
   selectedId: string | null;
@@ -15,10 +16,18 @@ export function DocumentView({
   /** A block being previewed from the Refine list (hover) — steady reveal, not a one-shot pulse. */
   peekId: string | null;
   onSelect: (id: string) => void;
+  /** Clicking blank space (canvas / page margins, not a block) clears the selection. */
+  onBackgroundClick: () => void;
 }) {
   const titleId = doc.blocks.find((b) => b.type === 'heading')?.id;
   return (
-    <div className="canvas" id="doc-canvas">
+    <div
+      className="canvas"
+      id="doc-canvas"
+      onClick={(e) => {
+        if (!(e.target as HTMLElement).closest('.block')) onBackgroundClick();
+      }}
+    >
       <article className="page" aria-label={doc.filename}>
         {doc.blocks.map((b) => (
           <BlockView
