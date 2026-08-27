@@ -67,9 +67,12 @@ Spend is **capped** — cache parses, keep prompts small, use a cheaper model wh
 
 ## GitHub account
 Repo: **https://github.com/J-J-Chen/proposal-editor** (public, required). Owned by the personal
-**J-J-Chen** account (John Chen / jjchen2019@gmail.com). Pushes rely on `J-J-Chen` being the
-active `gh` account (`gh auth switch --user J-J-Chen`) with `gh` as the git credential helper.
-Switch back to your other (work) account afterward with `gh auth switch --user <work-account>`.
+**J-J-Chen** account (John Chen / jjchen2019@gmail.com). **Never `gh auth switch` the global `gh`
+account** — it races the other parallel sessions and causes push 403s all round (AGENTS.md rule 9).
+`scripts/mq-land.sh` pushes via a **process-scoped** J-J-Chen credential automatically (it runs
+`gh auth token --user J-J-Chen` for that one push only, touching no global state), so a plain
+`scripts/mq-land.sh` just works regardless of which account is globally active. If you ever push by
+hand, use the same process-scoped form — not a switch.
 
 ## Deploying (Vercel — personal account only)
 **Live app:** https://proposal-editor-sandy.vercel.app

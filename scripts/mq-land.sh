@@ -80,8 +80,20 @@ if [ "$SKIP_CHECK" != "1" ] && [ -x "$QUEUE_WT/.mq/check.sh" ]; then
   fi
 fi
 
-# Publish to canonical main.
-git push -q origin HEAD:main
+# Publish to canonical main via a PROCESS-SCOPED J-J-Chen credential — never a global
+# `gh auth switch`, which races the other parallel sessions and 403s everyone (AGENTS.md rule 9).
+# The credential helper runs `gh auth token --user J-J-Chen` only for this one push (touching no
+# global gh state), so a plain `mq-land.sh` lands as J-J-Chen regardless of the active account.
+# Falls back to a plain push if that user's token isn't available on this machine.
+if gh auth token --user J-J-Chen >/dev/null 2>&1; then
+  GIT_CONFIG_COUNT=2 \
+    GIT_CONFIG_KEY_0=credential.helper GIT_CONFIG_VALUE_0= \
+    GIT_CONFIG_KEY_1='credential.https://github.com.helper' \
+    GIT_CONFIG_VALUE_1='!f(){ echo username=x-access-token; echo "password=$(gh auth token --user J-J-Chen)"; };f' \
+    git push -q origin HEAD:main
+else
+  git push -q origin HEAD:main
+fi
 echo "$(date -u +%FT%TZ) LANDED $BRANCH -> $(git rev-parse --short HEAD)" >> "$LOG"
 echo "✓ landed $BRANCH into origin/main ($(git rev-parse --short HEAD))"
 
