@@ -148,6 +148,10 @@ Speed-first, and *intentional* scope beats feature count. Explicit cuts:
   (raster) and let you edit on it, but the editable unit is a text **Block**, not a reflowed
   vector clone. Rebuilding the PDF's exact layout as an editable surface is the trap that sinks
   the budget for near-zero user value.
+- **Sub-paragraph text selection** — edits currently operate on a whole paragraph or other text
+  block. Selecting an arbitrary span would be a useful future refinement, but the interaction
+  needs more product thought first — especially how users clearly unselect text or switch to a
+  different selection without accidentally starting an edit.
 - **Images / logos / photos as *editable* content** — they're not AI-editable text and would
   complicate entity fidelity, so the Document view is clean text while the Original PDF view keeps
   the full visuals for reference. "Edit the text, not the graphics" is a deliberate call.
