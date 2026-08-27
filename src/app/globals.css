@@ -66,7 +66,8 @@ body {
   background: var(--background);
   color: var(--ink);
   font-family: var(--font-ui);
-  font-size: 18px;
+  /* Fluid base so inherited UI text tracks the viewport (small laptop → 4K). */
+  font-size: clamp(16px, 0.3vw + 14px, 19px);
   -webkit-font-smoothing: antialiased;
 }
 * {
@@ -86,7 +87,6 @@ button {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  min-width: 900px;
   background: var(--canvas);
   position: relative;
   overflow: hidden;
@@ -176,6 +176,11 @@ button {
   display: flex;
   flex: 1;
   min-height: 0;
+  /* On ultra-wide/4K, cap the workspace so the document and its assistant pane stay a cohesive
+     pair instead of drifting apart across a growing grey desk. No-op at ≤2240px. */
+  width: 100%;
+  max-width: 2240px;
+  margin: 0 auto;
 }
 
 /* ---------------- document canvas ---------------- */
@@ -183,19 +188,21 @@ button {
   flex: 1;
   overflow-y: auto;
   background: var(--canvas);
-  padding: 34px 28px 80px;
+  /* Fluid desk gutters: tight on small screens, generous on large. */
+  padding: clamp(20px, 2.5vw, 52px) clamp(16px, 2.5vw, 44px) 80px;
   display: flex;
   justify-content: center;
   position: relative;
 }
 .page {
   background: var(--page);
-  width: 720px;
-  max-width: 100%;
+  /* Fluid page: fills a small canvas, grows toward a comfortable reading cap on big screens.
+     min(100%, …) keeps it inside the canvas; the clamp scales the natural width with the viewport. */
+  width: min(100%, clamp(680px, 54vw, 1040px));
   align-self: flex-start;
   box-shadow: var(--shadow-page);
   border-radius: 2px;
-  padding: 56px 64px;
+  padding: clamp(40px, 3.4vw, 72px) clamp(30px, 4.6vw, 88px);
   font-family: var(--font-doc);
   color: var(--ink);
 }
@@ -207,7 +214,7 @@ button {
 }
 .doc-h1 {
   font-family: var(--font-doc);
-  font-size: 26px;
+  font-size: clamp(24px, 0.9vw + 16px, 34px);
   font-weight: 700;
   line-height: 1.25;
   margin: 0;
@@ -223,17 +230,17 @@ button {
   font-family: var(--font-ui);
   font-weight: 700;
   color: var(--accent);
-  font-size: 22px;
+  font-size: clamp(20px, 0.7vw + 15px, 28px);
   letter-spacing: 0.01em;
   margin: 0;
 }
 .doc-p {
-  font-size: 20px;
+  font-size: clamp(18px, 0.5vw + 14px, 22px);
   line-height: 1.6;
   margin: 0;
 }
 .doc-li {
-  font-size: 20px;
+  font-size: clamp(18px, 0.5vw + 14px, 22px);
   line-height: 1.5;
   margin: 0;
 }
@@ -314,7 +321,10 @@ button {
 
 /* ---------------- assistant pane ---------------- */
 .pane {
-  width: 380px;
+  /* Fluid pane: compact on small screens, more generous on large ones. Continuous across the
+     whole desktop range (floors at 300px for ≤1111px), so no width override is needed until the
+     ≤820px stack. */
+  width: clamp(300px, 27vw, 560px);
   flex: none;
   background: var(--panel);
   border-left: 1px solid var(--border);
@@ -1085,8 +1095,9 @@ button {
 .toast {
   position: fixed;
   bottom: 44px;
-  left: calc(50% - 190px);
+  left: 50%;
   transform: translateX(-50%);
+  max-width: calc(100vw - 32px);
   background: #1d2b22;
   color: #e8f5ec;
   font-size: 14px;
@@ -1195,8 +1206,10 @@ button {
 .changes {
   position: absolute;
   top: 0;
-  right: 0;
-  width: 380px;
+  /* Sit over the pane: on ultra-wide the workspace is capped+centered, so inset from the
+     viewport edge by the same amount. No-op (0) at ≤2240px. */
+  right: max(0px, calc((100vw - 2240px) / 2));
+  width: min(90vw, 420px);
   height: 100%;
   background: #fff;
   border-left: 1px solid var(--border);
@@ -1254,6 +1267,72 @@ button {
 .x-btn:hover {
   background: var(--panel);
   color: var(--ink);
+}
+
+/* ============================================================
+   RESPONSIVE — the fluid clamps above carry most sizes continuously;
+   these tiers handle the structural shifts at the edges.
+   ============================================================ */
+
+/* Large desktop / 4K: a little more padding so the wider pane breathes. (Its text stays at the
+   authored sizes so the pane's internal hierarchy scales as one unit.) */
+@media (min-width: 1600px) {
+  .pane {
+    padding: 26px;
+    gap: 18px;
+  }
+}
+
+/* Narrow (tablet portrait / phone): stack the document over the pane and let the whole app scroll
+   instead of clipping a two-column layout into a sliver. */
+@media (max-width: 820px) {
+  .app {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+  .wbody {
+    flex-direction: column;
+    flex: none;
+  }
+  .canvas {
+    overflow-y: visible;
+    padding: 16px 12px 32px;
+  }
+  .page {
+    padding: 32px 22px;
+  }
+  .pane {
+    width: 100%;
+    border-left: none;
+    border-top: 1px solid var(--border);
+    overflow-y: visible;
+  }
+  .titlebar {
+    flex-wrap: wrap;
+  }
+  /* With the app now as tall as the stacked document, re-pin the slide-in changes panel to the
+     viewport (an absolute height:100% would otherwise stretch to the full document and scroll
+     its header off-screen). */
+  .changes {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    height: auto;
+  }
+  /* The open + reading screens have generous fixed padding; shrink it so they don't overflow at
+     ~320px (e.g. a 1280px screen at 400% zoom). */
+  .backstage {
+    padding: 24px 16px;
+  }
+  .bs-drop {
+    padding: 28px 22px;
+    max-width: 100%;
+  }
+  .waitwrap {
+    padding: 20px 12px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
