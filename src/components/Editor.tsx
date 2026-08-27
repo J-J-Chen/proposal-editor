@@ -72,6 +72,21 @@ function firmFor(docId: string): string | undefined {
   return SAMPLES.some((s) => s.hash === docId) ? FIRM : undefined;
 }
 
+/**
+ * Build the instruction for a follow-up refine turn. The block we send is the CURRENT draft
+ * (so "shorter" shortens the latest wording, not the original), but we hand the model the
+ * original text as reference so an ask like "put the client name back" can still restore
+ * something an earlier turn dropped. The entity guardrail (system prompt + client gate) does
+ * the heavy lifting; this just frames the turn.
+ */
+function composeRefineInstruction(original: string, phrase: string): string {
+  return (
+    `This is a follow-up refinement of an edit already under review. Apply this change to the ` +
+    `current draft below, changing only what it asks and keeping the rest of the draft: ${phrase}. ` +
+    `For reference, the original text was:\n"""${original}"""`
+  );
+}
+
 function relTime(iso: string): string {
   const secs = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000));
   if (secs < 45) return 'just now';
@@ -356,6 +371,13 @@ export function Editor() {
   const [toast, setToast] = useState<string | null>(null);
   const [showChanges, setShowChanges] = useState(false);
   const [lastInstruction, setLastInstruction] = useState('');
+  // Follow-up conversation on the pending proposal: the asks made so far (the review thread) and
+  // whether an adjustment is in flight. Distinct from status:'thinking' so the diff card stays up.
+  const [followUps, setFollowUps] = useState<string[]>([]);
+  const [refining, setRefining] = useState(false);
+  // Tracks which block the follow-up thread belongs to, so we can reset it when the proposal
+  // under review changes block or clears (see the render-time guard below).
+  const [threadBlockId, setThreadBlockId] = useState<string | null>(null);
   // Refine ("Check my proposal") state.
   const [refineOpen, setRefineOpen] = useState(false);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
@@ -387,6 +409,15 @@ export function Editor() {
     [doc, selectedId],
   );
   const section = doc && selectedId ? sectionOf(doc, selectedId) : null;
+  // Reset the follow-up thread when the proposal under review moves to a different block or clears
+  // (Keep/Discard/Undo/reselect). Done during render — React's endorsed "adjust state on change"
+  // pattern — keyed on blockId, so a refine turn (new pending, SAME blockId) preserves the thread.
+  const pendingBlockId = pending?.blockId ?? null;
+  if (pendingBlockId !== threadBlockId) {
+    setThreadBlockId(pendingBlockId);
+    setFollowUps([]);
+    setRefining(false);
+  }
   // Whether the faithful "Original PDF" view has pages to show (committed renders, or a page count).
   const originalAvailable = doc
     ? (RENDERED[doc.id]?.pages ?? doc.meta?.pages ?? 0) > 0
@@ -796,6 +827,67 @@ export function Editor() {
     else setNote({ kind: 'info', text: 'No changes made.' });
   };
 
+  // Follow-up refine on the pending proposal — iterate the draft in place before Keep/Discard.
+  // Does NOT dispatch START_THINKING (that would wipe `pending` and hide the diff); instead a
+  // local `refining` flag keeps the card on screen while the next draft is written.
+  const onRefine = useCallback(
+    async (phrase: string) => {
+      const p = pending;
+      const text = phrase.trim();
+      if (!p || !doc || !text || refining) return;
+      const type = doc.blocks.find((b) => b.id === p.blockId)?.type ?? 'paragraph';
+      setNote(null);
+      setConfirm(null);
+      const myReq = ++reqRef.current; // shares the stale-guard with runEdit/onSelect/onCancel
+      setRefining(true);
+      setFollowUps((prev) => [...prev, text]);
+
+      const headings = doc.blocks.filter((b) => b.type === 'heading').map((b) => b.text);
+      const result = await requestEdit({
+        block: { id: p.blockId, text: p.after, type }, // iterate on the CURRENT draft
+        instruction: composeRefineInstruction(p.before, text),
+        docContext: { headings, firm: firmFor(doc.id) },
+      });
+      // Superseded (reselect / cancel / a newer refine). Leave `refining` alone: if a newer refine
+      // took over it owns the flag; if the proposal cleared, the reset effect already cleared it.
+      if (myReq !== reqRef.current) return;
+      setRefining(false);
+
+      if (!result.ok) {
+        setNote({ kind: 'warn', text: result.message });
+        return; // keep the current proposal on screen so the thread isn't lost
+      }
+      const after = result.res.newText;
+      if (isNoChange(p.after, after)) {
+        setNote({ kind: 'info', text: 'I couldn’t adjust it further for that — the wording is unchanged.' });
+        return;
+      }
+      // Gate against the ORIGINAL (p.before), never the intermediate draft, so entity drift that
+      // accumulates across turns can't slip past the Keep.
+      const protectedChanged = droppedEntities(p.before, after);
+      const changedSet = new Set(protectedChanged);
+      const protectedKept = protectedStrings(p.before).filter((s) => !changedSet.has(s));
+      const data: Pending = {
+        blockId: p.blockId,
+        before: p.before, // pinned original — the undo baseline
+        after,
+        instruction: p.instruction, // headline stays the original ask; nudges show as the thread
+        rationale: result.res.rationale,
+        protectedKept,
+        baseCursor: p.baseCursor, // pinned — nothing applied yet, cursor hasn't moved
+        docId: p.docId,
+      };
+      if (protectedChanged.length > 0) {
+        const ents = extractEntities(p.before);
+        const kind: EntityKind = ents.find((e) => e.text === protectedChanged[0])?.kind ?? 'name';
+        setConfirm({ token: protectedChanged[0], kind, data });
+      } else {
+        dispatch({ type: 'SET_PENDING', pending: data });
+      }
+    },
+    [pending, doc, refining],
+  );
+
   const gotoBlock = useCallback((id: string) => {
     setShowChanges(false);
     dispatch({ type: 'SELECT', blockId: id });
@@ -1167,9 +1259,12 @@ export function Editor() {
               pending={pending}
               note={note}
               lastInstruction={lastInstruction}
+              followUps={followUps}
+              refining={refining}
               onAction={handleAction}
               onKeep={onKeep}
               onDiscard={onDiscard}
+              onRefine={onRefine}
               onCancel={onCancel}
               onCheck={runScan}
               onBack={refineOpen && activeSuggestionId ? backToSuggestions : undefined}

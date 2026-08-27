@@ -61,9 +61,12 @@ export function EditPanel({
   pending,
   note,
   lastInstruction,
+  followUps,
+  refining,
   onAction,
   onKeep,
   onDiscard,
+  onRefine,
   onCancel,
   onCheck,
   onBack,
@@ -74,9 +77,15 @@ export function EditPanel({
   pending: Pending | null;
   note: { kind: 'info' | 'warn'; text: string } | null;
   lastInstruction: string;
+  /** Follow-up asks made against the pending proposal, oldest first (the review thread). */
+  followUps: string[];
+  /** True while a follow-up adjustment is in flight (keeps the diff card on screen). */
+  refining: boolean;
   onAction: (instruction: string) => void;
   onKeep: () => void;
   onDiscard: () => void;
+  /** Refine the pending proposal in place (before Keep/Discard). */
+  onRefine: (text: string) => void;
   onCancel: () => void;
   onCheck: () => void;
   /** Present only during a "Check my proposal" fix — returns to the suggestion list. */
@@ -155,7 +164,14 @@ export function EditPanel({
       <aside className="pane">
         {onBack && <BackToSuggestions onBack={onBack} />}
         {header}
-        <DiffView pending={pending} onKeep={onKeep} onDiscard={onDiscard} />
+        <DiffView
+          pending={pending}
+          onKeep={onKeep}
+          onDiscard={onDiscard}
+          followUps={followUps}
+          refining={refining}
+          onRefine={onRefine}
+        />
       </aside>
     );
   }

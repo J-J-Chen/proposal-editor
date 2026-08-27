@@ -770,6 +770,79 @@ button {
   margin-top: 2px;
 }
 
+/* follow-up conversation on the review card — nudge the change before Keep/Discard */
+.followup {
+  margin: 14px 16px 2px;
+  padding-top: 13px;
+  border-top: 1px dashed var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.fu-lab {
+  font-size: 13px;
+  font-weight: 600;
+  color: #42474e;
+  line-height: 1.4;
+}
+.fu-turns {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.fu-turn {
+  font-size: 13px;
+  color: var(--muted);
+}
+.fu-turn span {
+  margin-right: 5px;
+  color: var(--accent);
+}
+.fu-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+.fu-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  color: var(--ink);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 12px;
+  background: #fbfcfd;
+}
+.fu-input::placeholder {
+  color: #9aa0a8;
+}
+.fu-input:disabled {
+  opacity: 0.6;
+}
+.fu-send {
+  flex: 0 0 auto;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--newbox);
+  border: 1px solid var(--newbox-border);
+  border-radius: 8px;
+  padding: 0 15px;
+  cursor: pointer;
+}
+.fu-send:hover:not(:disabled) {
+  background: #d6ebf1;
+}
+.fu-send:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.chip:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 /* an inline pane note (no-change / error) */
 .pane-note {
   border-radius: 10px;
