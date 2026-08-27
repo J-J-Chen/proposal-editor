@@ -467,3 +467,17 @@ rather than edited into the historical entries, per the append-only convention.
   voice card + Refine voice sourcing; the "no `/kb/` corpus yet" notes are superseded. (The
   "Add similar experience" insert UI remains unbuilt.)
 **Why:** the docs are graded; a reviewer diffing docs against the code should find them aligned.
+
+### 2026-08-27 — Action cards must target real regions in the Original-PDF view
+**Decision:** Give every mapped PDF overlay region its stable `data-block-id`, mirror the editable
+view's hover/pulse states on those regions, and scroll to the kept block after an action is applied.
+Also extend `seed-layout` for visually stacked personnel list items whose name and title are emitted
+out of order by PDF extraction: join only nearby matching fragments on the same page (maximum
+36-point vertical gap). This raises easy.pdf coverage from 92/101 to 97/101 and maps both blocks
+targeted by its deterministic Refine suggestions; hard.pdf gains one safe mapping (227/237).
+**Why:** Refine and Changes navigate through `[data-block-id]`. The PDF regions lacked that hook,
+and easy.pdf's two built-in suggestions pointed at unmapped list items, so hover, click-to-jump, and
+the visible applied patch all appeared broken even though the edit reducer was correct.
+**Rejected:** silently switching to the reconstructed document view for unmapped suggestions (it
+breaks the owner-directed edit-on-the-PDF mental model); accepting arbitrarily distant fragments
+(can create a huge white patch across unrelated page content).
