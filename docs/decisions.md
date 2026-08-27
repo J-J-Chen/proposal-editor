@@ -281,7 +281,7 @@ three deltas from the plan:
 **Verified (real fixtures, live server):** headings found by weight+ALL-CAPS+short at body 12pt
 (`OUR FIRM`/`SERVICES`/…; bold *mixed-case* names correctly excluded); shadow/dup cover text deduped;
 entities (`041-560`, `MO PE No. 022510`, phones, `$`) survive verbatim by construction. easy.pdf seed
-→ 76 blocks (instant hit); unseeded 12MB upload → live mupdf+LLM parse in ~36s (<60s `maxDuration`);
+→ 101 blocks (instant hit); unseeded 12MB upload → live mupdf+LLM parse in ~36s (<60s `maxDuration`);
 `next build` bundles mupdf via `serverExternalPackages`; `e2e-verify` ALL PASS (parse+edit).
 **Caching:** sha256(bytes) key; **L0** committed seeds (`src/parse-cache/*.json` via a generated
 barrel — reliable serverless bundling, not runtime `fs.readdir`) + **L1** in-proc Map; no DB, no

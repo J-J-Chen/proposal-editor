@@ -6,10 +6,10 @@ is NOT deploy — prod is deployed explicitly, on the owner's say-so.
 ## Status — BAR CLOSED (deployed + verified)
 - ✅ **Deployed to prod + verified end-to-end:** https://proposal-editor-sandy.vercel.app.
   `node scripts/e2e-verify.mjs https://proposal-editor-sandy.vercel.app` → ALL PASS (easy.pdf
-  seed-hit 76 blocks; edit changes text, preserves MECO, no preamble leak).
+  seed-hit 101 blocks; edit changes text, preserves MECO, no preamble leak).
 - ✅ **Track C** — real `/api/edit` (guardrailed, forced-tool structured output).
 - ✅ **Track A** — real `/api/parse` (mupdf extract → heuristics → LLM label-by-line-ref →
-  verbatim assemble; sha256 cache, committed L0 seeds: easy=76, hard=279). JSON `{hash,filename}`
+  verbatim assemble; sha256 cache, committed L0 seeds: easy=101, hard=237). JSON `{hash,filename}`
   → hit or 422 `needsUpload`; multipart `file` → full parse.
   NOTE (Codex flag): the multipart path assumes Vercel's 100MB body limit (per current 2026
   docs). Pending an empirical prod check on a >4.5MB *unseen* upload (delegated to Track A);
