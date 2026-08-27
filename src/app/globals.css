@@ -1937,3 +1937,40 @@ div.recent {
   background: var(--accent-tint);
   border-color: var(--newbox-border);
 }
+
+/* ---------------- per-section inline undo/redo ---------------- */
+/* Small control at a changed block's top-right (the selection tag sits top-left, so no overlap).
+   Always visible on a changed section — no hover-only affordance (readability floor). */
+.sec-ctl {
+  position: absolute;
+  top: -12px;
+  right: 10px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 9px 2px 7px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--muted);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: var(--shadow-pane);
+}
+.sec-ctl:hover {
+  background: #f3f5f8;
+  color: #2b3138;
+}
+.sec-ctl svg {
+  width: 13px;
+  height: 13px;
+}
+/* 'redo' = the section was reverted; tint it so "reapply" reads as the actionable state. */
+.sec-ctl.redo {
+  color: var(--accent);
+  background: var(--accent-tint);
+  border-color: var(--newbox-border);
+}

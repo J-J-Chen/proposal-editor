@@ -482,6 +482,22 @@ the visible applied patch all appeared broken even though the edit reducer was c
 breaks the owner-directed edit-on-the-PDF mental model); accepting arbitrarily distant fragments
 (can create a huge white patch across unrelated page content).
 
+### 2026-08-27 — Per-section inline undo/redo (Model A: forward edits, not stack surgery)
+**Decision:** A changed section shows a small inline Undo/Redo control that acts only on that
+section. `SECTION_STEP` (reducer `editorReducer`) inverts that block's most recent applied change by
+**appending a NEW forward edit** `{replace, before: current, after: <that change's `before`>}` to the
+global history — never by removing or reordering entries. The label is derived, not stored: 'Undo'
+when the block currently differs from its original baseline, 'Redo' once it's been reverted to the
+original. The global top-left Undo/Redo + Ctrl+Z stay purely linear.
+**Why:** per-section undo is selective/out-of-order (it can target a change not at the tip of the
+global stack). Expressing it as a forward edit keeps the linear `history[]`+`cursor` invariant
+intact, makes each section-step itself globally undoable/Ctrl+Z-able, and reuses `applyOp` untouched.
+**Consequences (accepted):** (1) like any new edit, a section-step **truncates the global
+redo-future**. (2) The MVP toggles a block between its edited and pre-edit values (revert its *last*
+change ↔ reapply); stepping back through *multiple* prior changes to one block is left to the global
+undo.
+**Rejected:** Model B (surgically deleting/reordering the block's entries from global history) — it
+corrupts the linear stack that global undo/redo relies on.
 ### 2026-08-27 — Follow-up refine is client-side (reuse `pending` + /api/edit)
 **Decision:** After the AI proposes a single-block edit, let the user keep nudging it
 ("shorter", "keep the client name") in the review card before Keep/Discard, each turn rewriting

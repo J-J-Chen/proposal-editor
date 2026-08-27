@@ -2,6 +2,7 @@
 import type { ReactNode } from 'react';
 import type { Block } from '@/lib/types';
 import { entityRanges } from '@/lib/entities';
+import { IconRedo, IconUndo } from './icons';
 
 function withEntities(text: string): ReactNode {
   const ranges = entityRanges(text);
@@ -53,6 +54,8 @@ export function BlockView({
   pulse,
   peek,
   isTitle,
+  sectionControl,
+  onSectionStep,
   onSelect,
 }: {
   block: Block;
@@ -61,6 +64,9 @@ export function BlockView({
   pulse: boolean;
   peek: boolean;
   isTitle: boolean;
+  /** Per-section undo/redo control for this block: 'undo' can revert it, 'redo' can reapply. */
+  sectionControl: 'undo' | 'redo' | null;
+  onSectionStep: (blockId: string) => void;
   onSelect: (id: string) => void;
 }) {
   const cls = [
@@ -93,6 +99,28 @@ export function BlockView({
     >
       {selected && <span className="sel-tag">You selected this {blockNoun(block)}</span>}
       {peek && !selected && <span className="peek-tag">The suggestion is about this {blockNoun(block)}</span>}
+      {sectionControl && (
+        <button
+          className={`sec-ctl ${sectionControl}`}
+          title={
+            sectionControl === 'undo'
+              ? 'Undo the change to this section'
+              : 'Redo the change to this section'
+          }
+          aria-label={
+            sectionControl === 'undo'
+              ? `Undo the change to this ${blockNoun(block)}`
+              : `Redo the change to this ${blockNoun(block)}`
+          }
+          onClick={(e) => {
+            e.stopPropagation(); // don't select the block
+            onSectionStep(block.id);
+          }}
+        >
+          {sectionControl === 'undo' ? <IconUndo /> : <IconRedo />}
+          {sectionControl === 'undo' ? 'Undo' : 'Redo'}
+        </button>
+      )}
       <Inner block={block} isTitle={isTitle} />
     </div>
   );
