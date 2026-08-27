@@ -188,3 +188,24 @@ from the pass/fail path (a demo/latency win, not a spend one — spend is not a 
 `easy.pdf` sha256 = `03dd3ee8…c5829` (verified).
 **Rejected:** On-disk `.cache/` as the prod store (Vercel fs is ephemeral/per-instance); Runtime
 Cache/KV (non-durable / ≈ a DB). See [checkpoint 2](../plans/checkpoint-2-pdf-parse.md).
+### 2026-08-26 — Proactive "Refine" suggestions as CP7; KB stays read-only (no enrichment)
+**Decision:** Add a proactive review layer (CP7, see `plans/checkpoint-7-refine-suggestions.md`):
+after parse, a rubric pass surfaces a short, high-precision list of "places to refine"; the user
+clicks through Accept/Reject/Adjust, and each **Accept routes through the existing CP4
+diff→apply→undo loop** (a suggestion's Accept *is* an edit-loop apply). One analytic **rubric** is
+the shared spine — the same registry drives the suggestion list AND scores the CP5 name-fidelity
+eval; a canonical **entity dictionary** (extracted read-only from `kb/`) powers the consistency
+check, the edit guardrail, and that eval. **The product KB stays read-only grounding — we are NOT
+enriching it** (no accepted-text write-back, no accepted-proposal-as-new-reference). The broader
+"feed suggestion *outcomes* back into the KB" question is **deferred** (noted in the README);
+outcomes, if used, are eval signal + in-session UX only, never KB writes.
+**Build order:** gated behind the bar (CP2–4 on `easy.pdf`), then CP5 (rubric spine + entity dict +
+fidelity eval — folds in CP7 "Phase 0") → CP7 Phase 1 (Refine panel MVP) → CP7 Phase 2 (Adjust +
+README numbers) → CP6 (KB grounding, read-only, if time). Sequenced **ahead of CP6** because
+Accept/Reject demos without RAG.
+**Why:** Strongest "beyond the brief" feature (a consultant recycling a proposal doesn't know what
+to fix — the tool telling them is the value); reuses the whole edit loop; unifies the product
+feature with the required eval via one rubric. Enrichment adds persistence/complexity and risks
+laundering unreviewed model output into "canonical" past-work — not worth it now.
+**Rejected:** KB corpus enrichment / accepted-text write-back (cut); deciding the feedback-sink now
+(deferred); auto-scan on import and a generative judge for entity fidelity (kept deterministic).

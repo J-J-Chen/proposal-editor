@@ -26,6 +26,13 @@ _TODO (CP5): PDF representation, agent design, UX — with brief justifications.
 
 ## What I cut and why
 _TODO (CP5): specifics._
+- **KB enrichment / write-back — cut.** The planned proactive "Refine" feature
+  (`plans/checkpoint-7-refine-suggestions.md`) reads the knowledge base to ground edits but the
+  **product KB stays read-only** — accepted edits are not written back into it. Rationale: it
+  needs persistence and risks laundering unreviewed model output into "canonical" past work.
+- **Feeding suggestion outcomes back into the KB — deferred.** The Refine feature captures
+  Accept/Reject/Adjust signal; wiring that back (which sink, and whether it persists) is a
+  deliberate deferral, revisited in "What I'd build next."
 
 ## Failure modes I worried about
 _TODO (CP5): silent-failure risks; what I'd check before a paying customer._
@@ -38,3 +45,6 @@ _TODO (CP5)._
 
 ## What I'd build next given another 8 hours
 _TODO (CP5)._
+- Revisit the deferred **suggestion-outcome → KB feedback loop** — pick a sink (ground future
+  edits, personalization, or corpus enrichment) and, if it earns persistence, back it with a
+  store. See `plans/checkpoint-7-refine-suggestions.md`.

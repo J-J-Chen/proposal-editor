@@ -55,14 +55,19 @@ is clean HTML, not a PDF replica.
 3. **Render + Select** — blocks → HTML doc, click-select, edit panel. → `checkpoint-3-render-select.md`
 4. **Edit Loop** — AI edit → diff → apply/reject → compose → undo. **Closes the bar.** → `checkpoint-4-edit-loop.md`
 5. **Eval + README** — run name-fidelity eval (real numbers), fill graded README. → `checkpoint-5-eval-readme.md`
-6. **KB Grounding (stretch)** — RAG over `kb/` to ground edits in past work. → `checkpoint-6-kb-grounding.md`
+6. **KB Grounding (stretch)** — RAG over `kb/` to ground edits in past work (read-only; no enrichment). → `checkpoint-6-kb-grounding.md`
+7. **Refine Suggestions (beyond-brief)** — proactive rubric-driven "places to refine" list; each Accept routes through the CP4 loop; the same rubric scores the CP5 eval. → `checkpoint-7-refine-suggestions.md`
 
-Critical path to the bar: **1 → 2 → 3 → 4**. CP5 is required for grading. CP6+ is upside.
+Critical path to the bar: **1 → 2 → 3 → 4**. CP5 is required for grading. **Post-bar build order:
+CP5 (rubric spine + entity dict + fidelity eval — folds in CP7 Phase 0) → CP7 Phase 1 (Refine panel
+MVP) → CP7 Phase 2 (Adjust + README numbers) → CP6 (KB grounding, if time).** CP6/CP7 are upside;
+CP7 sits **ahead of CP6** since Accept/Reject demos without RAG.
 
 ## Deliberately cut (say so in README)
 
 Pixel-perfect PDF fidelity · export-back-to-PDF · robust multi-column/table handling &
-`hard.pdf` · multi-paragraph chat · DB / auth / multi-user · OCR · exhaustive tests.
+`hard.pdf` · multi-paragraph chat · DB / auth / multi-user · OCR · exhaustive tests ·
+**KB enrichment / write-back** (the product KB stays read-only grounding — CP7 decision).
 
 ## Top risks / failure modes to watch
 
