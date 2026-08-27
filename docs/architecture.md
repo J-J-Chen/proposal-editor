@@ -13,7 +13,7 @@ model rendered as real DOM:
 - **Selection** = clicking a DOM node (native; no pdf.js text-layer fighting).
 - **Apply** = replace `block.text` in state.
 - **Compose** = successive applies mutate the same model.
-- **Undo** = pop an edit-history stack.
+- **Undo / redo** = move a cursor over an inverse-command edit log (see The edit loop).
 
 We deliberately drop pixel-fidelity of the original. The brief explicitly blesses this
 ("the core problem is the edit loop, not PDF reconstruction"). Trying to re-render the
@@ -56,9 +56,41 @@ to the hidden fixture better than fixture-specific heuristics.
   numbers, and dollar figures** unless explicitly told otherwise. This is the #1 silent
   failure in this domain and is exactly what the CP5 eval measures.
 - Show a **word-level diff** (jsdiff / diff-match-patch); user Applies or Rejects.
-- Apply mutates `block.text` and pushes `{ blockId, before, after }` onto an **undo stack**
-  (which doubles as a demo-friendly audit trail).
 - Light doc context (nearby headings, firm name) keeps voice consistent.
+
+### State: an inverse-command log + a cursor (undo *and* redo)
+All edit state lives in one `useReducer` over `EditorState`, with three slots kept separate so
+they can't corrupt each other:
+- **`doc`** — the live, fully-applied block model. This is what renders.
+- **`history: HistoryEntry[]` + `cursor`** — the edit log. `cursor` is the *count* of applied
+  entries: `[0, cursor)` are live, `[cursor, len)` are redoable. It doubles as the audit trail.
+- **`pending`** — the AI proposal under diff-review. **Not in history**; Reject just nulls it, so
+  a rejected edit is structurally incapable of polluting undo/redo (an invariant, not a rule to remember).
+
+Each entry is the `{ blockId, before, after }` we already had, promoted to a first-class op and
+enriched for the audit trail (`instruction`, `rationale?`, `at`):
+
+```ts
+type EditOp = { kind: 'setText'; blockId: string; before: string; after: string };
+  // reserved (NOT built now): 'insert' | 'delete' | 'move' — structural edits widen this additively
+interface HistoryEntry {
+  id: string; op: EditOp; groupId: string;   // groupId → a future multi-block edit undoes atomically
+  instruction: string; rationale?: string; at: number;   // audit fields
+}
+```
+
+- **Undo** = `cursor--` + `invertOp` (write `before`). **Redo** = `cursor++` + `applyOp` (write
+  `after`). One array, one cursor — no second stack. `canUndo = cursor > 0`,
+  `canRedo = cursor < len` (both derived, never stored). ⌘Z / ⌘⇧Z, gated to `status === 'idle'`.
+- **Redo-invalidation** = `history.slice(0, cursor).concat(entry)` on Apply — a new edit after an
+  undo drops the abandoned redo future, correct by construction, in one line.
+- **Compose** falls out: each entry carries its own `blockId`, so edits across many blocks form a
+  flat linear log that undo peels back in exact reverse.
+- **Stale-pending guard:** the proposal records `baseCursor`; Apply drops it if `baseCursor !==
+  cursor` (user undid mid-review), and select/undo/redo clear `pending`. `loadDoc` resets history.
+- Keep undo/redo strictly **linear LIFO** — no branching/cherry-pick (that's the real time-sink).
+  Undo/redo route through `applyOp`/`invertOp`, so structural ops widen the union additively later.
+  See [decisions.md](decisions.md) for the alternatives rejected (snapshots, Immer, zundo, CRDT).
 
 ## AI usage
 - Buoyant proxy via the **official SDKs**, **server-side only** (token never hits the browser).
@@ -77,7 +109,8 @@ provenance**. Constrain the model to retrieved content to avoid inventing projec
 
 ## Boundaries / structure (best-practice, cheaply)
 Keep concerns separated without over-engineering a 4-hour app:
-- `parse/` (extraction + structuring + cache), `model/` (Doc/Block types + edit ops + undo),
+- `parse/` (extraction + structuring + cache), `model/` (Doc/Block types + the `EditOp` union +
+  `applyOp`/`invertOp` + the edit-loop reducer; only `setText` built, union reserved for structural edits),
   `ai/` (proxy clients, prompts, structured-output schemas), `app/api/*` (route handlers),
   UI components (document view, block selection, diff/apply panel). Exact layout is the
   scaffold's call; the point is: parsing, model, AI, and UI don't bleed into each other.
