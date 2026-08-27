@@ -65,6 +65,23 @@ the strict-only reformat count, per-instruction preservation, applicability-awar
 leaks, length drift, and the anti-overfit checklist. Exit code is non-zero on any value violation
 or an effectiveness collapse.
 
+## Methodology notes & known limits
+- **Denominator correction (2026-08-27, pre-announced).** The generic proper-noun stoplist excludes
+  generic **process / role / section-label** terms (`QA`, `QC`, `PM`, `RFQ`, `EMPLOYEES`, `STAFF`,
+  `EXPERIENCE`, …) in addition to units. These are labels a document uses, never proper entity
+  names, so counting them inflated the proper-noun denominator and understated fidelity. This is a
+  generic category — real org/program acronyms (`MECO`, `USDA`, `SRF`, `CDBG`, `ARRA`, `SCADA`,
+  `IEPA`, `MoDOT`, `TAP`) are deliberately kept. On the hard.pdf/710ccac run it moved proper-noun
+  value 98% → 99% (ALL value stayed 99%, closed-class stayed 100%) — an accuracy tidy, not a
+  headline change. It is NOT tuning to observed values (the whole category is excluded, not the
+  three tokens that happened to flag).
+- **Parse-artifact false positives are a known best-effort limit (by design).** Dense multi-column
+  brochures (hard.pdf) occasionally yield glyph-adjacency artifacts (`Highway58` for "Highway 58",
+  `PumpingFlow`). The parser deliberately does **not** insert spaces into verbatim-extracted text —
+  that would violate the entity-fidelity guarantee the product sells and is risky on tokens like
+  `PE-2020000059`. The eval therefore attributes these to parse best-effort, **not** the edit route;
+  they surface in the violation list and are hand-adjudicated out, never hidden.
+
 ## Files
 - `entities.mjs` — the deterministic instrument (generic regex + generic proper-noun extraction). Zero deps.
 - `instructions.mjs` — the preservation grid (hard instructions over-sampled) + the excluded entity-changing set.
