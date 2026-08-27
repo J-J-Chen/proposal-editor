@@ -120,6 +120,11 @@ Speed-first, and *intentional* scope beats feature count. Explicit cuts:
 - **Pixel-perfect PDF fidelity and export-back-to-PDF** — the deliverable is a clean editable
   document, not a PDF replica. Round-tripping to PDF is a large, low-signal effort the brief
   waves off.
+- **Non-text content — images, logos, photos, original page layout — dropped from the editable
+  view, *by choice*.** The editable unit is a text **Block**; images are not AI-editable and
+  would complicate entity fidelity, so we render clean text rather than reproduce the layout. This
+  is a deliberate "edit the text, not the layout" scope call, not an oversight — re-showing the
+  original visuals as a read-only layer is in §7.
 - **Robust multi-column / complex-table handling and `hard.pdf`** — we clean the messes we
   actually verified in `easy.pdf` (duplicated cover text, headings glued to bodies, two-column
   reading order) and treat exotic table reconstruction as out of scope for the bar.
@@ -146,11 +151,15 @@ Speed-first, and *intentional* scope beats feature count. Explicit cuts:
 - **Silent name / number / dollar changes — the catastrophic one.** A proposal that ships with a
   wrong client name or a mangled PE license loses the contract *and* the client. Defenses, in
   layers: (1) the parse can't touch text at all (§2); (2) the edit prompt's #1 rule is verbatim
-  entity preservation; (3) structured output keeps stray prose out of the document; (4) **the
-  shipped UI flags protected-entity changes for confirmation before Apply**, so a swap can't be
-  applied silently (the eval's 3 misses in §5 are exactly this case — surfaced to the user, not
-  slipped through); the design extends this with a gold protected-entity tint and a "Kept exactly
-  as written" line; (5) the §5 eval measures how often the raw edit route holds the line.
+  entity preservation; (3) structured output keeps stray prose out of the document; (4) **a deterministic exact-match gate** (`src/lib/entities.ts`) intercepts, before Keep,
+  any edit that would alter or drop a name / PE license / project # / $ that was in the
+  original text — a confirm modal blocks Apply until the user approves, so a swap can't be
+  applied silently (all 3 raw-fidelity misses in §5 are caught here); the design extends the
+  same signal into the document with a gold protected-entity tint and a "Kept exactly as
+  written" line. *Caveat:* the gate catches **alter/drop of entities present in the original
+  block**, not a **fabricated new** entity the original didn't contain — that is a
+  model-guardrail concern (§7). (5) the §5 eval measures how often the raw edit route holds
+  the line before this gate.
 - **Over-eager edits** — the model "improving" things it wasn't asked to. Mitigated by the
   explicit "do exactly what's asked and nothing more" rule and by tuning toward small, surgical
   edits so a one-word fix reads as one word in the card.
@@ -218,9 +227,10 @@ trials, over-weighting the hard "rewrite in our voice" / "change tone" cases):
 > for open-class names, so the Anthropic editor never grades itself.
 >
 > **Violations (3 — the honest lead):** all *reformats* of the PE-license string under
-> formalizing instructions (no invented or swapped values) — and all three are protected-entity
-> changes the **shipped UI flags for confirmation before Apply**, so user-facing fidelity is
-> higher than this raw route number:
+> formalizing instructions (no invented or swapped values) — and all three are alter/drop
+> changes to an entity present in the original, so the **deterministic exact-match gate** (§4)
+> catches every one before Keep — user-facing fidelity is therefore higher than this raw
+> route number:
 > - `[make-formal]` `MO PE No. 022510` → "Missouri Professional Engineer No. 022510"
 > - `[rewrite-voice]` `MO PE No. 022510` → "Missouri PE No. 022510"
 > - `[rewrite-voice]` `MO PE No. 2006023228` dropped in a bio rewrite
@@ -235,10 +245,12 @@ trials, over-weighting the hard "rewrite in our voice" / "change tone" cases):
 >
 > **Caveat + next action:** fidelity alone has a perverse optimum (a no-op scores 100%) — the
 > effectiveness numbers rule that out. The 3 misses are the same failure mode: `MO PE No.`
-> reformatted under "make formal / rewrite," which the deterministic extractor already flags — and
-> which the UI's protected-entity confirm already surfaces to the user before Apply. A further
-> route-level `MO PE No.` normalization guard in the edit post-check (would take rewrite-voice to
-> 93/93) is flagged for the next iteration, not yet applied. Reproduce:
+> reformatted under "make formal / rewrite," which the deterministic gate
+> (`src/lib/entities.ts`) catches before Keep — so none reach the document silently. Two
+> follow-ups are flagged for the next iteration (not yet applied): a route-level `MO PE No.`
+> normalization so the raw number itself reaches 93/93, and — the real remaining gap — a
+> guardrail against a **fabricated new** entity the gate can't see (it only tests entities
+> present in the original). Reproduce:
 > `node scripts/eval/run.mjs --base <url> --sha <sha> --out eval.json` (artifact not committed —
 > it contains verbatim proposal text).
 
@@ -246,11 +258,13 @@ trials, over-weighting the hard "rewrite in our voice" / "change tone" cases):
 
 ## 6. What I added beyond the brief, and why
 
-- **Entity fidelity as a *visible* trust surface, not just a guardrail.** The shipped UI flags
-  protected-entity changes for confirmation before Apply — so the domain's #1 catastrophic
-  failure can't happen silently. That makes the fidelity the eval (§5) measures something the
-  user can *see* on every edit, not just a number in a report — the product's strongest
-  on-brand trust beat.
+- **Entity fidelity as a *visible* trust surface, not just a guardrail.** A deterministic
+  exact-match gate (`src/lib/entities.ts` — separate from the eval's cross-model extractor)
+  intercepts, before Keep, any edit that would alter or drop a name / PE license / project # /
+  $ from the original, blocking Apply with a confirm modal — so the domain's #1 catastrophic
+  failure can't happen silently. It makes the fidelity the eval (§5) measures something the
+  user *sees* on every edit, not just a number in a report — the product's strongest on-brand
+  trust beat.
 - **Proactive suggestions — "Check my proposal for things to fix."** A rubric-driven list of
   places to tighten, each one routing through the *exact same* review-and-apply card as a
   manual edit — same fidelity guarantees, nothing new to learn.
@@ -263,21 +277,29 @@ trials, over-weighting the hard "rewrite in our voice" / "change tone" cases):
 
 1. **Harden the parse for real layouts** — proper multi-column and table reconstruction, then take
    on `hard.pdf`. This is the biggest generalization risk.
-2. **Ship KB grounding + grounded rationales** (both designed, neither built yet) — the "Add
+2. **Close the fidelity gap the confirm gate can't see** — the deterministic gate catches
+   *alter/drop* of entities that were in the original block, but not a **fabricated new** name
+   or number the model invents from nothing. Add a model-side guardrail plus a post-edit check
+   for entities that appear in the output but not the input (KB hallucination, §4, is one
+   instance).
+3. **Ship KB grounding + grounded rationales** (both designed, neither built yet) — the "Add
    similar experience" flow (retrieve *real* past projects, human picks *before* any generation,
    insert in the firm's voice with a verbatim fidelity net — the app never invents a project),
    plus the grounded "why" behind each suggestion: a plain-words **rubric check** or a **real,
    verbatim KB citation with provenance**, never free-form LLM justification. Both reuse one
    retrieval spine; the corpus moves from fixed + hand-verified toward a **live, user-uploaded
    KB** (deferred because trust needs verification time, not because of spend).
-3. **The suggestion-outcome feedback loop** — capture Accept/Reject/Adjust signal and pick a
+4. **The suggestion-outcome feedback loop** — capture Accept/Reject/Adjust signal and pick a
    principled sink for it (ground future edits, personalization, or corpus enrichment) — and only
    *then* add persistence, if it earns its keep.
-4. **Export back to PDF / DOCX** so the edited proposal leaves the tool in a format the firm sends.
-5. **Put the eval in CI** — run the fidelity grid on every deploy and fail the build on a
+5. **Export back to PDF / DOCX** so the edited proposal leaves the tool in a format the firm sends.
+6. **Put the eval in CI** — run the fidelity grid on every deploy and fail the build on a
    regression, so the guardrail can't silently rot.
-6. **Persistence + multi-user** (documents, versions, comments) — the first thing a real customer
+7. **Persistence + multi-user** (documents, versions, comments) — the first thing a real customer
    asks for after the loop feels good.
+8. **Render the proposal's original images / layout as a read-only display layer** for visual
+   fidelity — so the page looks like the source proposal even though only text Blocks are editable
+   (the text-only editing choice is deliberate; see §3).
 
 ---
 
