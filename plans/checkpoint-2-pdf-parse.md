@@ -250,6 +250,19 @@ scripts/seed-parse.ts      # run pipeline over provided PDFs → write src/parse
   **another MECO-style SOQ with a real text layer** (so the provided set is representative; no
   scanned path). Scanned input remains a documented gap.
 
+## Known parse limitations (best-effort, documented — QA-reviewed 2026-08-26)
+Deliberately NOT chased, to protect the verbatim/entity-fidelity guarantee and avoid rabbit-holing:
+- **Glyph-spacing run-ons on dense brochure pages** (hard.pdf only): e.g. `Highway58` (missing space),
+  run-on service lists (`PumpingFlow`). The space is absent in the PDF's glyphs; **inserting one would
+  modify verbatim text** and risk corrupting tokens like `PE-2020000059`/`MoDOT`/license numbers — the
+  exact fidelity we sell. Left as-is.
+- **Dense multi-column brochure ordering**: the column-aware sort fixes the officer chart + heading
+  order, but the busiest infographic pages can still interleave; acceptable (rendered read-only).
+- **Source-set values**: `Evan Nickels — Engineer` has no PE#/experience *in the source* (non-registered
+  staff). Correct as-is; we never fabricate a missing entity.
+- **Small-caps case**: names the source sets in small-caps (`scott vogler, pe`) stay lowercase — we
+  don't fabricate capitalization.
+
 ## Scope boundary with CP3
 CP2 = the parse pipeline + `/api/parse` returning Doc JSON + a **throwaway test page that dumps the
 JSON** (enough to prove it end-to-end on the deployed app). The real block renderer + click-select
