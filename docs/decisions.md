@@ -76,6 +76,52 @@ paths that fight stable ids); Zustand+zundo (two deps + silent `partialize`/equa
 Yjs/CRDT (full collaboration tax with no single-user payoff); non-linear/branching undo (the real
 budget-sink). Decided via a 5-design judge panel; see `docs/architecture.md` "The edit loop".
 
+### 2026-08-26 — KB grounding = one interaction, "Add similar experience" (pull, don't write)
+**Decision:** Ship a single KB interaction: retrieve real past projects from the `kb/` corpus as
+candidate cards (provenance shown), the human picks one **before** any generation, and it's
+inserted as a new block. Additive insert only, via the reserved `'insert'` EditOp.
+**Why:** It's the brief's literal example, the highest-value demo beat, and honest — the app never
+invents a project; candidate-pick-before-generate is the anti-contamination mechanism.
+**Rejected:** A grounding/replace mode with inline citations; keyword auto-arm on free-text edits;
+a standalone fact-linter — all fold into this one flow or protect the spend cap by being cut.
+
+### 2026-08-26 — Voice-first LLM compose is the KB default; a deterministic fidelity net guards facts
+**Decision:** Compose the inserted paragraph with the LLM **in MECO's voice, matching the existing
+entry format** (few-shot exemplars + voice card + a delimited `<past_work>` facts block), then run
+a deterministic check that every entity/number from the chosen chunk appears **verbatim**; on
+failure, fall back to a zero-LLM template. Owner directive: all edits must be in the firm's voice.
+**Why:** A mechanical template can't match voice/format. AI supplies voice; code guarantees facts.
+This makes the CP5 name-fidelity eval load-bearing on exactly the riskiest surface.
+**Rejected:** Zero-LLM template as the default (fails the voice requirement); trusting the LLM
+alone (fails fidelity); server-side substring validation (proves existence, not association).
+
+### 2026-08-26 — A firm "voice card" is injected into every edit, not just KB
+**Decision:** Mine a small firm voice card (style descriptor + exemplar sentences) from the KB
+once, offline, and inject it into the `docContext` of every edit call.
+**Why:** "All edits in their voice" is a property of the whole edit loop; cheap and high-payoff.
+**Rejected:** A separate "rewrite in our voice" feature/button — voice is context, not a mode.
+
+### 2026-08-26 — Fixed, committed KB index; ingest programmatic + hand-verified; live KB deferred
+**Decision:** The KB is a fixed, read-only 5-doc corpus served from a committed `src/kb/index.json`
+(no DB, no runtime ingest). Build it programmatically (reuse the CP2 parser) but **hand-verify each
+field is bound to text co-located with its project title**. Retrieval is in-memory keyword overlap
+— no vector DB, no embeddings, no precomputed BM25 stats. Live/user-uploaded KB is deferred (noted
+in the README).
+**Why:** A curated corpus makes fact-fidelity matter more than full automation; hand-verification
+guarantees association, which a blind structuring pass cannot. Keyword overlap over a few dozen
+tiny chunks is sub-ms and the human pick supplies the precision a ranker would buy.
+**Rejected:** Vector DB / embeddings (unnecessary infra for 5 docs); pure hand-authoring
+(undefensible in code review); runtime Blob ingest (heavier path with no v1 payoff).
+
+### 2026-08-26 — Do not index `projectNumber` from the `001-xxx` cover numbers
+**Decision:** Leave per-project `projectNumber` unset in the KB index unless a genuine per-project
+number exists in the source.
+**Why:** Verified via pymupdf: the `001-xxx` values are the SOQ's **own** document id (like
+easy.pdf's `041-560`), not a project number, and are inconsistent within one doc (the bridge SOQ
+carries both `001-902` and `001-9002`). Copying one verbatim would cite a real-but-wrong-entity
+number that provenance would rubber-stamp.
+**Rejected:** Indexing the cover/letter number as the project number (silently wrong, trust-eroding).
+
 ### 2026-08-26 — Evaluation v2: two-axis, run against the shipped edit route + owner clarifications
 **Decision:** Keep name/entity fidelity as the shipped eval, but sharpen it (see
 [checkpoint 5](../plans/checkpoint-5-eval-readme.md)):
