@@ -222,3 +222,43 @@ in-UI) and CP6 retrieval, so it's near-zero new machinery. Free-form justificati
 **Rejected:** Free-form LLM "here's why I changed it" prose (plausible but ungrounded); a separate
 rationale model/subsystem (the rubric + retrieval already produce the reason). The suggestion *UX*
 itself is CP7's Refine layer — this entry fixes only that its reasons must be grounded.
+
+### 2026-08-26 — UI direction "The Assistant": familiar-not-clone, right pane + calm review card
+**Decision:** The editor UI leads with a hybrid ("The Assistant"): one **persistent right-hand
+assistant pane** as the single home for every AI moment, carrying a **calm stacked "the wording now
+/ the suggested new wording" card** as the review surface, with protected names/numbers made
+visibly gold + an extra confirm to change one. Audience-driven: older, tech-illiterate, Word-native
+users. **Principle: recognisable, not identical** — borrow Word's *habits and plain words*, not its
+chrome (a too-faithful clone hits the uncanny-valley "broken Word" trap), so the product wears its
+own calm blueprint-teal skin. Owner-confirmed choices: (1) verbs **"Keep this change" / "Discard"**
+not Accept/Reject; (2) added = **green underline**, removed = red strikethrough (shape carries
+meaning → colour-blind-safe); (3) the card's **inline redline marks are the first thing to cut** if
+time is short — the two plain boxes suffice; (4) **desktop-only** for the demo; (5) **tune the model
+toward small, surgical edits**. Full spec: `docs/design-ui.md`. Study/mockups:
+<https://claude.ai/code/artifact/acc75563-5a8d-463f-9fbc-97e8623d4404>.
+**Why:** One pane = one thing to learn and the app always answers "what next?"; the stacked card is
+comprehension-by-reading (no redline literacy needed); visible fidelity answers the domain's #1
+silent-failure fear. Selected from a 4-direction critic-scored panel (Word Calm 8.3 · Assistant
+8.2 · Word Classic 8.0 · Guided Steps 7.5) by grafting the two axis-winners.
+**Rejected:** A literal Word clone / ribbon + Home-vs-Review tab split (Word Classic — uncanny
+valley, actions stranded far from the text); a "Step X of 4" wizard (Guided Steps — Word isn't a
+wizard; the counter patronises and the "Next" gate stalls users); margin comment-balloons and a
+dual-place preview (coordination cost for user and build).
+
+### 2026-08-26 — Edit route (Track C): non-streaming + forced-tool structured output
+**Decision:** `/api/edit` is **non-streaming JSON** and gets its result via a **forced Anthropic
+tool call** (`submit_edit` → `{newText, rationale}`), not by parsing model prose. Entity guardrail
+is **prompt-only** for CP4; the deterministic entity-verbatim net stays deferred to CP5/CP7. Low
+temperature (0.2), block-scaled `max_tokens`, Anthropic main model for edit quality. Logic lives in
+`src/lib/edit.ts`; the route is a thin 503 (not configured) / 400 (bad input) / 502 (proxy error)
+wrapper.
+**Why:** Forcing a tool call *structurally* prevents preamble ("Sure, here's your paragraph:") from
+landing in applied text — no prose-stripping heuristics to get wrong. Non-streaming because Apply is
+all-or-nothing and the diff needs the whole rewrite to be meaningful, so token streaming buys no UX
+here while complicating tool_use parsing. Verified live on entity-heavy blocks: a tighten and an
+aggressive "make it more impressive" rewrite each preserve every proper noun / project number / $ /
+date; an explicit "change the year to 2024" edit moves only that value.
+**Rejected:** SSE/token streaming (no payoff for an all-or-nothing apply; harder with tool_use);
+JSON-embedded-in-prose output (format/preamble leaks — the exact failure structured output kills);
+building the deterministic fidelity net now (that's CP5's eval + CP7's rubric — the prompt guardrail
+suffices to close the bar).
