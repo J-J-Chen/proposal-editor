@@ -725,6 +725,96 @@ button {
   border: 1px solid #f0d3c2;
 }
 
+/* ---------------- refine cards ---------------- */
+.refcard {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  overflow: hidden;
+}
+.refcard-body {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 13px 14px;
+}
+.refcard-body:hover {
+  background: #f7fafb;
+}
+.rf-cat {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 5px;
+  margin-bottom: 8px;
+}
+.rf-cat.placeholder {
+  background: #fdf0e8;
+  color: #9a4b1f;
+}
+.rf-cat.casing {
+  background: var(--accent-tint);
+  color: var(--accent-deep);
+}
+.rf-cat.repetition {
+  background: #f0ecf8;
+  color: #6b4ea6;
+}
+.rf-title {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  color: #2b3138;
+  margin-bottom: 4px;
+}
+.rf-why {
+  display: block;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+.rf-act {
+  border-top: 1px solid var(--line);
+  padding: 10px 14px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.mini-keep {
+  background: var(--keep);
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  padding: 9px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 40px;
+}
+.mini-keep:hover {
+  background: #1b5e39;
+}
+.mini-sec {
+  background: #fff;
+  color: #42474e;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 9px 13px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 40px;
+}
+.mini-sec:hover {
+  background: #f3f5f8;
+}
+
 /* ---------------- status bar ---------------- */
 .statusbar {
   background: var(--status);
