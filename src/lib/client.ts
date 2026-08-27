@@ -4,20 +4,32 @@
  * it's forward-compatible when Track A's real parser + cache seed replace the stub.
  */
 import type { Doc } from './types';
-import type {
-  EditRequest,
-  EditResponse,
-  ParseRequest,
-  ParseResponse,
-} from './contracts';
+import type { EditRequest, EditResponse, ParseResponse } from './contracts';
 
-/** POST /api/parse → the structured document (stub returns the fixture; real route caches by hash). */
-export async function parseDoc(req: ParseRequest): Promise<Doc> {
+export type ParseByHash = { doc: Doc } | { needsUpload: true };
+
+/**
+ * POST /api/parse by content hash — instant on a seed/warm cache hit. A genuine miss returns
+ * 422 { needsUpload:true }, which the caller answers by uploading the bytes (parseByUpload).
+ */
+export async function parseByHash(hash: string, filename: string): Promise<ParseByHash> {
   const r = await fetch('/api/parse', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(req),
+    body: JSON.stringify({ hash, filename }),
   });
+  if (r.status === 422) return { needsUpload: true };
+  if (!r.ok) throw new Error(`Couldn't read the proposal (status ${r.status}).`);
+  const data = (await r.json()) as ParseResponse;
+  return { doc: data.doc };
+}
+
+/** POST /api/parse with the file bytes (multipart) — a cache miss on an unseen PDF. */
+export async function parseByUpload(file: File): Promise<Doc> {
+  const form = new FormData();
+  form.append('file', file);
+  form.append('filename', file.name);
+  const r = await fetch('/api/parse', { method: 'POST', body: form });
   if (!r.ok) throw new Error(`Couldn't read the proposal (status ${r.status}).`);
   const data = (await r.json()) as ParseResponse;
   return data.doc;

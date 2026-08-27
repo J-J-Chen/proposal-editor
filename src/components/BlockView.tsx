@@ -27,10 +27,12 @@ function blockNoun(block: Block): string {
   return 'paragraph';
 }
 
-function Inner({ block }: { block: Block }) {
+function Inner({ block, isTitle }: { block: Block; isTitle: boolean }) {
   switch (block.type) {
     case 'heading':
-      return block.level === 1 ? (
+      // The document's first heading is its title; every later heading is a section heading.
+      // (The parser levels all headings the same, so we key off position, not `level`.)
+      return isTitle ? (
         <h1 className="doc-h1">{block.text}</h1>
       ) : (
         <h2 className="doc-h2">{block.text}</h2>
@@ -49,12 +51,14 @@ export function BlockView({
   selected,
   dim,
   pulse,
+  isTitle,
   onSelect,
 }: {
   block: Block;
   selected: boolean;
   dim: boolean;
   pulse: boolean;
+  isTitle: boolean;
   onSelect: (id: string) => void;
 }) {
   const cls = [
@@ -66,7 +70,7 @@ export function BlockView({
     .filter(Boolean)
     .join(' ');
 
-  const isSectionHead = block.type === 'heading' && (block.level ?? 1) >= 2;
+  const isSectionHead = block.type === 'heading' && !isTitle;
 
   return (
     <div
@@ -85,7 +89,7 @@ export function BlockView({
       }}
     >
       {selected && <span className="sel-tag">You selected this {blockNoun(block)}</span>}
-      <Inner block={block} />
+      <Inner block={block} isTitle={isTitle} />
     </div>
   );
 }
