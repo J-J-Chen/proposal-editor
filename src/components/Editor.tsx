@@ -253,8 +253,8 @@ export function Editor() {
     setView('reading');
     try {
       const r = await parseByHash(hash, filename);
-      // Cache hit → done. Genuine miss (unseen PDF) → upload the bytes for a real parse.
-      const doc = 'doc' in r ? r.doc : file ? await parseByUpload(file) : null;
+      // Cache hit → done. Genuine miss (unseen PDF) → push bytes to Blob, then parse by URL.
+      const doc = 'doc' in r ? r.doc : file ? await parseByUpload(file, hash) : null;
       if (!doc) throw new Error('cache miss with no file to upload');
       dispatch({ type: 'LOAD_DOC', doc });
       setView('editor');
