@@ -55,6 +55,7 @@ export function EditPanel({
   onKeep,
   onDiscard,
   onCancel,
+  onCheck,
 }: {
   selectedBlock: Block | null;
   section: string | null;
@@ -66,6 +67,7 @@ export function EditPanel({
   onKeep: () => void;
   onDiscard: () => void;
   onCancel: () => void;
+  onCheck: () => void;
 }) {
   const [freeText, setFreeText] = useState('');
 
@@ -83,12 +85,12 @@ export function EditPanel({
           <b>Click any part of your proposal</b> to work on it.
         </div>
         <Reassure />
-        <button className="btn-cta block" disabled title="Coming soon">
+        <button className="btn-cta block" onClick={onCheck}>
           <IconSearch />
           Check my proposal for things to fix
         </button>
         <div className="pane-cue" style={{ textTransform: 'none', fontWeight: 500 }}>
-          Suggestions are coming soon.
+          I’ll look for names to fix, leftover placeholder text, and repeated words.
         </div>
       </aside>
     );

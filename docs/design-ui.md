@@ -123,3 +123,15 @@ The document model and API shapes are the **frozen contract** every track builds
 - **Phase 2 — Integration:** real parse → render; FE → real `/api/edit`; wire `page.tsx`. **Closes
   the bar on deployed `easy.pdf`.**
 - **Phase 3 — Stretch:** the "Refine" list (Track G) reuses this exact card + apply path.
+
+## Refine ("Check my proposal for things to fix") — v1 shipped
+A proactive review pass (Track G / CP7). v1 is **deterministic and client-side** (`src/refine/scan.ts`)
+— no model call, no spend — flagging only things it can quote verbatim: leftover placeholder text,
+lowercased names/titles ("vogler, pe"), and repeated-word runs ("Vice-President Vice-President…").
+Each suggestion's **"why" is grounded** in that quoted text (per [decisions.md](decisions.md): a
+grounded rubric check, never free-form LLM justification). The `RefinePanel` lists them; **"Make this
+fix" routes through the existing `/api/edit` → review card → Keep/Discard/Undo loop** (the suggestion
+supplies the instruction), so accepting a suggestion *is* an edit-loop apply. Precision over recall:
+capped, high-confidence, with a calm "nothing to fix — looks good" empty state. **Next:** an
+`/api/suggest` route on a cheap model for the fuzzy checks (tighten wordy boilerplate, richer
+consistency) that a regex can't judge.

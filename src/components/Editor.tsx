@@ -22,6 +22,8 @@ import { isNoChange } from '@/lib/text/diff';
 import { DocumentView } from './DocumentView';
 import { EditPanel } from './EditPanel';
 import { ChangesPanel, StatusBar, Titlebar, type ChangeItem } from './AppChrome';
+import { RefinePanel } from './RefinePanel';
+import { scanForRefinements, type Suggestion } from '@/refine/scan';
 import { IconCheck, IconFolder, IconShield } from './icons';
 
 type View = 'open' | 'reading' | 'editor';
@@ -168,6 +170,13 @@ export function Editor() {
   const [toast, setToast] = useState<string | null>(null);
   const [showChanges, setShowChanges] = useState(false);
   const [lastInstruction, setLastInstruction] = useState('');
+  // Refine ("Check my proposal") state.
+  const [refineOpen, setRefineOpen] = useState(false);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  const [resolved, setResolved] = useState<Set<string>>(new Set());
+  const [activeSuggestionId, setActiveSuggestionId] = useState<string | null>(null);
+  const [highlightId, setHighlightId] = useState<string | null>(null);
   const reqRef = useRef(0);
 
   const { doc, selectedId, pending, status } = state;
@@ -232,6 +241,7 @@ export function Editor() {
     reqRef.current++; // cancel any in-flight edit for the previous selection
     setNote(null);
     setConfirm(null);
+    setRefineOpen(false); // a direct doc click leaves the Refine list
     dispatch({ type: 'SELECT', blockId: id });
   }, []);
 
@@ -297,11 +307,16 @@ export function Editor() {
   const onKeep = useCallback(() => {
     dispatch({ type: 'KEEP_PENDING' });
     setToast('Change saved. You can Undo if you change your mind.');
-  }, []);
+    if (activeSuggestionId) {
+      setResolved((prev) => new Set(prev).add(activeSuggestionId));
+      setActiveSuggestionId(null);
+    }
+  }, [activeSuggestionId]);
   const onDiscard = useCallback(() => {
     dispatch({ type: 'DISCARD_PENDING' });
-    setNote({ kind: 'info', text: 'No changes made.' });
-  }, []);
+    if (activeSuggestionId) setActiveSuggestionId(null);
+    else setNote({ kind: 'info', text: 'No changes made.' });
+  }, [activeSuggestionId]);
   const onCancel = useCallback(() => {
     reqRef.current++;
     dispatch({ type: 'CANCEL_THINKING' });
@@ -314,7 +329,8 @@ export function Editor() {
   };
   const confirmNo = () => {
     setConfirm(null);
-    setNote({ kind: 'info', text: 'No changes made.' });
+    if (activeSuggestionId) setActiveSuggestionId(null);
+    else setNote({ kind: 'info', text: 'No changes made.' });
   };
 
   const gotoBlock = useCallback((id: string) => {
@@ -325,6 +341,57 @@ export function Editor() {
         .querySelector(`[data-block-id="${id}"]`)
         ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 30);
+  }, []);
+
+  // ---- Refine ("Check my proposal for things to fix") ----
+  const runScan = useCallback(() => {
+    if (!doc) return;
+    setSuggestions(scanForRefinements(doc));
+    setDismissed(new Set());
+    setResolved(new Set());
+    setActiveSuggestionId(null);
+    setNote(null);
+    setConfirm(null);
+    dispatch({ type: 'SELECT', blockId: null });
+    setRefineOpen(true);
+  }, [doc]);
+
+  const closeRefine = useCallback(() => {
+    setRefineOpen(false);
+    dispatch({ type: 'SELECT', blockId: null });
+  }, []);
+
+  const visibleSuggestions = useMemo(
+    () => suggestions.filter((s) => !dismissed.has(s.id) && !resolved.has(s.id)),
+    [suggestions, dismissed, resolved],
+  );
+  const reviewedCount = suggestions.length - visibleSuggestions.length;
+
+  const fixSuggestion = useCallback(
+    (s: Suggestion) => {
+      if (!doc) return;
+      const block = doc.blocks.find((b) => b.id === s.blockId);
+      if (!block) return;
+      setActiveSuggestionId(s.id);
+      setLastInstruction(s.instruction);
+      dispatch({ type: 'SELECT', blockId: s.blockId }); // keeps refineOpen (not a doc click)
+      void runEdit(block, s.instruction);
+    },
+    [doc, runEdit],
+  );
+
+  const dismissSuggestion = useCallback((id: string) => {
+    setDismissed((prev) => new Set(prev).add(id));
+  }, []);
+
+  const highlightBlock = useCallback((id: string) => {
+    setHighlightId(id);
+    setTimeout(() => {
+      document
+        .querySelector(`[data-block-id="${id}"]`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 20);
+    setTimeout(() => setHighlightId(null), 1400);
   }, []);
 
   const changeItems: ChangeItem[] = useMemo(() => {
@@ -353,6 +420,8 @@ export function Editor() {
   else if (view === 'editor') {
     if (status === 'thinking') statusLeft = 'Working on it…';
     else if (pending) statusLeft = 'Reviewing a change';
+    else if (refineOpen)
+      statusLeft = `${visibleSuggestions.length} suggestion${visibleSuggestions.length === 1 ? '' : 's'} to review`;
     else if (selectedId) statusLeft = '1 section selected';
     else statusLeft = `Ready · ${sectionCount} sections`;
   }
@@ -380,21 +449,33 @@ export function Editor() {
           <DocumentView
             doc={doc}
             selectedId={selectedId}
-            pulseId={state.lastChangedId}
+            pulseId={highlightId ?? state.lastChangedId}
             onSelect={onSelect}
           />
-          <EditPanel
-            selectedBlock={selectedBlock}
-            section={section}
-            status={status}
-            pending={pending}
-            note={note}
-            lastInstruction={lastInstruction}
-            onAction={handleAction}
-            onKeep={onKeep}
-            onDiscard={onDiscard}
-            onCancel={onCancel}
-          />
+          {refineOpen && status === 'idle' && !pending ? (
+            <RefinePanel
+              suggestions={visibleSuggestions}
+              reviewedCount={reviewedCount}
+              onFix={fixSuggestion}
+              onDismiss={dismissSuggestion}
+              onGoto={highlightBlock}
+              onClose={closeRefine}
+            />
+          ) : (
+            <EditPanel
+              selectedBlock={selectedBlock}
+              section={section}
+              status={status}
+              pending={pending}
+              note={note}
+              lastInstruction={lastInstruction}
+              onAction={handleAction}
+              onKeep={onKeep}
+              onDiscard={onDiscard}
+              onCancel={onCancel}
+              onCheck={runScan}
+            />
+          )}
         </div>
       )}
 
