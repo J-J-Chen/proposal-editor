@@ -317,3 +317,20 @@ instruction's tone, not a citable card.
 forbids); trusting the model's evidence without a substring check (hallucinated quotes leak);
 hardcoded per-proposal/entity fixes (anti-gaming — general rubric only); blocking on a KB corpus
 that isn't built yet (doc-derived voice is a sound, shippable interim); a `'voice'` chip in the UI.
+### 2026-08-26 — Agentic chat: plan/edit split, propose-only, deterministic entity gate
+**Decision:** The always-available chat (multi-block edits) is a backend agent (`/api/chat` +
+`src/lib/agent`) that PROPOSES a batch of per-block edits and never applies — the FE reviews +
+Keeps/Discards as one grouped undo. Two stages: a **planner** (compact doc map → minimal set of
+`{blockId, instruction}`) and the **existing guarded `runEdit`** per block (reused verbatim, not
+re-implemented). A **deterministic entity gate** (`src/lib/agent/entity-gate.ts`) re-checks every
+proposed edit (protected entity present in `before` must appear verbatim in `after`); a drop gets
+one bounded repair retry, then ships flagged in `warnings[]`. New chat types live in
+`src/lib/agent/contract.ts`, not the frozen `contracts.ts`. Full spec + FE contract:
+[docs/agentic-chat.md](agentic-chat.md).
+**Why:** Plan/edit split makes the over-edit guard real (editor can only touch planned blocks) and
+caps spend (previews to plan, one block at a time to edit). The gate is a real server-side backstop
+because a batch invites skimming — the single-block flow only checks entities in the FE. Propose-only
+keeps the human-in-the-loop promise for sweeping edits.
+**Rejected:** applying edits server-side (breaks review/undo); one giant multi-block LLM rewrite
+(no per-block guardrail, no over-edit guard, entity drift, huge prompt); touching frozen
+`contracts.ts` during integration (kept chat types isolated to avoid FE merge churn).
