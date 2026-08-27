@@ -1,0 +1,22 @@
+{
+  "id": "mock-easy-0000000000000000000000000000000000000000000000000000000000000000",
+  "filename": "easy.pdf",
+  "meta": { "pages": 8, "parsedAt": "2026-08-26T00:00:00.000Z", "model": "mock" },
+  "blocks": [
+    { "id": "b1", "type": "heading", "level": 1, "text": "Statement of Qualifications", "page": 1 },
+    { "id": "b2", "type": "paragraph", "text": "Prepared for: The City of Dixon", "page": 1 },
+    { "id": "b3", "type": "paragraph", "text": "Professional Engineering Services", "page": 1 },
+    { "id": "b4", "type": "paragraph", "text": "April 14, 2025 · Project No. 041-560", "page": 2 },
+    { "id": "b5", "type": "paragraph", "text": "City of Dixon, 305 S Elm Street, Dixon, MO 65459", "page": 2 },
+    { "id": "b6", "type": "paragraph", "text": "ATTN: Mary Wiles, Mayor", "page": 2 },
+    { "id": "b7", "type": "paragraph", "text": "RE: Statement of Qualifications for Professional Engineering Services", "page": 2 },
+    { "id": "b8", "type": "paragraph", "text": "Dear Mayor Wiles and Selection Committee,", "page": 2 },
+    { "id": "b9", "type": "paragraph", "text": "MECO Engineering Company, Inc. (MECO) is pleased to present its qualifications to the City of Dixon for professional engineering services.", "page": 2 },
+    { "id": "b10", "type": "heading", "level": 2, "text": "OUR FIRM", "page": 2 },
+    { "id": "b11", "type": "paragraph", "text": "MECO Engineering is celebrating its 40th anniversary this year. This long-spanning history reflects our commitment to client service across the region.", "page": 2 },
+    { "id": "b12", "type": "heading", "level": 2, "text": "SERVICES", "page": 2 },
+    { "id": "b13", "type": "list-item", "text": "Land Surveying / GIS", "page": 2 },
+    { "id": "b14", "type": "list-item", "text": "General Site Civil Engineering", "page": 2 },
+    { "id": "b15", "type": "list-item", "text": "Structural Engineering", "page": 2 }
+  ]
+}
