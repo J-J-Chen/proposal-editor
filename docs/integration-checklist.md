@@ -29,7 +29,7 @@ is NOT deploy — prod is deployed explicitly, on the owner's say-so.
 4. Confirm prod env: `vercel env ls production --token $VERCEL_TOKEN` shows `BUOYANT_PROXY_TOKEN`
    (✅ verified present, Secret, Production). Personal account only (`jjchen2019-5995`).
 5. **Deploy (only when the owner says so):** `export VERCEL_TOKEN=<personal>` then
-   `scripts/deploy.sh prod` (refuses the Strala account by construction).
+   `scripts/deploy.sh prod` (refuses any non-personal account by construction).
 6. Post-deploy: `node scripts/e2e-verify.mjs https://<prod-url>` → ALL PASS against the live URL.
 7. Record deploy SHA + edit model + date in the README.
 

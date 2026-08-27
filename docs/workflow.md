@@ -69,16 +69,16 @@ Spend is **capped** — cache parses, keep prompts small, use a cheaper model wh
 Repo: **https://github.com/J-J-Chen/proposal-editor** (public, required). Owned by the personal
 **J-J-Chen** account (John Chen / jjchen2019@gmail.com). Pushes rely on `J-J-Chen` being the
 active `gh` account (`gh auth switch --user J-J-Chen`) with `gh` as the git credential helper.
-Switch back to Strala work with `gh auth switch --user john-strala`.
+Switch back to your other (work) account afterward with `gh auth switch --user <work-account>`.
 
 ## Deploying (Vercel — personal account only)
 **Live app:** https://proposal-editor-sandy.vercel.app
 (alias of `proposal-editor-john-chen-s-projects.vercel.app`)
 
 Deploy under the **personal** Vercel account **jjchen2019@gmail.com** (`jjchen2019-5995` /
-"John Chen's projects", project `proposal-editor`). **Never the Strala account.** The machine's
-Vercel CLI is logged into the *work* account (`john.chen@strala.ai`), so we deploy with a
-**personal access token** instead — it has no Strala scope, so a wrong-account deploy is
+"John Chen's projects", project `proposal-editor`). **Never the work account.** The machine's
+Vercel CLI is logged into a *non-personal work* account, so we deploy with a
+**personal access token** instead — it has no work scope, so a wrong-account deploy is
 impossible.
 
 ```sh

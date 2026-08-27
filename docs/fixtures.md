@@ -1,7 +1,7 @@
 # Fixtures & Data
 
 ## Locations
-- **Provided by Buoyant:** `/Users/john/strala/workspaces/ws_8ab97d2dec3e/ExampleProposals`
+- **Provided by Buoyant** (large PDFs, not committed): a local `ExampleProposals` directory, pointed at by the `PROPOSALS_DIR` env var used by the seed scripts (default `./proposals`).
   - `proposals/easy.pdf` — 8 pages. **The must-work fixture.**
   - `proposals/hard.pdf` — 19 pages. Stretch (multi-column, tables, branding).
   - `kb/` — 5 past MECO proposals (the **product knowledge base**, for grounding edits):

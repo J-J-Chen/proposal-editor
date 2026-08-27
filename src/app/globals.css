@@ -675,9 +675,10 @@ button {
   font-weight: 600;
 }
 /* A replaced word puts the removed + added marks side by side with no whitespace between them
-   ("long-spanningenduring"). Nudge adjacent old/new marks apart so they read as two words. */
-.newbox .rm + .ad,
-.newbox .ad + .rm {
+   ("long-spanningenduring"). Nudge adjacent old/new marks apart so they read as two words.
+   The marks live in the "What changed" box (.diffbox) since the three-box card landed. */
+.diffbox .rm + .ad,
+.diffbox .ad + .rm {
   margin-left: 0.3em;
 }
 .keptline {

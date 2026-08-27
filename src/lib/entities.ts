@@ -88,7 +88,12 @@ function scan(text: string, extraNames: readonly string[]): Span[] {
 
   const names = [...new Set([...extraNames, ...KNOWN_NAMES])].sort((a, b) => b.length - a.length);
   for (const name of names) {
-    const re = new RegExp(escapeRe(name), 'g');
+    // Multi-word proper names match case-INSENSITIVELY, so a lowercase source ("scott vogler,
+    // pe") is still protected + tinted before its capitalization is fixed. Single tokens like
+    // "MECO" stay case-sensitive to avoid matching inside unrelated words/acronyms. The captured
+    // span keeps the document's own casing (m[0]), so "Kept exactly as written" shows real text.
+    const flags = /\s/.test(name) ? 'gi' : 'g';
+    const re = new RegExp(escapeRe(name), flags);
     let m: RegExpExecArray | null;
     while ((m = re.exec(text))) claim(m.index, m[0].length, { text: m[0], kind: 'name' });
   }

@@ -51,12 +51,12 @@ index of hard rules.
 **Decision:** Deploy under **jjchen2019@gmail.com** (Vercel `jjchen2019-5995` / "John Chen's
 projects") using a personal access token (`vercel deploy --token …`), and disabled the
 project's `ssoProtection` so the `.vercel.app` URL is publicly reachable for grading.
-**Why:** The machine's Vercel CLI is logged into the **work** account (john.chen@strala.ai,
-`johnchen-6968`, default scope = Strala team) — which the owner said not to use. The personal
-token has no access to the Strala scope, so it's impossible to deploy there by accident. Token
-auth also leaves the Strala CLI login untouched.
+**Why:** The machine's Vercel CLI is logged into the **work** account
+(`johnchen-6968`, default scope = a work team) — which the owner said not to use. The personal
+token has no access to that work scope, so it's impossible to deploy there by accident. Token
+auth also leaves the work CLI login untouched.
 **Rejected:** Deploying with the existing CLI login (wrong account); logging the CLI out of
-Strala (disruptive to the owner's work).
+the work account (disruptive to the owner's work).
 
 ### 2026-08-26 — Undo/redo via an inverse-command log + cursor (not a two-stack undo)
 **Decision:** Promote the `{ blockId, before, after }` entry to a first-class `history:
@@ -396,3 +396,17 @@ punchier), entities preserved, evidence still grounded.
 (disclosure risk — and none was on disk anyway); wiring `FIRM_FACTS` into generation now (fabrication
 surface — that's CP6's human-picks-first + fidelity-net design); blocking on a corpus that doesn't
 exist (the committed seeds are a sound, shippable source).
+
+### 2026-08-26 — /api/suggest cache keyed by server-computed content hash (not client doc.id)
+**Decision:** The suggestion cache key is a **server-computed sha256 of the submitted block content**
+(`src/lib/suggest.ts` `contentKey`), never the client-supplied `doc.id`.
+**Why:** keying on the client-asserted `doc.id` let a client pass another request's id and read back
+that document's cached suggestions/evidence (a cross-request content leak; `evidence` is verbatim
+document text). Deriving the key from the content the server actually received means a client can
+only ever retrieve suggestions for content it submitted. Dormant on main (not yet deployed) — a
+pre-deploy hardening flagged in review (Codex), relayed via 58. The caching benefit is preserved:
+identical content → same key → hit; bounded spend unchanged.
+**Verified:** same asserted id + different content returns freshly-computed suggestions for the new
+content and does NOT leak the original doc's evidence; a genuine resubmit still hits the cache.
+**Rejected:** validating the supplied id against a server-known doc (more state, same outcome as
+just hashing the content); trusting doc.id (the vulnerability).
