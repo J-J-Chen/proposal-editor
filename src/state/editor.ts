@@ -56,6 +56,8 @@ export type EditorAction =
   | { type: 'CANCEL_THINKING' }
   | { type: 'DISCARD_PENDING' }
   | { type: 'KEEP_PENDING' }
+  /** Apply a batch of chat-proposed edits as ONE grouped, undo-able transaction. */
+  | { type: 'KEEP_BATCH'; batch: Pending[] }
   | { type: 'UNDO' }
   | { type: 'REDO' };
 
@@ -95,6 +97,27 @@ function invertOp(doc: Doc, op: EditOp): Doc {
 /** The block a given op targets — for pulsing / scrolling. */
 function opBlockId(op: EditOp): string {
   return op.kind === 'insert' ? op.block.id : op.blockId;
+}
+
+/**
+ * How many contiguous entries ending at index `end` (inclusive) form one undo step: a run sharing
+ * the same non-empty groupId (a Kept chat batch), or just 1 for an ordinary single-block edit.
+ */
+function groupRunBack(history: HistoryEntry[], end: number): number {
+  const gid = history[end]?.groupId;
+  if (!gid) return 1;
+  let k = 1;
+  while (end - k >= 0 && history[end - k].groupId === gid) k++;
+  return k;
+}
+
+/** How many contiguous entries starting at `start` form one redo step (mirror of groupRunBack). */
+function groupRunForward(history: HistoryEntry[], start: number): number {
+  const gid = history[start]?.groupId;
+  if (!gid) return 1;
+  let k = 1;
+  while (start + k < history.length && history[start + k].groupId === gid) k++;
+  return k;
 }
 
 export function canUndo(s: EditorState): boolean {
@@ -155,27 +178,63 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       };
     }
 
-    case 'UNDO': {
-      if (!canUndo(state) || !state.doc || state.status !== 'idle') return state;
-      const entry = state.history[state.cursor - 1];
+    case 'KEEP_BATCH': {
+      const { batch } = action;
+      if (!state.doc || batch.length === 0) return state;
+      // One shared base: if the user undid since the batch was proposed, drop it wholesale.
+      if (batch[0].baseCursor !== state.cursor) return { ...state, pending: null };
+
+      const at = new Date().toISOString();
+      const groupId = `batch-${state.cursor}-${at}`; // unique among live entries
+      let doc = state.doc;
+      const entries: HistoryEntry[] = batch.map((p) => {
+        const op: EditOp = { kind: 'replace', blockId: p.blockId, before: p.before, after: p.after };
+        doc = applyOp(doc, op);
+        return { op, at, source: 'ai', rationale: p.rationale, groupId };
+      });
+      // Redo-invalidation: drop any abandoned redo future, then append the whole group.
+      const history = state.history.slice(0, state.cursor).concat(entries);
       return {
         ...state,
-        doc: invertOp(state.doc, entry.op),
-        cursor: state.cursor - 1,
+        doc,
+        history,
+        cursor: state.cursor + entries.length,
         pending: null,
-        lastChangedId: opBlockId(entry.op),
+        lastChangedId: batch[batch.length - 1].blockId,
+      };
+    }
+
+    case 'UNDO': {
+      if (!canUndo(state) || !state.doc || state.status !== 'idle') return state;
+      // A grouped batch undoes as one step: invert every entry in the run (newest→oldest).
+      const k = groupRunBack(state.history, state.cursor - 1);
+      let doc = state.doc;
+      for (let i = state.cursor - 1; i >= state.cursor - k; i--) {
+        doc = invertOp(doc, state.history[i].op);
+      }
+      return {
+        ...state,
+        doc,
+        cursor: state.cursor - k,
+        pending: null,
+        lastChangedId: opBlockId(state.history[state.cursor - 1].op),
       };
     }
 
     case 'REDO': {
       if (!canRedo(state) || !state.doc || state.status !== 'idle') return state;
-      const entry = state.history[state.cursor];
+      // Mirror of UNDO: reapply the whole group (oldest→newest).
+      const k = groupRunForward(state.history, state.cursor);
+      let doc = state.doc;
+      for (let i = state.cursor; i < state.cursor + k; i++) {
+        doc = applyOp(doc, state.history[i].op);
+      }
       return {
         ...state,
-        doc: applyOp(state.doc, entry.op),
-        cursor: state.cursor + 1,
+        doc,
+        cursor: state.cursor + k,
         pending: null,
-        lastChangedId: opBlockId(entry.op),
+        lastChangedId: opBlockId(state.history[state.cursor].op),
       };
     }
 
