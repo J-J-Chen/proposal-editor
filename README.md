@@ -85,14 +85,14 @@ load-bearing ones:
   clicking a DOM node; apply is replacing `block.text`; compose and undo fall out for free. This
   is the choice the brief blesses ("the core problem is the edit loop, not PDF reconstruction").
 
-- **The parse is entity-safe *by construction*.** Parsing is hybrid: deterministic text+layout
-  extraction, heuristics for the easy ~80% of structure, then **one LLM structuring call that
-  labels line ranges by reference and never re-emits the document text.** Because that model can't
-  rewrite text, it is *incapable* of altering `MECO`, a `041-560` job number, or a `$` figure
-  during parsing — pushing every entity risk into exactly one place, the edit call, which is what
-  makes the evaluation (§5) tractable. The parse is **cached by file hash** (`Doc.id` *is* the
-  sha256 of the bytes) plus a committed pre-parsed seed, so each PDF is parsed once even though
-  parsing is the slow, metered step.
+- **The parse is entity-safe *by construction*.** MuPDF runs server-side as WASM in the Node
+  runtime and provides text plus layout metadata without a native deployment dependency. Parsing
+  is hybrid: deterministic extraction and column-aware heuristics, then **one LLM structuring call
+  that labels line ranges by reference and never re-emits the document text.** If that call fails,
+  the heuristic grouping is a usable fallback. Because the model can't rewrite text, it is
+  *incapable* of altering `MECO`, a `041-560` job number, or a `$` figure during parsing — pushing
+  every entity risk into exactly one place, the edit call, which makes the evaluation (§5)
+  tractable.
 
 - **The edit loop: one guardrailed, structured route.** `POST /api/edit` takes
   `{ block, instruction, docContext?, kbContext? }` and returns `{ newText, rationale? }`
@@ -103,6 +103,15 @@ load-bearing ones:
   call a `submit_edit` tool returning the rewrite as *data*, so a `"Sure, here's your revised
   paragraph:"` preamble can never leak into the document. Non-streaming on purpose: Apply is
   all-or-nothing and the diff needs the whole rewrite.
+
+- **AI proposes; the human commits — and the safety is visible.** AI responses live as pending
+  proposals, separate from applied history; only an explicit **Keep** creates an `EditOp`.
+  Suggestions and chat reuse that contract, so no AI path silently mutates the document. Safety is
+  defense-in-depth: after the entity-safe parse, prompt guardrail, and structured output, a
+  deterministic before/after gate catches protected names, licenses, project numbers, and dollar
+  figures that were altered or dropped. Gold highlighting and an extra confirmation turn that
+  backstop into something the user can inspect rather than an invisible model promise. Known gaps
+  — fabricated new entities and unseen proper names — stay explicit in §4.
 
 - **Two surfaces, one model.** The same block model backs a pixel-faithful **Original PDF** view
   (mupdf page rasters — the default on open) *and* a clean semantic **Document** view. Where a
@@ -120,6 +129,25 @@ load-bearing ones:
   construction*, and the log doubles as the demo's audit trail. Chat's multi-edit batches apply
   and undo as **one grouped transaction**.
 
+- **Proactive suggestions are grounded and precision-first.** An instant deterministic scan is
+  the dependable floor; one cached LLM pass adds judgment about wordiness, clarity, and
+  consistency. Every visible reason must quote a span from the user's document: deterministic
+  checks derive it directly, and the server verifies LLM-supplied evidence verbatim. An ungrounded
+  suggestion is dropped, never dressed up with plausible AI prose. Clicking a suggestion starts
+  the same review → Keep/Discard → undo loop instead of a parallel, less-safe editing path.
+
+- **Chat plans broadly, edits narrowly, and never applies on its own.** A planner sees a compact
+  document map and selects the minimum relevant blocks; each selected block then passes through
+  the existing guarded editor and deterministic entity gate. The user reviews the batch and Keeps
+  or Discards it as one grouped transaction. Input bounds and a hard shared model-call budget cap
+  the cost of the public endpoint regardless of what the planner returns.
+
+- **Voice and facts have separate trust boundaries.** A committed, read-only firm voice card
+  steers suggestion tone, while the closed firm-facts corpus is reference-only and is not fed into
+  generation. A future retrieve-and-insert flow requires a human to choose a real,
+  provenance-backed project *before* generation. This reinforces the firm's register without
+  creating a surface for invented facts or laundering unreviewed output into canonical data.
+
 - **UX for a Word-native, non-technical user — "recognisable, not identical."** The audience is a
   proposal manager or city engineer who lives in Word. So we borrow Word's **habits and plain
   words** — *Open* not Upload, *Keep this change / Discard* not Accept/Reject, Undo/Redo top-left,
@@ -127,13 +155,30 @@ load-bearing ones:
   product its **own calm blueprint-teal skin** rather than cloning the ribbon (a faithful clone
   hits the "broken Word" uncanny valley the moment a right-click menu is missing). The AI's
   proposal is a **calm stacked card** — *"The wording now"* over *"The suggested new wording,"*
-  read top-to-bottom like a letter — not a developer redline.
+  read top-to-bottom like a letter — not a developer redline. Accessibility is a functional floor,
+  not polish: document text starts at 20px, controls have 48px targets, essential contrast meets
+  7:1, focus is visible, no critical action is hover-only, and loading or failure states explain
+  what is happening in plain language.
+
+- **Expensive work is content-addressed.** `Doc.id` is the sha256 of the PDF bytes; committed parse
+  seeds and page rasters make the bundled path deterministic, while bounded in-process caches
+  accelerate repeats without becoming a store of record. Suggestions are cached by a
+  **server-computed hash of the submitted block content**, never a client-asserted document id —
+  preserving the performance win without turning the cache into a cross-request document leak.
 
 - **AI only via the Buoyant proxy, server-side; no database.** State lives in client memory; the
   parse cache is committed pre-parsed JSON (`src/parse-cache/`) plus an in-process map — no DB, no
   disk. (Vercel Blob only ferries a large PDF's bytes to the server on a cache miss.) The brief
   says DB is optional and nothing in the single-user loop needs one — adding one would be infra
-  for its own sake.
+  for its own sake. Ephemeral caches are accelerators only, and if an uploaded PDF's raster preview
+  falls out of memory, the semantic Document view remains editable rather than failing the whole
+  workflow.
+
+- **Evaluation is part of the design, not post-hoc QA.** Preservation is paired with
+  no-op-defeating effectiveness, trials call the real deployed route, and a different model helps
+  identify open-class proper nouns so the editor does not grade itself. §5 reports raw
+  denominators and every violation before the headline percentage; the measurement is designed to
+  be harder to game than a single flattering score.
 
 ---
 
