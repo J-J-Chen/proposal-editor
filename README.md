@@ -209,9 +209,20 @@ Speed-first, and *intentional* scope beats feature count. Explicit cuts:
   risk). The retrieve-and-insert design (§7) never lets the model invent: a human picks a *real*
   retrieved project **before** any generation, and a deterministic check requires every entity to
   appear verbatim, falling back to a template on failure.
+- **Security hardening before real customer documents** — this is a public, unauthenticated
+  take-home, not yet a production trust boundary. It already keeps provider credentials
+  server-side, stores uploads privately, restricts upload tokens to declared PDFs up to 25 MB,
+  and caps chat's model-call fan-out per request. Before a paying customer, add authentication and
+  tenant-level authorization; rate limits and spend quotas on every AI and parse route; PDF
+  magic-byte, malformed-file, and parser resource-limit checks; an explicit upload retention and
+  deletion policy; redacted errors and logs; security headers and dependency scanning; and
+  adversarial tests for prompt injection and cross-tenant document leakage. The silent security
+  failure to design against is one customer's proposal, metadata, or derived output becoming
+  visible to another.
 - **Pre-customer checks I'd want:** the §5 fidelity number on a real grid, the preamble/refusal
-  leak regex at zero, and a spot-check that the parse cache key (file hash) never collides across
-  the corpus.
+  leak regex at zero, a spot-check that the parse cache key (file hash) never collides across the
+  corpus, and the security release gates above exercised with negative tests rather than only a
+  happy-path UI pass.
 
 ---
 
