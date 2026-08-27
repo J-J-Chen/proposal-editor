@@ -122,6 +122,31 @@ carries both `001-902` and `001-9002`). Copying one verbatim would cite a real-b
 number that provenance would rubber-stamp.
 **Rejected:** Indexing the cover/letter number as the project number (silently wrong, trust-eroding).
 
+### 2026-08-26 — Evaluation v2: two-axis, run against the shipped edit route + owner clarifications
+**Decision:** Keep name/entity fidelity as the shipped eval, but sharpen it (see
+[checkpoint 5](../plans/checkpoint-5-eval-readme.md)):
+(1) pair fidelity with a **no-op-defeating effectiveness check** — a no-op / too-timid model
+scores 100% on fidelity alone — plus a free preamble/refusal-leak regex;
+(2) run it through the **real deployed CP4 edit route** with the exact request shape (docContext
+included), scoring the applied text — not a reimplemented SDK prompt;
+(3) **harden the extractor**: deterministic regex as ground truth for closed-class entities
+(`$`, job / `MO PE No.` / MoDOT / TAP numbers, years), one *diff-aware* LLM call for open-class
+proper nouns, run **cross-model** (extract on the non-editor provider), value-preservation with a
+small alias + `$`-normalization table, and hand-adjudicate flags;
+(4) **exclude entity-changing instructions** ("fix names") from the preservation set; report raw
+k/n per instruction with the entity-bearing denominator + a leading violation list.
+**Owner clarifications (from Eric, 2026-08-26):** the hidden generalization fixture is **another
+MECO-style SOQ with a real text layer** (→ `easy.pdf` / KB SOQs are representative; no OCR/scanned
+path); **spend is not a constraint** (→ run the full grid, use the stronger / cross-model calls
+where quality benefits; the KB stretch is a **time + trust** cut, not a budget one).
+**Why:** Fidelity alone is gameable by a timid model, and if run on a reimplemented prompt it
+doesn't measure the shipped product — both are exactly what a founding-engineer reviewer probes.
+The parse is already entity-safe by construction (CP2), so the **edit route is the only place an
+entity can break**; the eval isolates it.
+**Rejected:** Single-axis preservation-only (perverse optimum); two independent LLM extractions
+set-diffed (stochastic false violations); the editor grading its own output (correlated blind
+spots); surface-string preservation (penalizes legitimate rewordings).
+
 ### 2026-08-26 — Extractor = mupdf (WASM), server-side Node runtime
 **Decision:** Use `mupdf@1.28.0` (MuPDF compiled to WASM) as the CP2 extractor, via
 `page.toStructuredText("preserve-whitespace").asJSON()`, in a `runtime="nodejs"` route.
@@ -136,26 +161,30 @@ smoke-test early, `outputFileTracingIncludes` if needed. See [checkpoint 2](../p
 ### 2026-08-26 — Structuring: heuristics-first, LLM labels by line-reference (never re-emits text)
 **Decision:** Do ~80% of structuring with deterministic TS (position-bucketed dedup, header/footer
 strip, x0-column reading-order sort, line→block merge, heading = bold+ALL-CAPS+short **not size**),
-then ONE cheap LLM call (`claude-sonnet-5`, effort `low`) that groups/labels/levels lines by
+then ONE LLM call (default `claude-sonnet-5`, effort `low`) that groups/labels/levels lines by
 returning `{type, level, startLine, endLine}` — a deterministic assembler rebuilds text VERBATIM
 from the referenced lines.
 **Why:** Makes proper-noun/number/$ corruption **impossible by construction** (the model can't emit
-text), cuts output tokens ~3–4×, and degrades to heuristics-only if the LLM/proxy fails. Corrects
-the KB's earlier "bigger=heading" assumption — recon shows headings are the same 12pt as body,
-distinguished by weight+caps.
+text) — this is the CP2 half of "the parse is entity-safe by construction; the edit route is the
+only place an entity can break" (see the Evaluation v2 entry). Degrades to heuristics-only if the
+LLM/proxy fails. Corrects the KB's earlier "bigger=heading" assumption — recon shows headings are
+the same 12pt as body, distinguished by weight+caps. (Spend is not a constraint per Eric, so a
+stronger structuring model is fine where it helps; reference-based output is kept for FIDELITY, not
+cost.)
 **Rejected:** Pure-heuristic labeling (can't assign heading levels; misfires on infographic
-stat labels like "60 EMPLOYEES"); LLM re-emitting full block text (entity-corruption risk, pricier);
+stat labels like "60 EMPLOYEES"); LLM re-emitting full block text (entity-corruption risk);
 "skip the LLM when heuristics look confident" (overbuilt + actively mislabels design pages).
 **Watch:** structured output through the Buoyant proxy is unverified — smoke-test `messages.parse()`
 before generating seeds; fall back to tool-use / JSON+zod if unsupported.
 
 ### 2026-08-26 — Parse cache: committed seed + in-proc Map + Blob-for-upload; no DB
 **Decision:** Key parses by `sha256(bytes)`. Layers: **L0** committed pre-parsed JSON for the 7
-provided PDFs (`src/parse-cache/{sha256}.json`, loaded at module init) → graded demo is instant,
-zero-runtime-LLM; **L1** in-process Map; **Vercel Blob for the upload only** (files are 13–18MB,
+provided PDFs (`src/parse-cache/{sha256}.json`, loaded at module init) → graded demo is instant and
+deterministic; **L1** in-process Map; **Vercel Blob for the upload only** (files are 13–18MB,
 over Vercel's 4.5MB body cap → hash in the browser, Blob client-upload on a miss). Durable Blob
 write-back + dev-disk tiers are optional polish.
-**Why:** Speed-first, no DB (per project rules), and the committed seed removes all runtime/spend/413
-risk from the pass/fail path. `easy.pdf` sha256 = `03dd3ee8…c5829` (verified).
+**Why:** Speed-first, no DB (per project rules); the committed seed removes runtime/latency/413 risk
+from the pass/fail path (a demo/latency win, not a spend one — spend is not a constraint per Eric).
+`easy.pdf` sha256 = `03dd3ee8…c5829` (verified).
 **Rejected:** On-disk `.cache/` as the prod store (Vercel fs is ephemeral/per-instance); Runtime
 Cache/KV (non-durable / ≈ a DB). See [checkpoint 2](../plans/checkpoint-2-pdf-parse.md).
