@@ -370,3 +370,29 @@ keeps the human-in-the-loop promise for sweeping edits.
 **Rejected:** applying edits server-side (breaks review/undo); one giant multi-block LLM rewrite
 (no per-block guardrail, no over-edit guard, entity drift, huge prompt); touching frozen
 `contracts.ts` during integration (kept chat types isolated to avoid FE merge churn).
+
+### 2026-08-26 — KB corpus (src/kb): distilled firm voice + closed facts, from committed seeds
+**Decision:** Added a committed, deployable KB corpus at **`src/kb/`** — `FIRM_VOICE` (a voice card:
+register descriptors + verbatim exemplar sentences) and `FIRM_FACTS` (a **closed, reference-only**
+set of real facts). `suggest.ts`'s voice helper is **repointed from the doc-derived interim to
+`FIRM_VOICE`** (doc-derived kept only as a defensive fallback). No new dependency; no deploy (rides
+wave-2).
+**Why (sourcing):** John flagged the KB as very important, but there is **no `/kb/` corpus in the
+repo or on disk** (gitignored as confidential; the session thought to be building it left nothing).
+So per the agreed fallback we synthesize from the firm's OWN **already-committed** sample proposals
+(`src/parse-cache/*.json` — easy/hard). Those seeds are already public in the repo (committed for the
+deterministic demo), so distilling from them is **zero new disclosure** — no confidential client
+material is committed. When a real `/kb/` corpus lands, the same helper repoints to it.
+**Why (anti-fabrication):** the voice card steers **tone only**. `FIRM_FACTS` is **reference-only and
+wired into no generation path** — the editorial suggest pass never adds facts (it only rewrites
+phrasing groundable in the block's own text), and `/api/edit` already constrains any `kbContext` with
+"do not invent beyond these". So the KB **cannot** enable "invent a project that doesn't exist";
+entities stay protected by the existing guardrail. The SOQ ids (041-560, 001-894) are deliberately
+NOT recorded as citable project numbers (they are each proposal's own document id).
+**Verified:** live /api/suggest now steers rewrites to MECO's established register (a casual "water
+stuff" block is pushed toward "water/wastewater projects / potable water engineering", not made
+punchier), entities preserved, evidence still grounded.
+**Rejected:** committing raw or fact-distilled confidential `/kb/` material to the public repo
+(disclosure risk — and none was on disk anyway); wiring `FIRM_FACTS` into generation now (fabrication
+surface — that's CP6's human-picks-first + fidelity-net design); blocking on a corpus that doesn't
+exist (the committed seeds are a sound, shippable source).
