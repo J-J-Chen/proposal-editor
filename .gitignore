@@ -30,6 +30,9 @@ next-env.d.ts
 /.cache/
 /tmp/
 
+# claude code — track project settings.json (team hooks), ignore personal local overrides
+.claude/settings.local.json
+
 # os / editor
 .DS_Store
 *.pem

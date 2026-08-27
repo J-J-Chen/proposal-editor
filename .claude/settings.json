@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cat \"${CLAUDE_PROJECT_DIR:-.}/docs/README.md\" 2>/dev/null || true",
+            "statusMessage": "Loading project knowledge base…"
+          }
+        ]
+      }
+    ]
+  }
+}

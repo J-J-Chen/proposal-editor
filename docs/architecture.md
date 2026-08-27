@@ -1,0 +1,87 @@
+# Architecture & Reasoning
+
+The design and *why*. Decisions get logged as they're made in [decisions.md](decisions.md).
+
+## The central bet: edit a model, not a PDF
+Convert the PDF **once** into a clean, structured, editable document and run the entire loop
+on that — never edit the PDF in place.
+
+PDF → ordered list of typed **blocks** → render as semantic HTML → edit the blocks.
+
+Why: PDFs expose no structure and are painful to select/edit inside. Once we have a block
+model rendered as real DOM:
+- **Selection** = clicking a DOM node (native; no pdf.js text-layer fighting).
+- **Apply** = replace `block.text` in state.
+- **Compose** = successive applies mutate the same model.
+- **Undo** = pop an edit-history stack.
+
+We deliberately drop pixel-fidelity of the original. The brief explicitly blesses this
+("the core problem is the edit loop, not PDF reconstruction"). Trying to re-render the
+original pixel-perfect is the trap that sinks the 4-hour budget.
+
+## The document model
+Flat, ordered array of blocks (sections derived from heading blocks):
+
+```ts
+type BlockType = 'heading' | 'paragraph' | 'list-item' | 'caption' | 'table' | 'other';
+interface Block {
+  id: string;          // stable — derived from content+order so it survives re-parse
+  type: BlockType;
+  text: string;
+  level?: number;      // for headings
+  page: number;        // provenance (for "reflected in doc" + optional highlight)
+}
+interface Doc { id: string; filename: string; blocks: Block[]; }
+```
+
+Stable ids matter: edits target a block by id, and undo/compose rely on identity.
+
+## Parsing: hybrid, cached
+1. **Deterministic extraction** (pdf.js in-app, or a server extractor): spans with text +
+   font size/weight + x/y + page. Free, instant.
+2. **LLM structuring pass**: raw spans → blocks JSON. This is what cleans the messes we
+   verified in the fixtures: duplicated cover text, headings glued to bodies, multi-column
+   reading order. Use **structured output** (tool/JSON schema) so the model returns data,
+   not prose.
+3. **Cache by file hash** (content hash → parsed doc), to disk or Blob. Parsing is slow
+   (5–10 min for big PDFs) and metered — parse each file once.
+
+Rationale: heuristics alone choke on the branded/multi-column layout; pure-LLM-on-raw-text is
+slow/expensive and loses layout cues. Hybrid gets robustness at bounded cost, and generalizes
+to the hidden fixture better than fixture-specific heuristics.
+
+## The edit loop
+`{ blockText, instruction, docContext, kbContext? }` → server route → LLM → new text.
+- **Guardrail (critical):** change only what's asked; **preserve all proper nouns, project
+  numbers, and dollar figures** unless explicitly told otherwise. This is the #1 silent
+  failure in this domain and is exactly what the CP5 eval measures.
+- Show a **word-level diff** (jsdiff / diff-match-patch); user Applies or Rejects.
+- Apply mutates `block.text` and pushes `{ blockId, before, after }` onto an **undo stack**
+  (which doubles as a demo-friendly audit trail).
+- Light doc context (nearby headings, firm name) keeps voice consistent.
+
+## AI usage
+- Buoyant proxy via the **official SDKs**, **server-side only** (token never hits the browser).
+- Default provider: **Anthropic** for edit quality; a smaller/faster model is fine for the
+  structuring pass if quality holds. Mind the spend cap → cache, small prompts.
+
+## Evaluation
+**Name / entity fidelity** — % of preservation-type edits that keep every entity that should
+be untouched. On-brand (the brief foregrounds names), automatable, and yields a real number.
+See [checkpoint 5](../plans/checkpoint-5-eval-readme.md).
+
+## KB grounding (stretch)
+Ingest the 5 `kb/` proposals once, chunk, retrieve (BM25/keyword is plenty for 5 docs — no
+vector DB needed), feed snippets into the edit prompt for KB-type actions, and **show
+provenance**. Constrain the model to retrieved content to avoid inventing project details.
+
+## Boundaries / structure (best-practice, cheaply)
+Keep concerns separated without over-engineering a 4-hour app:
+- `parse/` (extraction + structuring + cache), `model/` (Doc/Block types + edit ops + undo),
+  `ai/` (proxy clients, prompts, structured-output schemas), `app/api/*` (route handlers),
+  UI components (document view, block selection, diff/apply panel). Exact layout is the
+  scaffold's call; the point is: parsing, model, AI, and UI don't bleed into each other.
+
+## What we're NOT doing
+See [goals.md](goals.md) non-goals. Notably: no OCR (fixtures have a text layer), no PDF
+reconstruction, no DB by default.
