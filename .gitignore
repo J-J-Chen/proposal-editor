@@ -30,6 +30,10 @@ next-env.d.ts
 /.cache/
 /tmp/
 
+# real client proposals + KB corpus — shared with permission; NEVER commit to the public repo
+/proposals/
+/kb/
+
 # claude code — track project settings.json (team hooks), ignore personal local overrides
 .claude/settings.local.json
 
