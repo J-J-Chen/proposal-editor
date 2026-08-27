@@ -122,6 +122,31 @@ carries both `001-902` and `001-9002`). Copying one verbatim would cite a real-b
 number that provenance would rubber-stamp.
 **Rejected:** Indexing the cover/letter number as the project number (silently wrong, trust-eroding).
 
+### 2026-08-26 — Evaluation v2: two-axis, run against the shipped edit route + owner clarifications
+**Decision:** Keep name/entity fidelity as the shipped eval, but sharpen it (see
+[checkpoint 5](../plans/checkpoint-5-eval-readme.md)):
+(1) pair fidelity with a **no-op-defeating effectiveness check** — a no-op / too-timid model
+scores 100% on fidelity alone — plus a free preamble/refusal-leak regex;
+(2) run it through the **real deployed CP4 edit route** with the exact request shape (docContext
+included), scoring the applied text — not a reimplemented SDK prompt;
+(3) **harden the extractor**: deterministic regex as ground truth for closed-class entities
+(`$`, job / `MO PE No.` / MoDOT / TAP numbers, years), one *diff-aware* LLM call for open-class
+proper nouns, run **cross-model** (extract on the non-editor provider), value-preservation with a
+small alias + `$`-normalization table, and hand-adjudicate flags;
+(4) **exclude entity-changing instructions** ("fix names") from the preservation set; report raw
+k/n per instruction with the entity-bearing denominator + a leading violation list.
+**Owner clarifications (from Eric, 2026-08-26):** the hidden generalization fixture is **another
+MECO-style SOQ with a real text layer** (→ `easy.pdf` / KB SOQs are representative; no OCR/scanned
+path); **spend is not a constraint** (→ run the full grid, use the stronger / cross-model calls
+where quality benefits; the KB stretch is a **time + trust** cut, not a budget one).
+**Why:** Fidelity alone is gameable by a timid model, and if run on a reimplemented prompt it
+doesn't measure the shipped product — both are exactly what a founding-engineer reviewer probes.
+The parse is already entity-safe by construction (CP2), so the **edit route is the only place an
+entity can break**; the eval isolates it.
+**Rejected:** Single-axis preservation-only (perverse optimum); two independent LLM extractions
+set-diffed (stochastic false violations); the editor grading its own output (correlated blind
+spots); surface-string preservation (penalizes legitimate rewordings).
+
 ### 2026-08-26 — Suggestion rationale must be grounded (rubric check or real KB citation), not free-form
 **Decision:** When the app shows *why* it suggests an edit, the "why" is one of two grounded forms:
 (L1) a deterministic **rubric check** stated in plain words (from the entity dictionary / voice
