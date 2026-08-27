@@ -17,7 +17,11 @@ import { sha256 } from '@/parse/hash';
 import { fetchBlobBytes } from '@/lib/blob';
 
 export const runtime = 'nodejs'; // NOT edge — mupdf needs fs/WASM
-export const maxDuration = 60; // cold wasm-load + extract + one LLM call
+// cold wasm-load + blob fetch + extract + one LLM structuring pass. A large unseen upload (a0's
+// e2e used a 47-page PDF) takes ~72s — over the old 60s cap → prod 504 FUNCTION_INVOCATION_TIMEOUT.
+// The private-blob read-back itself is fast; the LLM pass on many pages is the cost. Vercel's
+// default max is now 300s (Fluid Compute). Target SOQs (≤19pp) finish in <60s regardless.
+export const maxDuration = 300;
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request): Promise<Response> {
