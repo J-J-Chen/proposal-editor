@@ -193,10 +193,11 @@ Speed-first, and *intentional* scope beats feature count. Explicit cuts:
   (raster) and let you edit on it, but the editable unit is a text **Block**, not a reflowed
   vector clone. Rebuilding the PDF's exact layout as an editable surface is the trap that sinks
   the budget for near-zero user value.
-- **Sub-paragraph text selection** — edits currently operate on a whole paragraph or other text
-  block. Selecting an arbitrary span would be a useful future refinement, but the interaction
-  needs more product thought first — especially how users clearly unselect text or switch to a
-  different selection without accidentally starting an edit.
+- **Sub-paragraph / cross-block text selection** — edits operate on a whole **Block** (paragraph),
+  not an arbitrary span. Finer selection is a useful future refinement, but it needs real product
+  thought first: how a user clearly *unselects* or switches selection without accidentally starting
+  an edit, and how the entity gate and the diff scope to a *fragment* while the rest of the block
+  stays pinned. Half-building that is worse than a clean block unit. (§7 candidate.)
 - **Images / logos / photos as *editable* content** — they're not AI-editable text and would
   complicate entity fidelity, so the Document view is clean text while the Original PDF view keeps
   the full visuals for reference. "Edit the text, not the graphics" is a deliberate call.
@@ -215,6 +216,18 @@ Speed-first, and *intentional* scope beats feature count. Explicit cuts:
   This is a *time + trust* cut, not a budget one (the owner was explicit spend isn't the
   constraint): a curated corpus is what makes grounding trustworthy, and better to ship the core
   loop rock-solid than a half-verified KB that cites a real-but-wrong project. (§7.)
+- **Manual free-text typing into the document.** Every edit flows through the reviewed AI loop
+  (select → instruct → diff → Keep); you can't click into a block and just type. Deliberate: the
+  whole safety model — the entity-fidelity gate, the structured diff, the inverse-command audit log
+  — assumes edits arrive through that one guarded path, and raw keystrokes would bypass all of it.
+  On-brief, too: the task is AI editing, not a rich-text editor.
+- **Partial-accept of a proposed edit.** Keep/Discard acts on the whole proposal (and chat on the
+  whole batch), not per-sentence. Considered and cut: per-fragment accept fragments the
+  entity-fidelity check and muddies the one-op-per-edit audit trail that makes undo correct by
+  construction — a too-long rewrite is handled by re-instructing, not cherry-picking words.
+- **Inline rich-text formatting** (bold / italic / links *within* a paragraph) — the block model
+  is plain text, so we preserve structural formatting (headings, lists) but not intra-paragraph
+  styling. Low value for proposal prose and it would complicate diffing and entity fidelity.
 - **Exhaustive automated tests** — one real evaluation with real numbers (§5) is far higher
   signal for this brief than broad unit coverage of a 4-hour app.
 
@@ -420,9 +433,11 @@ headline %, and report **raw k/n per instruction** with the entity-bearing denom
    **rubric check** or a **verbatim KB citation with provenance**, never free-form justification.
    Both reuse one retrieval spine; the corpus moves from fixed + hand-verified toward a live,
    user-uploaded KB (deferred because trust needs verification time, not spend).
-5. **The suggestion-outcome feedback loop** — capture Keep/Discard/Adjust signal and pick a
-   principled sink for it (ground future edits, personalization, or corpus enrichment) — and only
-   *then* add persistence, if it earns its keep.
+5. **Close the rubric → KB feedback loop.** Capture the Keep/Discard/Adjust signal on every
+   suggestion and edit and feed it back into the KB — **starting with today's static, hand-verified
+   KB** and letting confirmed outcomes enrich it over time (which phrasings the firm actually keeps,
+   which it rejects), so the rubric and the grounding sharpen with use. Add persistence only once
+   this signal earns it.
 6. **Export back to PDF / DOCX** so the edited proposal leaves the tool in a format the firm sends.
 7. **Put the eval in CI** — run the fidelity grid on every deploy and fail the build on a
    regression, so the guardrail can't silently rot.
