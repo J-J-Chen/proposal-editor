@@ -13,7 +13,8 @@ import { basename, join, resolve } from 'node:path';
 import { sha256 } from '@/parse/hash';
 import { renderAllPages, RENDER_SCALE } from '@/parse/render';
 
-const FIXTURES = '/Users/john/strala/workspaces/ws_8ab97d2dec3e/ExampleProposals/proposals';
+// Fixtures dir: set PROPOSALS_DIR to your local ExampleProposals/proposals; defaults to ./proposals.
+const FIXTURES = process.env.PROPOSALS_DIR ?? resolve('proposals');
 const PAGES_DIR = resolve('public/pages');
 const MANIFEST = resolve('src/parse-cache/renders.ts');
 
