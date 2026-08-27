@@ -401,6 +401,12 @@ export function Editor() {
     }
     return out;
   }, [doc, originalBaseline]);
+  // The current doc's private Blob URL (uploads only — samples have none), from its recent entry.
+  // Passed to the Original-PDF view so /api/page can self-heal a cold-instance render miss.
+  const activeBlobUrl = useMemo(
+    () => (doc ? (recents.find((r) => r.id === doc.id)?.blobUrl ?? null) : null),
+    [doc, recents],
+  );
 
   useEffect(() => {
     if (!toast) return;
@@ -1090,6 +1096,7 @@ export function Editor() {
                 pulseId={highlightId ?? state.lastChangedId}
                 peekId={peekId}
                 editedText={editedText}
+                blobUrl={activeBlobUrl}
                 onSelect={onSelect}
                 onBackgroundClick={deselect}
               />

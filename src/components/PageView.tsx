@@ -11,9 +11,15 @@ import type { Doc } from '@/lib/types';
 import { RENDERED } from '@/parse-cache/renders';
 import { LAYOUT, type BlockRect } from '@/parse-cache/layout';
 
-/** Committed static images for seeded docs; otherwise the on-demand render route (uploads). */
-function pageSrc(hash: string, n: number, hasStatic: boolean): string {
-  return hasStatic ? `/pages/${hash}/${n}.jpg` : `/api/page/${hash}/${n}`;
+/**
+ * Committed static images for seeded docs; otherwise the on-demand render route (uploads). For an
+ * uploaded doc we pass its private `blob` URL so /api/page can self-heal on a cold instance (rerun
+ * the render from Blob when the parse cache has cooled). Samples never hit /api/page or carry ?blob.
+ */
+function pageSrc(hash: string, n: number, hasStatic: boolean, blobUrl?: string | null): string {
+  if (hasStatic) return `/pages/${hash}/${n}.jpg`;
+  const q = blobUrl ? `?blob=${encodeURIComponent(blobUrl)}` : '';
+  return `/api/page/${hash}/${n}${q}`;
 }
 
 export function PageView({
@@ -22,6 +28,7 @@ export function PageView({
   pulseId,
   peekId,
   editedText,
+  blobUrl,
   onSelect,
   onBackgroundClick,
 }: {
@@ -33,6 +40,8 @@ export function PageView({
   peekId: string | null;
   /** blockId → current text, for blocks whose text differs from the original (patched in place). */
   editedText: Record<string, string>;
+  /** For an uploaded doc: its private Blob URL, so /api/page can self-heal a cold-instance miss. */
+  blobUrl?: string | null;
   onSelect?: (id: string) => void;
   /** Click on the page away from any paragraph → deselect (same as the document view). */
   onBackgroundClick?: () => void;
@@ -86,7 +95,7 @@ export function PageView({
               ) : (
                 /* eslint-disable-next-line @next/next/no-img-element -- a fixed-size, API-rendered page jpeg; next/image's optimizer adds nothing and its loader/onError contract would fight our /api/page self-heal + fallback. */
                 <img
-                  src={pageSrc(hash, n, hasStatic)}
+                  src={pageSrc(hash, n, hasStatic, blobUrl)}
                   alt={`Page ${n} of ${doc.filename}`}
                   width={612}
                   height={792}
