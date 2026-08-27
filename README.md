@@ -346,7 +346,11 @@ headline %, and report **raw k/n per instruction** with the entity-bearing denom
   verbatim text) as a zero-model floor, plus an **LLM editorial layer** (`/api/suggest`, aligned
   to the firm's KB voice, every quote verified verbatim) for wordiness / clarity / consistency.
   Each suggestion shows **why**, quoted from the user's own text, and routes through the exact same
-  review-and-apply card — same fidelity guarantees, nothing new to learn.
+  review-and-apply card — same fidelity guarantees, nothing new to learn. Those review decisions
+  also create the right future learning signal: once captured, each Keep / Discard / Adjust
+  outcome tells us whether a rubric rule produces genuinely useful suggestions, while
+  human-approved wording can reinforce the firm's voice profile. That improves both rubric and
+  data quality without promoting unreviewed model output into canonical source material.
 - **Operational polish** — clean `503`/`400`/`502` degradation on the AI routes, and a cross-model
   evaluation harness that keeps the editor from grading itself.
 
