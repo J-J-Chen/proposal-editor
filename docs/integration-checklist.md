@@ -8,8 +8,12 @@ is NOT deploy — prod is deployed explicitly, on the owner's say-so.
 - ✅ **Track C** — real `/api/edit` landed (guardrailed, structured output). Verified locally:
   `node scripts/e2e-verify.mjs http://localhost:3111` → ALL PASS (parse 15 blocks; edit changes
   text, preserves MECO, no preamble leak).
-- ⏳ **Track A** — `/api/parse` still the fixture stub. Its landing is the last cutover.
-- ⏳ **Track B+D** — full FE loop (a0). Builds against stub parse + real edit.
+- ✅ **Track A** — real `/api/parse` landed (mupdf extract → heuristics → LLM label-by-line-ref →
+  verbatim assemble; sha256 cache with committed L0 seeds). Mock fixture removed. Verified locally:
+  `e2e-verify` → parse 76 blocks (easy.pdf seed hit); a 12MB unseeded upload live-parses in 36s.
+  The stub→real cutover is done. `/api/parse` accepts JSON `{hash,filename}` (hit or 422
+  `needsUpload`) or a multipart `file` (full parse; 100MB body limit → no Blob).
+- ⏳ **Track B+D** — full FE loop (a0). Builds against the real parse + real edit contracts.
 - ⚠️ **Prod is still the CP1 deploy** — new routes are on main but NOT live. Closing the bar
   requires one prod deploy.
 

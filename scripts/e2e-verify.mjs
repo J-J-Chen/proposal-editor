@@ -28,7 +28,10 @@ async function post(path, body) {
 console.log(`e2e-verify against ${base}\n`);
 
 // --- 1. parse ---
-const parse = await post('/api/parse', { hash: 'e2e-smoke', filename: 'easy.pdf' });
+// easy.pdf's sha256 — hits the committed L0 parse-cache seed, so this is a pure cache-hit smoke
+// (no upload/LLM needed). A genuinely unknown hash now returns 422 { needsUpload:true } by design.
+const EASY_SHA = '03dd3ee8dd7962eb11fd67dd223cfdcdcd0e4f8957aa8622ac24d929cd8c5829';
+const parse = await post('/api/parse', { hash: EASY_SHA, filename: 'easy.pdf' });
 ok(parse.status === 200, `/api/parse → 200 (got ${parse.status})`);
 const blocks = parse.json?.doc?.blocks ?? [];
 ok(Array.isArray(blocks) && blocks.length > 0, `/api/parse → doc has blocks (got ${blocks.length})`);

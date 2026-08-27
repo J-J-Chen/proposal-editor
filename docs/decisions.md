@@ -262,3 +262,32 @@ date; an explicit "change the year to 2024" edit moves only that value.
 JSON-embedded-in-prose output (format/preamble leaks — the exact failure structured output kills);
 building the deterministic fidelity net now (that's CP5's eval + CP7's rubric — the prompt guardrail
 suffices to close the bar).
+
+### 2026-08-26 — CP2 parse built: verified on fixtures; tool-use output; single /api/parse; no Blob
+**Decision:** Track A (CP2) is implemented and verified end-to-end against the real fixtures, with
+three deltas from the plan:
+1. **LLM structured output via TOOL USE (`input_schema` + forced `tool_choice`)**, not the SDK's
+   `messages.parse()` — the latter was the plan's *unverified* path. Tool-use is confirmed to work
+   through the Buoyant proxy (structuring model `claude-sonnet-4-5`, i.e. `AI_MODELS.anthropicMain`).
+   Zod-validate the tool input; any failure → deterministic heuristic grouping (never crashes).
+2. **No Vercel Blob. One `/api/parse` route.** Vercel Functions now accept **100MB** request bodies
+   (up from 4.5MB), so the 13–18MB fixtures POST directly as multipart on a genuine miss — the
+   browser-hash + Blob-client-upload workaround is obsolete. Route: JSON `{hash,filename}` → cache
+   hit or `422 {needsUpload}`; multipart `file` → hash + full parse. Dropped the planned
+   `parse-check`/`upload` routes and the `@vercel/blob` dep.
+3. **Reading order = mupdf's native block/line order** (NOT a global y-sort): native order already
+   keeps easy.pdf's two-column SERVICES list unscrambled, whereas a y-sort *interleaves* the columns.
+   Column-clustering is kept only as a documented hedge for denser pages, not a default.
+**Verified (real fixtures, live server):** headings found by weight+ALL-CAPS+short at body 12pt
+(`OUR FIRM`/`SERVICES`/…; bold *mixed-case* names correctly excluded); shadow/dup cover text deduped;
+entities (`041-560`, `MO PE No. 022510`, phones, `$`) survive verbatim by construction. easy.pdf seed
+→ 76 blocks (instant hit); unseeded 12MB upload → live mupdf+LLM parse in ~36s (<60s `maxDuration`);
+`next build` bundles mupdf via `serverExternalPackages`; `e2e-verify` ALL PASS (parse+edit).
+**Caching:** sha256(bytes) key; **L0** committed seeds (`src/parse-cache/*.json` via a generated
+barrel — reliable serverless bundling, not runtime `fs.readdir`) + **L1** in-proc Map; no DB, no
+durable write-back. Seeds regenerate via `npm run seed` (a small node `--import` loader bridges the
+`@/` alias + mupdf's top-level await, which tsx mishandles).
+**Rejected:** `messages.parse()` structured output (unverified on the proxy); Blob client-upload +
+3-route split (obsoleted by the 100MB body limit); global y-sort reading order (scrambles columns);
+runtime directory scan for seeds (won't trace into the Vercel function). See
+[checkpoint 2](../plans/checkpoint-2-pdf-parse.md).
