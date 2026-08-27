@@ -27,6 +27,14 @@ Start here, then open the docs relevant to your task:
 5. **Don't squash history** (the brief wants to see how work evolved). Merges are `--no-ff`.
 6. **Decompose sensibly** — not everything in one file — but don't over-abstract a 4-hour app.
 7. **Log non-obvious decisions** in [docs/decisions.md](docs/decisions.md).
+8. **Port 3111 is reserved** for the shared always-on local test server (one owner, tracking
+   `origin/main`) so it's always available to test. Never run `next dev` on 3111 and never kill
+   it — use another port (3112+) for your own dev server.
+9. **Everything through `J-J-Chen`** — all commits/pushes use the personal `J-J-Chen` account
+   (repo-local `user.email` = jjchen2019@gmail.com); **no `john-strala` fingerprints anywhere**
+   (attributions, docs, paths). **Never `gh auth switch` the global account** (it races with the
+   other parallel sessions); `mq-land.sh` pushes via a process-scoped J-J-Chen credential — if a
+   push 403s, rely on that, don't flip the global account.
 
 ## Priorities (owner directive)
 **Speed first.** Correctness and perfect tests are good but not important. Milestones are not
