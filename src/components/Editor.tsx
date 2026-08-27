@@ -249,6 +249,9 @@ export function Editor() {
   const [state, dispatch] = useReducer(editorReducer, initialEditorState);
   const [view, setView] = useState<View>('open');
   const [docView, setDocView] = useState<DocView>('document');
+  // Snapshot of each block's ORIGINAL text (as parsed), so the Original-PDF overlay knows which
+  // blocks have been edited (their current text differs) and patches them in place.
+  const originalTextRef = useRef<Record<string, string>>({});
   const [openError, setOpenError] = useState<string | null>(null);
   const [note, setNote] = useState<{ kind: 'info' | 'warn'; text: string } | null>(null);
   const [confirm, setConfirm] = useState<{ token: string; kind: EntityKind; data: Pending } | null>(
@@ -279,6 +282,16 @@ export function Editor() {
   const originalAvailable = doc
     ? (RENDERED[doc.id]?.pages ?? doc.meta?.pages ?? 0) > 0
     : false;
+  // Blocks whose current text differs from the original — patched onto the Original-PDF view.
+  const editedText = useMemo(() => {
+    const out: Record<string, string> = {};
+    if (!doc) return out;
+    const orig = originalTextRef.current;
+    for (const b of doc.blocks) {
+      if (orig[b.id] !== undefined && b.text !== orig[b.id]) out[b.id] = b.text;
+    }
+    return out;
+  }, [doc]);
 
   useEffect(() => {
     if (!toast) return;
@@ -327,6 +340,7 @@ export function Editor() {
       // Cache hit → done. Genuine miss (unseen PDF) → push bytes to Blob, then parse by URL.
       const doc = 'doc' in r ? r.doc : file ? await parseByUpload(file, hash) : null;
       if (!doc) throw new Error('cache miss with no file to upload');
+      originalTextRef.current = Object.fromEntries(doc.blocks.map((b) => [b.id, b.text]));
       dispatch({ type: 'LOAD_DOC', doc });
       setDocView('document'); // always land on the editable surface
       setView('editor');
@@ -609,7 +623,13 @@ export function Editor() {
           <div className="docarea">
             {originalAvailable && <DocViewSwitch value={docView} onChange={setDocView} />}
             {docView === 'original' ? (
-              <PageView doc={doc} />
+              <PageView
+                doc={doc}
+                selectedId={selectedId}
+                editedText={editedText}
+                onSelect={onSelect}
+                onBackgroundClick={deselect}
+              />
             ) : (
               <DocumentView
                 doc={doc}

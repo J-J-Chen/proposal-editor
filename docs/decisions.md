@@ -424,3 +424,27 @@ real risk; the ceiling caps worst-case spend/request at ~⅓ of before regardles
 returns. Edits-before-repairs keeps coverage (the entity gate still flags any unrepaired drop).
 **Rejected:** auth/rate-limiting infra (out of scope for the take-home; a hard per-request ceiling
 is the cheap, sufficient guard); rejecting long history (trimming is friendlier and equally bounded).
+
+### 2026-08-26 — "Edit on the PDF": clickable paragraph overlay + patch-in-place (owner-directed)
+**Decision:** Upgrade the Original-PDF view from read-only to **editable on the page**: overlay each
+paragraph as a clickable region at its real location, and when an edit is applied, **patch the new
+wording in place** over the original (white mask + close web font + a thin green "changed" bar). The
+owner explicitly wanted "select it on the PDF and have the change show up there," and chose this
+overlay approach over full page reconstruction. It reuses the whole existing edit loop — clicking a
+region drives the same `onSelect`/`/api/edit`/review-card/Keep flow; selection toggles and a
+background click deselects, matching the document view.
+- **Block→location map, deterministic + LLM-free** (`scripts/seed-layout.ts` → committed
+  `src/parse-cache/layout.ts`): re-extract the PDF's text lines (with bboxes), then map each committed
+  block to its line run by matching the block's normalized text as a contiguous substring of the
+  joined line text; union bboxes → fractional rects (0..1 of page W/H) keyed by the stable block id.
+  Does NOT touch the parse seed (no re-parse, no changed ids). easy.pdf: 92/101 blocks mapped (the
+  misses are deduped cover/decorative text, not body paragraphs). Patched text sizes via CSS `cqh`
+  (container-query height) so it's scale-independent.
+**Why:** It's the closest thing to the owner's mental model that doesn't reopen the pixel-fidelity
+trap — edits land on the real-looking page, on the pages people actually edit (plain-background body
+text), while the clean document view remains the canonical editable surface.
+**Honest limits (documented, not hidden):** the patch uses a close system sans, not the exact
+subset-embedded ProximaNova; a much longer edit overflows its box (no reflow of following text); over
+a photo/watermark background the white mask would seam; unmapped blocks aren't clickable. Uploaded
+PDFs (no committed layout) fall back to the read-only preview. A perfect version is page
+reconstruction — deliberately deferred. Builds on the shipped read-only Original view (4b5114f).
