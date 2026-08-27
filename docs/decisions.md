@@ -328,3 +328,45 @@ on the raster (teases editability on a read-only image → dead clicks). A true 
 original look" via mupdf's `graftPage()` (copy unedited pages verbatim, rebuild only edited ones) is a
 noted **stretch**, not built. Full option space + rendered evidence:
 https://claude.ai/code/artifact/c95aac19-5fb2-4710-8191-e596aed3c2ad
+### 2026-08-26 — Refine LLM pass (/api/suggest): grounded, doc-derived voice, entity-safe
+**Decision:** The proactive Refine inbox gets an LLM layer, `POST /api/suggest` (`src/lib/suggest.ts`),
+that adds editorial depth **on top of** the client-side deterministic scan (`src/refine/scan.ts`) —
+the scan stays the instant floor; the two lists merge on the FE by `concat + dedupe on
+id=\`${category}:${blockId}\``. Three new grounded categories: **wordiness | clarity | consistency**.
+Three hard commitments: (1) every visible `why`/`evidence` quotes a span copied **verbatim from the
+block's own text** — the model returns the span, we verify it's a real substring and **drop** it
+otherwise (never free-form LLM justification, never the KB); (2) the `instruction` seed is
+**entity-safe** — a deterministic preserve clause + the block's own protected entities
+(`src/lib/entities.ts`) appended server-side, and the rewrite still runs through the guardrailed
+`/api/edit`; (3) **firm voice steers the model server-side only** and never enters the payload.
+Cached per `doc.id` (content hash); same 503/5xx convention as `/api/edit` (FE degrades silently to
+the scan floor on any failure). Main model (sonnet) since the result is cached.
+**Why (KB-voice sourcing):** John's hard constraint is that suggestions reflect the firm's
+*established* register, not generic editorial style. There is **no `/kb/` corpus in the repo yet**
+(only `plans/checkpoint-6`), so the register is derived from the **current document's own longest
+prose paragraphs** — genuinely the firm's own writing, self-contained, and it cannot leak into the
+UI (server-side prompt only). Forward-compatible: a real KB voice card feeds through the same helper
+when Track F lands one. Dropped a visible **'voice'** category on purpose — "matches firm voice"
+can't be grounded in the block's own words without surfacing the KB, so voice lives in the
+instruction's tone, not a citable card.
+**Rejected:** free-form LLM "why" prose (ungrounded — the exact trust failure the grounding rule
+forbids); trusting the model's evidence without a substring check (hallucinated quotes leak);
+hardcoded per-proposal/entity fixes (anti-gaming — general rubric only); blocking on a KB corpus
+that isn't built yet (doc-derived voice is a sound, shippable interim); a `'voice'` chip in the UI.
+### 2026-08-26 — Agentic chat: plan/edit split, propose-only, deterministic entity gate
+**Decision:** The always-available chat (multi-block edits) is a backend agent (`/api/chat` +
+`src/lib/agent`) that PROPOSES a batch of per-block edits and never applies — the FE reviews +
+Keeps/Discards as one grouped undo. Two stages: a **planner** (compact doc map → minimal set of
+`{blockId, instruction}`) and the **existing guarded `runEdit`** per block (reused verbatim, not
+re-implemented). A **deterministic entity gate** (`src/lib/agent/entity-gate.ts`) re-checks every
+proposed edit (protected entity present in `before` must appear verbatim in `after`); a drop gets
+one bounded repair retry, then ships flagged in `warnings[]`. New chat types live in
+`src/lib/agent/contract.ts`, not the frozen `contracts.ts`. Full spec + FE contract:
+[docs/agentic-chat.md](agentic-chat.md).
+**Why:** Plan/edit split makes the over-edit guard real (editor can only touch planned blocks) and
+caps spend (previews to plan, one block at a time to edit). The gate is a real server-side backstop
+because a batch invites skimming — the single-block flow only checks entities in the FE. Propose-only
+keeps the human-in-the-loop promise for sweeping edits.
+**Rejected:** applying edits server-side (breaks review/undo); one giant multi-block LLM rewrite
+(no per-block guardrail, no over-edit guard, entity drift, huge prompt); touching frozen
+`contracts.ts` during integration (kept chat types isolated to avoid FE merge churn).
