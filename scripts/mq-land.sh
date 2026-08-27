@@ -85,6 +85,12 @@ git push -q origin HEAD:main
 echo "$(date -u +%FT%TZ) LANDED $BRANCH -> $(git rev-parse --short HEAD)" >> "$LOG"
 echo "✓ landed $BRANCH into origin/main ($(git rev-parse --short HEAD))"
 
+# Keep the root's local `main` in sync with canonical (best-effort, never fatal) so the
+# root's `git log` never looks behind origin/main — the drift that confuses parallel sessions.
+if [ -z "$(git -C "$MAIN_ROOT" status --porcelain 2>/dev/null)" ]; then
+  git -C "$MAIN_ROOT" merge --ff-only origin/main >/dev/null 2>&1 || true
+fi
+
 # Optional cleanup of the FEATURE worktree + branch (never the root or queue worktree).
 if [ "$CLEANUP" = 1 ]; then
   WT="$(git worktree list --porcelain | awk -v b="refs/heads/$BRANCH" '
