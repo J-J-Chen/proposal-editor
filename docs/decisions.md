@@ -481,3 +481,23 @@ the visible applied patch all appeared broken even though the edit reducer was c
 **Rejected:** silently switching to the reconstructed document view for unmapped suggestions (it
 breaks the owner-directed edit-on-the-PDF mental model); accepting arbitrarily distant fragments
 (can create a huge white patch across unrelated page content).
+
+### 2026-08-27 — Follow-up refine is client-side (reuse `pending` + /api/edit)
+**Decision:** After the AI proposes a single-block edit, let the user keep nudging it
+("shorter", "keep the client name") in the review card before Keep/Discard, each turn rewriting
+the draft in place. Built entirely on the frontend: every refine turn is one more `requestEdit`
+call, and the result swaps into the existing `pending` reducer slot via `SET_PENDING`. Keep already
+applies whatever `pending.after` holds, so a whole original→refined-N-times session lands as ONE
+undo entry. A refine turn sends the CURRENT draft as the block text (so "shorter" shortens the
+latest wording) but carries the ORIGINAL in the instruction as reference (so "put the name back"
+can restore a dropped entity). The entity gate re-runs every turn against the ORIGINAL, never the
+intermediate draft.
+**Why:** the tight per-paragraph loop the brief centers on — a consultant refining one section — was
+a dead end (Keep or Discard only). Reusing the propose-only holder keeps undo, the diff baseline,
+and the entity guardrail correct for free, with no backend or contract change to coordinate.
+**Rejected:** routing through the agentic chat panel (mixes with multi-block chat, muddies the tight
+single-block loop, needs the planner/batch/grouped-undo machinery); extending the FROZEN EditRequest
+with a conversation/history field (per-block editor is single-turn by design; chaining the draft +
+original-as-reference covers the real refinement asks without a contract change); dispatching
+START_THINKING per turn (it wipes `pending` and the diff vanishes — a local `refining` flag keeps
+the card on screen instead).
