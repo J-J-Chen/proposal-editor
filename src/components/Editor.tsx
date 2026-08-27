@@ -20,13 +20,17 @@ import { parseByHash, parseByUpload, requestEdit } from '@/lib/client';
 import { extractEntities, protectedStrings, type EntityKind } from '@/lib/entities';
 import { isNoChange } from '@/lib/text/diff';
 import { DocumentView } from './DocumentView';
+import { PageView } from './PageView';
 import { EditPanel } from './EditPanel';
 import { ChangesPanel, StatusBar, Titlebar, type ChangeItem } from './AppChrome';
 import { RefinePanel } from './RefinePanel';
 import { scanForRefinements, type Suggestion } from '@/refine/scan';
+import { RENDERED } from '@/parse-cache/renders';
 import { IconCheck, IconFolder, IconShield } from './icons';
 
 type View = 'open' | 'reading' | 'editor';
+/** Which surface fills the canvas: the editable block model, or the faithful read-only PDF. */
+type DocView = 'document' | 'original';
 
 /** The bundled sample proposals — each sha256 cache-hits a committed parse seed (a real Doc). */
 type Sample = { hash: string; filename: string; title: string; subtitle: string };
@@ -194,9 +198,40 @@ function ConfirmModal({
   );
 }
 
+/** The "Your document | Original PDF" switch over the canvas — plain words, Word-familiar. */
+function DocViewSwitch({
+  value,
+  onChange,
+}: {
+  value: DocView;
+  onChange: (v: DocView) => void;
+}) {
+  return (
+    <div className="viewswitch" role="tablist" aria-label="How to view your proposal">
+      <button
+        role="tab"
+        aria-selected={value === 'document'}
+        className={value === 'document' ? 'on' : ''}
+        onClick={() => onChange('document')}
+      >
+        Your document
+      </button>
+      <button
+        role="tab"
+        aria-selected={value === 'original'}
+        className={value === 'original' ? 'on' : ''}
+        onClick={() => onChange('original')}
+      >
+        Original PDF
+      </button>
+    </div>
+  );
+}
+
 export function Editor() {
   const [state, dispatch] = useReducer(editorReducer, initialEditorState);
   const [view, setView] = useState<View>('open');
+  const [docView, setDocView] = useState<DocView>('document');
   const [openError, setOpenError] = useState<string | null>(null);
   const [note, setNote] = useState<{ kind: 'info' | 'warn'; text: string } | null>(null);
   const [confirm, setConfirm] = useState<{ token: string; kind: EntityKind; data: Pending } | null>(
@@ -221,6 +256,10 @@ export function Editor() {
     [doc, selectedId],
   );
   const section = doc && selectedId ? sectionOf(doc, selectedId) : null;
+  // Whether the faithful "Original PDF" view has pages to show (committed renders, or a page count).
+  const originalAvailable = doc
+    ? (RENDERED[doc.id]?.pages ?? doc.meta?.pages ?? 0) > 0
+    : false;
 
   useEffect(() => {
     if (!toast) return;
@@ -270,6 +309,7 @@ export function Editor() {
       const doc = 'doc' in r ? r.doc : file ? await parseByUpload(file, hash) : null;
       if (!doc) throw new Error('cache miss with no file to upload');
       dispatch({ type: 'LOAD_DOC', doc });
+      setDocView('document'); // always land on the editable surface
       setView('editor');
     } catch {
       setView('open');
@@ -534,14 +574,21 @@ export function Editor() {
       {view === 'reading' && <ReadingScreen />}
       {view === 'editor' && doc && (
         <div className="wbody">
-          <DocumentView
-            doc={doc}
-            selectedId={selectedId}
-            pulseId={highlightId ?? state.lastChangedId}
-            peekId={peekId}
-            onSelect={onSelect}
-            onBackgroundClick={deselect}
-          />
+          <div className="docarea">
+            {originalAvailable && <DocViewSwitch value={docView} onChange={setDocView} />}
+            {docView === 'original' ? (
+              <PageView doc={doc} />
+            ) : (
+              <DocumentView
+                doc={doc}
+                selectedId={selectedId}
+                pulseId={highlightId ?? state.lastChangedId}
+                peekId={peekId}
+                onSelect={onSelect}
+                onBackgroundClick={deselect}
+              />
+            )}
+          </div>
           {refineOpen && status === 'idle' && !pending ? (
             <RefinePanel
               suggestions={visibleSuggestions}

@@ -292,6 +292,42 @@ durable write-back. Seeds regenerate via `npm run seed` (a small node `--import`
 runtime directory scan for seeds (won't trace into the Vercel function). See
 [checkpoint 2](../plans/checkpoint-2-pdf-parse.md).
 
+### 2026-08-26 — "Original PDF" fidelity view: rasterize the real PDF (mupdf), don't reconstruct it
+**Decision:** Answer the owner's "make it look like an actual PDF (show images)" ask with a **read-only
+"Original PDF" view** — a faithful, scrollable stack of the real pages **rasterized by the mupdf we
+already ship** (`Page.toPixmap(Matrix.scale(1.5), DeviceRGB).asJPEG(80)`), shown behind a "Your
+document | Original PDF" toggle over the canvas. It sits **beside** the editable block model, never
+replaces it. No new dependency, **no AI spend** (pure CPU), frozen `Block`/`Doc` contract untouched.
+- **Two surfaces, mapped to the owner's two words** — "look like a PDF" = this faithful *original*
+  (shows the file as uploaded, so edits are intentionally NOT reflected on it); "the final PDF" =
+  a future print-CSS "Save as PDF" of the edited model. There is **no small trick that merges them**
+  (compositing edited text onto the branded page is the PDF-reconstruction trap — variable-length
+  edits overflow fixed geometry). Kept them as two clearly-labelled surfaces; the Original view
+  carries a visible **"view only"** banner so a page that looks like the document never invites a
+  dead click (the older-Word-user "broken Word" failure mode).
+- **Byte availability was the real work, not rendering.** Seeded docs (easy.pdf) reach the server as
+  `{hash}` only — no source bytes — so the graded demo would be blank. Fix: **pre-render the sample's
+  8 pages to committed static images** (`public/pages/<hash>/<n>.jpg`, ~1.1MB) via `scripts/seed-renders.ts`
+  (+ a generated `src/parse-cache/renders.ts` manifest), served straight from the CDN. Uploaded docs
+  render on demand at `GET /api/page/[hash]/[n]` from a small per-instance **byte LRU** populated
+  during parse; a cold/evicted miss returns 409 and the client shows a gentle "preview not available"
+  (the editable view is unaffected). `renders.ts`/seed-renders make **no LLM call** and never touch the
+  parse-cache Doc JSON, so a reseed can't perturb the frozen seeds.
+- **Deploy:** `outputFileTracingIncludes` now names `/api/page/[hash]/[n]` (and `/api/parse`) so each
+  mupdf lambda bundles its own `.wasm` — insurance against a missed auto-trace 500. Page images are
+  content-addressed (hash+page+scale immutable) → `Cache-Control: public, max-age=31536000, immutable`.
+**Why:** Highest fidelity for the lowest cost/risk — it IS the PDF, rendered, images and all — and it's
+fully additive (a second view + one GET route + a byte cache), so it composes with the edit loop / undo
+without reopening the "edit a model, not a PDF" bet. Coordinates need no y-flip (structured-text bbox and
+toPixmap share one top-left/y-down point space), verified on easy.pdf.
+**Rejected:** pdf.js in the browser (+~1.5MB JS + version-locked worker + ships the 13–18MB PDF client-side;
+its only edge — a selectable text layer — is exactly the "text-layer fighting" the architecture avoided);
+HTML layout reconstruction (absolute-positioned spans + extracted images — the documented budget-sink:
+subset-font export fight, kerning/column drift, and edits overflow their boxes); a clickable bbox overlay
+on the raster (teases editability on a read-only image → dead clicks). A true "final PDF that keeps the
+original look" via mupdf's `graftPage()` (copy unedited pages verbatim, rebuild only edited ones) is a
+noted **stretch**, not built. Full option space + rendered evidence:
+https://claude.ai/code/artifact/c95aac19-5fb2-4710-8191-e596aed3c2ad
 ### 2026-08-26 — Refine LLM pass (/api/suggest): grounded, doc-derived voice, entity-safe
 **Decision:** The proactive Refine inbox gets an LLM layer, `POST /api/suggest` (`src/lib/suggest.ts`),
 that adds editorial depth **on top of** the client-side deterministic scan (`src/refine/scan.ts`) —
