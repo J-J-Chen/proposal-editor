@@ -53,6 +53,15 @@ const GENERIC_STOP = new Set([
   'no', 'million', 'billion', 'thousand', 'new', 'set', 'water/wastewater',
   // units/measures (generic engineering vocabulary, NOT names) — keep the name metric focused on names
   'lf', 'vlf', 'gpm', 'mgd', 'mg', 'gal', 'sf', 'cy', 'ft', 'psi', 'mph', 'hp', 'kw', 'kv', 'mw', 'cfs', 'adt', 'dia', 'gpd',
+  // PRE-ANNOUNCED denominator correction (2026-08-27, owner-greenlit): generic process / role /
+  // section-label terms that a document uses as *labels*, never as proper entity names. Counting
+  // an ALL-CAPS section header ("EMPLOYEES") or a QA/QC process acronym as a "name" over-inflates
+  // the proper-noun denominator and understates fidelity. This is a generic CATEGORY (documented in
+  // README.md "methodology"), not tuning to observed values — real org/program acronyms
+  // (MECO, USDA, SRF, CDBG, ARRA, SCADA, IEPA, MoDOT, TAP) are deliberately NOT listed.
+  'qa', 'qc', 'qaqc', 'pm', 'rfq', 'rfp', 'rfi', 'faq', 'ceo', 'cfo', 'coo', 'vp', 'pic',
+  'employees', 'employee', 'staff', 'team', 'experience', 'expertise', 'overview', 'summary',
+  'contents', 'appendix', 'exhibit', 'managers', 'principal', 'senior', 'junior',
 ]);
 const ORG_SUFFIX = /\b(?:Inc|LLC|LLP|Co|Company|Corp|Corporation|Associates|Engineering|Group|Authority|District|Department|PWD)\b\.?/;
 
