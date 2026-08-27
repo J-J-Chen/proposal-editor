@@ -1606,6 +1606,62 @@ div.recent {
   font-size: 12px;
 }
 
+/* ---------------- Original PDF: edit-on-the-page overlay ---------------- */
+.orig-canvas {
+  position: relative;
+  aspect-ratio: 612 / 792;
+  container-type: size; /* lets patched text size in cqh (a % of the page's rendered height) */
+}
+.orig-canvas img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: fill; /* pages are exactly 612:792, so no distortion */
+  background: #f3f4f6;
+}
+/* one clickable paragraph region, positioned at the block's bbox (percent of the page) */
+.orig-region {
+  position: absolute;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: background 0.1s ease, outline-color 0.1s ease;
+  outline: 1px solid transparent;
+}
+.orig-region:hover {
+  background: rgba(31, 106, 134, 0.12);
+  outline-color: rgba(31, 106, 134, 0.4);
+}
+.orig-region.sel {
+  background: rgba(31, 106, 134, 0.1);
+  outline: 2px solid var(--accent);
+}
+/* an applied edit, patched in place: white mask over the original + the new wording. No full box —
+   a thin green "changed" bar only — so it still selects/hovers/deselects like any other paragraph. */
+.orig-region.edited {
+  background: #fff;
+  box-shadow: -3px 0 0 var(--added);
+  overflow: visible;
+}
+/* hover/selection work on an edited block too, but keep the white mask (never reveal the old text) */
+.orig-region.edited:hover {
+  background: #fff;
+  outline-color: var(--accent);
+}
+.orig-region.edited.sel {
+  background: #fff;
+  outline: 2px solid var(--accent);
+}
+.orig-patch {
+  display: block;
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+  color: #1a1a1a;
+  line-height: 1.18;
+  letter-spacing: -0.002em;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
 /* ---------------- agentic chat pane ---------------- */
 .pane.chat {
   gap: 12px;

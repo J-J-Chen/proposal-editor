@@ -7,7 +7,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
-import type { Block, Doc } from '@/lib/types';
+import type { Block, Doc, HistoryEntry } from '@/lib/types';
 import {
   canRedo,
   canUndo,
@@ -73,6 +73,20 @@ function relTime(iso: string): string {
   if (mins < 60) return `${mins} minute${mins === 1 ? '' : 's'} ago`;
   const hrs = Math.round(mins / 60);
   return `${hrs} hour${hrs === 1 ? '' : 's'} ago`;
+}
+
+/**
+ * Reconstruct each block's pristine (pre-edit) text from a restored snapshot, so the Original-PDF
+ * overlay (editedText) still highlights edits the user made before a soft refresh / reopen. Walks
+ * the applied history backwards; the earliest `before` for a block is its true original text.
+ */
+function originalTextMap(doc: Doc, history: HistoryEntry[], cursor: number): Record<string, string> {
+  const map: Record<string, string> = Object.fromEntries(doc.blocks.map((b) => [b.id, b.text]));
+  for (let i = Math.min(cursor, history.length) - 1; i >= 0; i--) {
+    const op = history[i].op;
+    if (op.kind === 'replace') map[op.blockId] = op.before;
+  }
+  return map;
 }
 
 async function sha256(file: File): Promise<string> {
@@ -324,6 +338,9 @@ export function Editor() {
   const [state, dispatch] = useReducer(editorReducer, initialEditorState);
   const [view, setView] = useState<View>('boot');
   const [docView, setDocView] = useState<DocView>('document');
+  // Snapshot of each block's ORIGINAL text (as parsed), so the Original-PDF overlay knows which
+  // blocks have been edited (their current text differs) and patches them in place.
+  const originalTextRef = useRef<Record<string, string>>({});
   const [openError, setOpenError] = useState<string | null>(null);
   const [note, setNote] = useState<{ kind: 'info' | 'warn'; text: string } | null>(null);
   const [confirm, setConfirm] = useState<{ token: string; kind: EntityKind; data: Pending } | null>(
@@ -367,6 +384,16 @@ export function Editor() {
   const originalAvailable = doc
     ? (RENDERED[doc.id]?.pages ?? doc.meta?.pages ?? 0) > 0
     : false;
+  // Blocks whose current text differs from the original — patched onto the Original-PDF view.
+  const editedText = useMemo(() => {
+    const out: Record<string, string> = {};
+    if (!doc) return out;
+    const orig = originalTextRef.current;
+    for (const b of doc.blocks) {
+      if (orig[b.id] !== undefined && b.text !== orig[b.id]) out[b.id] = b.text;
+    }
+    return out;
+  }, [doc]);
 
   useEffect(() => {
     if (!toast) return;
@@ -392,6 +419,7 @@ export function Editor() {
         cursor: sess.cursor,
         selectedId: sess.selectedId,
       });
+      originalTextRef.current = originalTextMap(sess.doc, sess.history, sess.cursor);
       setDocView(sess.docView === 'original' ? 'original' : 'document');
       setView('editor');
     } else {
@@ -475,6 +503,8 @@ export function Editor() {
           cursor: existing.cursor,
           selectedId: existing.selectedId,
         });
+        // Baseline for the Original-PDF overlay: pristine text before any restored edits.
+        originalTextRef.current = originalTextMap(existing.doc, existing.history, existing.cursor);
         setDocView(existing.docView === 'original' ? 'original' : 'document');
         setView('editor');
         setActive(hash);
@@ -507,6 +537,7 @@ export function Editor() {
           loaded = await parseByBlobUrl(hash, filename, opts.blobUrl); // reopen an upload
         }
         if (!loaded) throw new Error('cache miss with no bytes to parse');
+        originalTextRef.current = Object.fromEntries(loaded.blocks.map((b) => [b.id, b.text]));
         dispatch({ type: 'LOAD_DOC', doc: loaded });
         setDocView('document'); // always land on the editable surface
         setView('editor');
@@ -580,6 +611,7 @@ export function Editor() {
           cursor: sess.cursor,
           selectedId: sess.selectedId,
         });
+        originalTextRef.current = originalTextMap(sess.doc, sess.history, sess.cursor);
         setDocView(sess.docView === 'original' ? 'original' : 'document');
         setView('editor');
         setActive(r.id);
@@ -983,7 +1015,13 @@ export function Editor() {
           <div className="docarea">
             {originalAvailable && <DocViewSwitch value={docView} onChange={setDocView} />}
             {docView === 'original' && originalAvailable ? (
-              <PageView doc={doc} />
+              <PageView
+                doc={doc}
+                selectedId={selectedId}
+                editedText={editedText}
+                onSelect={onSelect}
+                onBackgroundClick={deselect}
+              />
             ) : (
               <DocumentView
                 doc={doc}
