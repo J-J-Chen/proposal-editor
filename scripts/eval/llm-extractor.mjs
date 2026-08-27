@@ -62,7 +62,9 @@ async function openai() {
   return _openai;
 }
 
-const EXTRACT_MODEL = process.env.OPENAI_SMALL_MODEL ?? 'gpt-4o-mini';
+// A strong cross-provider model (owner cleared "as powerful as you want"). Cross-provider from the
+// Anthropic editor by construction, so the editor never grades itself. Override with EXTRACT_MODEL.
+const EXTRACT_MODEL = process.env.EXTRACT_MODEL ?? 'gpt-4.1';
 
 /**
  * Diff-aware entity check. Returns { missing: [{entity, issue}] } or null if unavailable/errored.
@@ -98,17 +100,23 @@ export async function crossModelEntityDiff({ before, after }) {
 }
 
 /**
- * One-shot effectiveness judge for the hard instructions. Returns { applied: bool, why } or null.
+ * Applicability-aware effectiveness judge. Returns { applicable, applied, why } or null.
+ * `applicable` lets the harness EXCLUDE legitimate no-ops (fix-grammar on already-correct text,
+ * make-formal on an already-formal header) from the effectiveness denominator instead of scoring
+ * them as failures — the effectiveness rate is then applied / applicable.
  */
 export async function effectivenessJudge({ before, after, instruction }) {
   if (!isLlmAvailable()) return null;
   const prompt = [
-    'A document editor was told to apply an instruction to a sentence. Judge ONLY whether the',
-    'instruction was actually carried out (not whether entities were preserved).',
+    'A proposal editor was told to apply an instruction to a sentence. Answer two things, judging',
+    'ONLY the instruction (not entity preservation):',
+    '1. applicable: would a competent editor make ANY change to BEFORE for this instruction, or is',
+    '   BEFORE already fine as-is (a short header, an already-formal/already-correct line)?',
+    '2. applied: did AFTER actually carry out the instruction?',
     `INSTRUCTION: ${instruction}`,
     `BEFORE: """${before}"""`,
     `AFTER: """${after}"""`,
-    'Respond with strict JSON: {"applied": true|false, "why": "one short clause"}.',
+    'Respond with strict JSON: {"applicable": true|false, "applied": true|false, "why": "one short clause"}.',
   ].join('\n');
   try {
     const client = await openai();
@@ -119,9 +127,9 @@ export async function effectivenessJudge({ before, after, instruction }) {
       messages: [{ role: 'user', content: prompt }],
     });
     const parsed = JSON.parse(res.choices[0]?.message?.content ?? '{}');
-    return { applied: !!parsed.applied, why: String(parsed.why ?? '') };
+    return { applicable: parsed.applicable !== false, applied: !!parsed.applied, why: String(parsed.why ?? '') };
   } catch (err) {
-    return { error: err instanceof Error ? err.message : String(err), applied: null };
+    return { error: err instanceof Error ? err.message : String(err), applicable: null, applied: null };
   }
 }
 
