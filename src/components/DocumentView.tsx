@@ -6,11 +6,14 @@ export function DocumentView({
   doc,
   selectedId,
   pulseId,
+  peekId,
   onSelect,
 }: {
   doc: Doc;
   selectedId: string | null;
   pulseId: string | null;
+  /** A block being previewed from the Refine list (hover) — steady reveal, not a one-shot pulse. */
+  peekId: string | null;
   onSelect: (id: string) => void;
 }) {
   const titleId = doc.blocks.find((b) => b.type === 'heading')?.id;
@@ -24,6 +27,7 @@ export function DocumentView({
             selected={b.id === selectedId}
             dim={false}
             pulse={b.id === pulseId}
+            peek={b.id === peekId}
             isTitle={b.id === titleId}
             onSelect={onSelect}
           />

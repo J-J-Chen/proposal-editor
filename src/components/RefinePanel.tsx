@@ -20,6 +20,7 @@ export function RefinePanel({
   onFix,
   onDismiss,
   onGoto,
+  onPeek,
   onClose,
 }: {
   suggestions: Suggestion[];
@@ -27,6 +28,8 @@ export function RefinePanel({
   onFix: (s: Suggestion) => void;
   onDismiss: (id: string) => void;
   onGoto: (blockId: string) => void;
+  /** Hovering a card reveals its section in the document; null clears the reveal. */
+  onPeek: (blockId: string | null) => void;
   onClose: () => void;
 }) {
   const n = suggestions.length;
@@ -58,11 +61,17 @@ export function RefinePanel({
         </div>
       ) : (
         suggestions.map((s) => (
-          <div className="refcard" key={s.id}>
+          <div
+            className="refcard"
+            key={s.id}
+            onMouseEnter={() => onPeek(s.blockId)}
+            onMouseLeave={() => onPeek(null)}
+          >
             <button className="refcard-body" onClick={() => onGoto(s.blockId)} title="Show me where">
               <span className={`rf-cat ${s.category}`}>{CAT_LABEL[s.category]}</span>
               <span className="rf-title">{s.title}</span>
               <span className="rf-why">{s.why}</span>
+              <span className="rf-where">Hover to see this part · click to jump to it</span>
             </button>
             <div className="rf-act">
               <button className="mini-keep" onClick={() => onFix(s)}>

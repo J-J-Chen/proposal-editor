@@ -27,7 +27,9 @@ const QUICK_ACTIONS = [
   { instruction: 'Make it more formal', desc: 'Change how it sounds', Icon: IconFormal },
 ] as const;
 
-const EXAMPLES = ['Make it more formal', 'Add our bridge experience', 'Say this more simply'];
+// Examples must never invite the model to invent facts (no "add our bridge experience" — there's
+// no KB behind it, so it would fabricate). These only reshape the block's own words.
+const EXAMPLES = ['Make it more formal', 'Make the tone more confident', 'Say this more simply'];
 
 function echo(text: string): string {
   const t = text.trim().replace(/\s+/g, ' ');
@@ -44,6 +46,14 @@ const Reassure = () => (
   </div>
 );
 
+// Shown only when this edit came from the "Check my proposal" list — a way back to the other
+// suggestions without having to Keep or Discard first.
+const BackToSuggestions = ({ onBack }: { onBack: () => void }) => (
+  <button className="pane-back" onClick={onBack}>
+    <span aria-hidden="true">←</span> Back to suggestions
+  </button>
+);
+
 export function EditPanel({
   selectedBlock,
   section,
@@ -56,6 +66,7 @@ export function EditPanel({
   onDiscard,
   onCancel,
   onCheck,
+  onBack,
 }: {
   selectedBlock: Block | null;
   section: string | null;
@@ -68,6 +79,8 @@ export function EditPanel({
   onDiscard: () => void;
   onCancel: () => void;
   onCheck: () => void;
+  /** Present only during a "Check my proposal" fix — returns to the suggestion list. */
+  onBack?: () => void;
 }) {
   const [freeText, setFreeText] = useState('');
 
@@ -114,6 +127,7 @@ export function EditPanel({
   if (status === 'thinking') {
     return (
       <aside className="pane">
+        {onBack && <BackToSuggestions onBack={onBack} />}
         {header}
         <div className="thinking">
           <div className="tdots">
@@ -139,6 +153,7 @@ export function EditPanel({
   if (pending) {
     return (
       <aside className="pane">
+        {onBack && <BackToSuggestions onBack={onBack} />}
         {header}
         <DiffView pending={pending} onKeep={onKeep} onDiscard={onDiscard} />
       </aside>
@@ -174,7 +189,7 @@ export function EditPanel({
         <textarea
           value={freeText}
           onChange={(e) => setFreeText(e.target.value)}
-          placeholder="For example: add our bridge experience"
+          placeholder="For example: make the tone more confident"
           onKeyDown={(e) => {
             if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submitFree();
           }}

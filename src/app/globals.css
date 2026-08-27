@@ -269,17 +269,30 @@ button {
     background: transparent;
   }
 }
-.sel-tag {
+/* Steady reveal while a Refine suggestion is hovered — a full ring so it reads as "this one",
+   distinct from selection's left bar. */
+.block.peek {
+  background: var(--accent-tint);
+  box-shadow: inset 0 0 0 2px var(--sel-bar);
+}
+.sel-tag,
+.peek-tag {
   position: absolute;
   top: -12px;
   left: 10px;
-  background: var(--sel-bar);
   color: #fff;
   font-family: var(--font-ui);
   font-size: 12px;
   font-weight: 600;
   padding: 2px 10px;
   border-radius: 6px;
+  white-space: nowrap;
+}
+.sel-tag {
+  background: var(--sel-bar);
+}
+.peek-tag {
+  background: var(--accent-deep);
 }
 .prot {
   background: var(--protect);
@@ -356,6 +369,30 @@ button {
   letter-spacing: 0.03em;
   text-transform: uppercase;
   color: var(--muted);
+}
+/* "← Back to suggestions" — shown above the pane header during a Refine-driven edit. */
+.pane-back {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  padding: 2px 4px;
+  margin: -6px 0 -6px -4px;
+  border-radius: 6px;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent-deep);
+  cursor: pointer;
+}
+.pane-back:hover {
+  text-decoration: underline;
+}
+.pane-back span {
+  font-size: 17px;
+  line-height: 1;
 }
 .reassure {
   font-size: 13px;
@@ -778,6 +815,19 @@ button {
   font-size: 13.5px;
   line-height: 1.45;
   color: var(--muted);
+}
+/* A quiet hint that appears on hover, when the target section is already lit up in the document. */
+.rf-where {
+  display: block;
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent-deep);
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.refcard:hover .rf-where {
+  opacity: 1;
 }
 .rf-act {
   border-top: 1px solid var(--line);
