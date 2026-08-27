@@ -26,6 +26,8 @@ export interface ChatBatch {
   edits: ChatEdit[];
   /** The cursor the batch was proposed against — all edits apply against this one base. */
   baseCursor: number;
+  /** The doc.id the batch was proposed against — guards against applying to the wrong proposal. */
+  docId: string;
 }
 
 const EXAMPLES = [

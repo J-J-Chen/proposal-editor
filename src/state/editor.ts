@@ -25,6 +25,9 @@ export interface Pending {
   protectedKept: string[];
   /** Guards against applying after the user undid mid-review. */
   baseCursor: number;
+  /** For a chat batch: the doc.id it was proposed against — guards against applying to the wrong
+   *  proposal after a document switch (block IDs are content-derived, so they can collide). */
+  docId?: string;
 }
 
 export interface EditorState {
@@ -199,17 +202,27 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
     case 'KEEP_BATCH': {
       const { batch } = action;
       if (!state.doc || batch.length === 0) return state;
+      // Wrong document: a stale batch proposed against a doc the user has since switched away from.
+      // (Block IDs are content-derived, so easy/hard can share IDs — never apply cross-doc.)
+      if (batch[0].docId !== state.doc.id) return { ...state, pending: null };
       // One shared base: if the user undid since the batch was proposed, drop it wholesale.
       if (batch[0].baseCursor !== state.cursor) return { ...state, pending: null };
 
       const at = new Date().toISOString();
       const groupId = `batch-${state.cursor}-${at}`; // unique among live entries
       let doc = state.doc;
-      const entries: HistoryEntry[] = batch.map((p) => {
+      const entries: HistoryEntry[] = [];
+      for (const p of batch) {
+        // Apply only to a block that still exists AND whose text is exactly what was proposed
+        // against — so a since-changed block is never silently overwritten, and the applied count
+        // is TRUE (the caller's toast can't overstate).
+        const cur = doc.blocks.find((b) => b.id === p.blockId);
+        if (!cur || cur.text !== p.before) continue;
         const op: EditOp = { kind: 'replace', blockId: p.blockId, before: p.before, after: p.after };
         doc = applyOp(doc, op);
-        return { op, at, source: 'ai', rationale: p.rationale, groupId };
-      });
+        entries.push({ op, at, source: 'ai', rationale: p.rationale, groupId });
+      }
+      if (entries.length === 0) return { ...state, pending: null }; // nothing applied — no false history
       // Redo-invalidation: drop any abandoned redo future, then append the whole group.
       const history = state.history.slice(0, state.cursor).concat(entries);
       return {
@@ -218,7 +231,7 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         history,
         cursor: state.cursor + entries.length,
         pending: null,
-        lastChangedId: batch[batch.length - 1].blockId,
+        lastChangedId: opBlockId(entries[entries.length - 1].op),
       };
     }
 
