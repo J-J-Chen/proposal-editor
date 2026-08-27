@@ -628,7 +628,8 @@ button {
   margin: 8px 0 5px;
 }
 .oldbox,
-.newbox {
+.newbox,
+.diffbox {
   margin: 0 16px;
   border-radius: 9px;
   padding: 12px 14px;
@@ -644,6 +645,12 @@ button {
 .newbox {
   background: var(--newbox);
   border: 1px solid var(--newbox-border);
+}
+/* The "What changed" box carries the inline marks; a neutral ground makes the
+   red strikethrough / green underline read clearly against the plain new box above. */
+.diffbox {
+  background: #fff;
+  border: 1px solid var(--line);
 }
 .rm {
   color: var(--removed);
