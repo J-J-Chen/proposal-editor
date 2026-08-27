@@ -5,7 +5,9 @@ review-and-diff loop. Built for the Buoyant Founding Engineer take-home.
 
 **Live app:** https://proposal-editor-sandy.vercel.app
 
-> Status: Checkpoint 1 done — app scaffolded and deployed; the edit loop lands in CP2–CP4.
+> Status: CP1 done (scaffold + deploy). UI foundation in progress — the select → edit → review →
+> keep/undo loop runs on a seeded document with a mock suggestion; real parse (CP2) + real AI edit
+> route (CP4) slot in behind the same interfaces.
 > This README is graded and gets filled in during Checkpoint 5.
 > See `plans/00-overview.md` for the plan and `AGENTS.md` for how the repo works.
 
@@ -22,7 +24,29 @@ npm run dev
 ---
 
 ## Design decisions
-_TODO (CP5): PDF representation, agent design, UX — with brief justifications._
+_Full rationale in [docs/architecture.md](docs/architecture.md) (model) and
+[docs/design-ui.md](docs/design-ui.md) (UI); the decision log is [docs/decisions.md](docs/decisions.md)._
+
+- **Edit a structured block model, not the PDF.** Parse each PDF once into an ordered list of typed
+  blocks, render as clean semantic HTML, and run the whole edit loop on that. Selection = clicking a
+  DOM node; apply = replace `block.text`; compose + undo fall out. Pixel-fidelity to the PDF is
+  dropped on purpose (the brief blesses this — the problem is structure *recovery*, not reconstruction).
+- **Hybrid parse, cached by file hash.** Deterministic text+layout extraction (mupdf/WASM) →
+  heuristics do ~80% of structuring → one cheap LLM call labels lines *by reference* (never re-emits
+  text, so proper nouns/numbers can't be corrupted). Cached so each file is parsed once.
+- **UX built for a Word-native, non-technical user — "recognisable, not identical."** The audience
+  lives in MS Word. We borrow Word's **habits and plain words** (Open not Upload; review a suggested
+  change and Keep/Discard it; Undo/Redo top-left; a page that looks like a document; a helper pane on
+  the right) but give the product its **own calm skin** rather than cloning the ribbon (a faithful
+  clone hits the "broken Word" uncanny valley). The AI's change is shown as a **calm stacked "the
+  wording now / the suggested new wording" card**, not a developer diff; protected names/numbers are
+  visibly preserved (gold tint + a confirm to change one). See the mockups:
+  [Familiar as Word](https://claude.ai/code/artifact/acc75563-5a8d-463f-9fbc-97e8623d4404).
+- **Undo/redo as an inverse-command log + cursor** (one array, no second stack); reject-isolation and
+  redo-invalidation correct by construction; the log doubles as the audit trail.
+- **AI only via the Buoyant proxy, server-side**, structured output, with a hard guardrail: change
+  only what's asked, **preserve every proper noun, project number, and dollar figure**.
+- **No database by default** — client state (optional localStorage/Blob for the parse cache).
 
 ## What I cut and why
 _TODO (CP5): specifics._

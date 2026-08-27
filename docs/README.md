@@ -13,6 +13,7 @@ hard rules; this KB holds the reasoning.)
 | [assignment-notion.md](assignment-notion.md) | The full Buoyant brief, verbatim (offline source of truth). |
 | [goals.md](goals.md) | Goals, priorities (speed-first), success criteria, explicit non-goals. |
 | [architecture.md](architecture.md) | The design + reasoning: editable-model bet, parse, block model, edit loop, eval. |
+| [design-ui.md](design-ui.md) | The editor UI: the "familiar-not-clone" principle, the chosen "Assistant" direction, confirmed UX decisions, tokens. |
 | [decisions.md](decisions.md) | The decision log — what we chose, why, and alternatives rejected. |
 | [fixtures.md](fixtures.md) | The provided PDFs (recon facts), fixture paths, the product KB corpus. |
 | [workflow.md](workflow.md) | How we work: worktrees + merge queue, env/secrets, GitHub account. |
