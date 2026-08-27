@@ -424,3 +424,6 @@ real risk; the ceiling caps worst-case spend/request at ~⅓ of before regardles
 returns. Edits-before-repairs keeps coverage (the entity gate still flags any unrepaired drop).
 **Rejected:** auth/rate-limiting infra (out of scope for the take-home; a hard per-request ceiling
 is the cheap, sufficient guard); rejecting long history (trimming is friendlier and equally bounded).
+**Follow-up (same wave):** per-block input cap `maxBlockChars` (8000) — a pathologically large block
+is SKIPPED from editing before any model call (truncating edit input would drop its tail from the
+proposed rewrite) and surfaced honestly in the reply. Closes the last unbounded per-edit input vector.
