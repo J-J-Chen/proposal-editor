@@ -50,6 +50,14 @@ export const initialEditorState: EditorState = {
 
 export type EditorAction =
   | { type: 'LOAD_DOC'; doc: Doc }
+  /** Restore a saved working snapshot (soft-refresh / reopen a recent) — doc + full undo log. */
+  | {
+      type: 'HYDRATE';
+      doc: Doc;
+      history: HistoryEntry[];
+      cursor: number;
+      selectedId: string | null;
+    }
   | { type: 'SELECT'; blockId: string | null }
   | { type: 'START_THINKING' }
   | { type: 'SET_PENDING'; pending: Pending }
@@ -134,6 +142,16 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
   switch (action.type) {
     case 'LOAD_DOC':
       return { ...initialEditorState, doc: action.doc };
+
+    case 'HYDRATE':
+      // Trust the applied doc + undo log from the snapshot; drop any transient review state.
+      return {
+        ...initialEditorState,
+        doc: action.doc,
+        history: action.history,
+        cursor: Math.max(0, Math.min(action.cursor, action.history.length)),
+        selectedId: action.selectedId,
+      };
 
     case 'SELECT':
       // Selecting elsewhere clears any proposal under review (stale-pending guard).

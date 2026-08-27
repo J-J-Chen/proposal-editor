@@ -7,7 +7,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
-import type { Block, Doc } from '@/lib/types';
+import type { Block, Doc, HistoryEntry } from '@/lib/types';
 import {
   canRedo,
   canUndo,
@@ -16,7 +16,18 @@ import {
   sectionOf,
   type Pending,
 } from '@/state/editor';
-import { parseByHash, parseByUpload, requestEdit, requestSuggestions } from '@/lib/client';
+import { parseByHash, parseByUpload, parseByBlobUrl, requestEdit, requestSuggestions } from '@/lib/client';
+import {
+  loadRecents,
+  touchRecent,
+  removeRecent as removeRecentEntry,
+  loadActive,
+  setActive,
+  loadSession,
+  saveSession,
+  type RecentDoc,
+  type DocSource,
+} from '@/lib/persist';
 import { extractEntities, protectedStrings, type EntityKind } from '@/lib/entities';
 import { isNoChange } from '@/lib/text/diff';
 import { DocumentView } from './DocumentView';
@@ -31,7 +42,9 @@ import type { ChatTurn } from '@/lib/agent/contract';
 import { RENDERED } from '@/parse-cache/renders';
 import { IconCheck, IconFolder, IconShield } from './icons';
 
-type View = 'open' | 'reading' | 'editor';
+// 'boot' = the first client tick, before we've read localStorage — avoids flashing the Open
+// screen when we're about to restore a document the user was working on.
+type View = 'boot' | 'open' | 'reading' | 'editor';
 /** Which surface fills the canvas: the editable block model, or the faithful read-only PDF. */
 type DocView = 'document' | 'original';
 
@@ -62,6 +75,20 @@ function relTime(iso: string): string {
   return `${hrs} hour${hrs === 1 ? '' : 's'} ago`;
 }
 
+/**
+ * Reconstruct each block's pristine (pre-edit) text from a restored snapshot, so the Original-PDF
+ * overlay (editedText) still highlights edits the user made before a soft refresh / reopen. Walks
+ * the applied history backwards; the earliest `before` for a block is its true original text.
+ */
+function originalTextMap(doc: Doc, history: HistoryEntry[], cursor: number): Record<string, string> {
+  const map: Record<string, string> = Object.fromEntries(doc.blocks.map((b) => [b.id, b.text]));
+  for (let i = Math.min(cursor, history.length) - 1; i >= 0; i--) {
+    const op = history[i].op;
+    if (op.kind === 'replace') map[op.blockId] = op.before;
+  }
+  return map;
+}
+
 async function sha256(file: File): Promise<string> {
   try {
     const buf = await file.arrayBuffer();
@@ -73,60 +100,119 @@ async function sha256(file: File): Promise<string> {
 }
 
 function OpenScreen({
+  recents,
+  activeId,
+  hasOpenDoc,
   onSample,
   onFile,
+  onOpenRecent,
+  onRemoveRecent,
+  onBackToDoc,
   error,
 }: {
+  recents: RecentDoc[];
+  activeId: string | null;
+  hasOpenDoc: boolean;
   onSample: (s: Sample) => void;
   onFile: (f: File) => void;
+  onOpenRecent: (r: RecentDoc) => void;
+  onRemoveRecent: (id: string) => void;
+  onBackToDoc: () => void;
   error: string | null;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   return (
     <div className="backstage">
-      <div className="bs-title">Start by opening your proposal</div>
-      <div
-        className="bs-drop"
-        onDragOver={(e) => e.preventDefault()}
-        onDrop={(e) => {
-          e.preventDefault();
-          const f = e.dataTransfer.files?.[0];
-          if (f) onFile(f);
-        }}
-      >
-        <input
-          ref={inputRef}
-          id="proposal-file"
-          name="proposal-file"
-          aria-label="Choose a proposal PDF"
-          type="file"
-          accept="application/pdf,.pdf"
-          hidden
-          onChange={(e) => {
-            const f = e.target.files?.[0];
+      <div className="bs-inner">
+        {hasOpenDoc && (
+          <button className="bs-back" onClick={onBackToDoc}>
+            ← Back to your document
+          </button>
+        )}
+        <div className="bs-title">
+          {recents.length > 0 ? 'Open a proposal' : 'Start by opening your proposal'}
+        </div>
+        <div
+          className="bs-drop"
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault();
+            const f = e.dataTransfer.files?.[0];
             if (f) onFile(f);
           }}
-        />
-        <button className="bs-open" onClick={() => inputRef.current?.click()}>
-          <IconFolder />
-          Open a proposal
-        </button>
-        <span className="bs-or">Choose a PDF from your computer — or drag it here.</span>
-      </div>
-      {SAMPLES.map((s) => (
-        <button key={s.hash} className="recent" onClick={() => onSample(s)}>
-          <span className="thumb" />
-          <span className="rt">
-            <b>{s.title}</b>
-            <span>{s.subtitle}</span>
-          </span>
-        </button>
-      ))}
-      {error && (
-        <div className="pane-note warn" style={{ maxWidth: 480 }}>
-          {error}
+        >
+          <input
+            ref={inputRef}
+            id="proposal-file"
+            name="proposal-file"
+            aria-label="Choose a proposal PDF"
+            type="file"
+            accept="application/pdf,.pdf"
+            hidden
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) onFile(f);
+            }}
+          />
+          <button className="bs-open" onClick={() => inputRef.current?.click()}>
+            <IconFolder />
+            Open a proposal
+          </button>
+          <span className="bs-or">Choose a PDF from your computer — or drag it here.</span>
         </div>
-      )}
+
+        {recents.length > 0 && (
+          <div className="bs-group">
+            <div className="bs-section">Recent</div>
+            {recents.map((r) => {
+              const current = r.id === activeId;
+              const meta = `${r.source === 'sample' ? 'Sample' : 'PDF'}${
+                r.pages ? ` · ${r.pages} page${r.pages === 1 ? '' : 's'}` : ''
+              } · ${current ? 'currently open' : `opened ${relTime(r.lastOpenedAt)}`}`;
+              return (
+                <div className={`recent${current ? ' current' : ''}`} key={r.id}>
+                  <button className="recent-open" onClick={() => onOpenRecent(r)}>
+                    <span className="thumb" />
+                    <span className="rt">
+                      <b>{r.filename}</b>
+                      <span>{meta}</span>
+                    </span>
+                  </button>
+                  {!current && (
+                    <button
+                      className="recent-x"
+                      title="Remove from recent"
+                      aria-label={`Remove ${r.filename} from recent`}
+                      onClick={() => onRemoveRecent(r.id)}
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="bs-group">
+          <div className="bs-section">Sample proposals</div>
+          {SAMPLES.map((s) => (
+            <button key={s.hash} className="recent" onClick={() => onSample(s)}>
+              <span className="thumb" />
+              <span className="rt">
+                <b>{s.title}</b>
+                <span>{s.subtitle}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {error && (
+          <div className="pane-note warn" style={{ maxWidth: 480 }}>
+            {error}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -250,7 +336,7 @@ function mergeSuggestions(doc: Doc, clientScan: Suggestion[], server: Suggestion
 
 export function Editor() {
   const [state, dispatch] = useReducer(editorReducer, initialEditorState);
-  const [view, setView] = useState<View>('open');
+  const [view, setView] = useState<View>('boot');
   const [docView, setDocView] = useState<DocView>('original');
   // Snapshot of each block's ORIGINAL text (as parsed), so the Original-PDF overlay knows which
   // blocks have been edited (their current text differs) and patches them in place.
@@ -281,6 +367,12 @@ export function Editor() {
   const reqRef = useRef(0);
   const suggestReqRef = useRef(0); // guards a stale /api/suggest response from a superseded scan
   const chatReqRef = useRef(0); // guards a stale /api/chat response from a superseded turn
+  // Recent documents (localStorage) + a guard so autosave never fires before the first restore.
+  const [recents, setRecents] = useState<RecentDoc[]>([]);
+  const hydratedRef = useRef(false);
+  // Whether the last autosave actually reached localStorage (false = private mode / full quota),
+  // so the "All changes saved" reassurance is never shown dishonestly.
+  const [persistOk, setPersistOk] = useState(true);
 
   const { doc, selectedId, pending, status } = state;
   const selectedBlock = useMemo(
@@ -308,6 +400,51 @@ export function Editor() {
     const t = setTimeout(() => setToast(null), 3800);
     return () => clearTimeout(t);
   }, [toast]);
+
+  // Restore on first client tick: the Recent list, and the document the user last had open
+  // (with its edits + undo history). This MUST be an effect, not a lazy state initializer:
+  // localStorage doesn't exist during SSR, so reading it at render time would desync the
+  // server/client hydration. The synchronous setState here is the intended one-time "sync on
+  // mount", which is why the set-state-in-effect rule is disabled just for this block.
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    setRecents(loadRecents());
+    const active = loadActive();
+    const sess = active ? loadSession(active) : null;
+    if (sess) {
+      dispatch({
+        type: 'HYDRATE',
+        doc: sess.doc,
+        history: sess.history,
+        cursor: sess.cursor,
+        selectedId: sess.selectedId,
+      });
+      originalTextRef.current = originalTextMap(sess.doc, sess.history, sess.cursor);
+      setDocView(sess.docView === 'original' ? 'original' : 'document');
+      setView('editor');
+    } else {
+      setView('open');
+    }
+    hydratedRef.current = true;
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, []);
+
+  // Autosave the working snapshot on every change, so a soft refresh restores the doc + edits.
+  // Transient state (pending review, thinking) is intentionally never persisted.
+  useEffect(() => {
+    if (!hydratedRef.current || view !== 'editor' || !doc) return;
+    setActive(doc.id);
+    const ok = saveSession({
+      docId: doc.id,
+      doc,
+      history: state.history,
+      cursor: state.cursor,
+      docView,
+      selectedId,
+      savedAt: new Date().toISOString(),
+    });
+    setPersistOk(ok);
+  }, [view, doc, state.history, state.cursor, docView, selectedId]);
 
   // Clear a settled selection — clicking blank space, or pressing Escape. Guarded so it never
   // yanks a change out from under the user while they're mid-edit (thinking or reviewing).
@@ -342,37 +479,156 @@ export function Editor() {
     return () => window.removeEventListener('keydown', onKey);
   }, [view, deselect]);
 
-  const openDoc = useCallback(async (hash: string, filename: string, file?: File) => {
-    setOpenError(null);
-    setView('reading');
-    try {
-      const r = await parseByHash(hash, filename);
-      // Cache hit → done. Genuine miss (unseen PDF) → push bytes to Blob, then parse by URL.
-      const doc = 'doc' in r ? r.doc : file ? await parseByUpload(file, hash) : null;
-      if (!doc) throw new Error('cache miss with no file to upload');
-      originalTextRef.current = Object.fromEntries(doc.blocks.map((b) => [b.id, b.text]));
-      dispatch({ type: 'LOAD_DOC', doc });
-      // Land on the faithful Original PDF (the main view) when we have page renders for it; fall
-      // back to the block view only when there's nothing to rasterise (so the toggle stays usable).
-      const hasOriginal = (RENDERED[doc.id]?.pages ?? doc.meta?.pages ?? 0) > 0;
-      setDocView(hasOriginal ? 'original' : 'document');
-      setView('editor');
-    } catch {
-      setView('open');
-      setOpenError('Something went wrong reading your proposal. Please try again.');
-    }
-  }, []);
+  const openDoc = useCallback(
+    async (
+      hash: string,
+      filename: string,
+      opts?: { file?: File; blobUrl?: string; source?: DocSource },
+    ) => {
+      setOpenError(null);
+      // Already the open doc? Just return to it. Otherwise, if we have a saved working snapshot,
+      // RESTORE it (edits + undo history) instead of re-parsing — a fresh parse would reset the
+      // doc and the autosave would then clobber the saved snapshot. This mirrors openRecent and
+      // covers every entry point (Sample tile, drag/upload of the same file, reopen).
+      if (doc && hash === doc.id) {
+        setView('editor');
+        return;
+      }
+      const existing = loadSession(hash);
+      if (existing) {
+        dispatch({
+          type: 'HYDRATE',
+          doc: existing.doc,
+          history: existing.history,
+          cursor: existing.cursor,
+          selectedId: existing.selectedId,
+        });
+        // Baseline for the Original-PDF overlay: pristine text before any restored edits.
+        originalTextRef.current = originalTextMap(existing.doc, existing.history, existing.cursor);
+        setDocView(existing.docView === 'original' ? 'original' : 'document');
+        setView('editor');
+        setActive(hash);
+        const src: DocSource = opts?.source ?? (opts?.file || opts?.blobUrl ? 'upload' : 'sample');
+        const prior = loadRecents().find((r) => r.id === hash);
+        setRecents(
+          touchRecent({
+            id: hash,
+            filename: existing.doc.filename,
+            source: src,
+            pages: RENDERED[hash]?.pages ?? existing.doc.meta?.pages ?? prior?.pages ?? 0,
+            lastOpenedAt: new Date().toISOString(),
+            blobUrl: opts?.blobUrl ?? prior?.blobUrl,
+          }),
+        );
+        return;
+      }
+      setView('reading');
+      try {
+        const r = await parseByHash(hash, filename);
+        let loaded: Doc | null = null;
+        let blobUrl = opts?.blobUrl;
+        if ('doc' in r) {
+          loaded = r.doc; // cache/seed hit — instant
+        } else if (opts?.file) {
+          const up = await parseByUpload(opts.file, hash); // unseen PDF → Blob → parse
+          loaded = up.doc;
+          blobUrl = up.blobUrl;
+        } else if (opts?.blobUrl) {
+          loaded = await parseByBlobUrl(hash, filename, opts.blobUrl); // reopen an upload
+        }
+        if (!loaded) throw new Error('cache miss with no bytes to parse');
+        originalTextRef.current = Object.fromEntries(loaded.blocks.map((b) => [b.id, b.text]));
+        dispatch({ type: 'LOAD_DOC', doc: loaded });
+        // Land on the faithful Original PDF (the main view) when we have page renders for it; fall
+        // back to the block view only when there's nothing to rasterise (so the toggle stays usable).
+        const hasOriginal = (RENDERED[loaded.id]?.pages ?? loaded.meta?.pages ?? 0) > 0;
+        setDocView(hasOriginal ? 'original' : 'document');
+        setView('editor');
+        const source: DocSource =
+          opts?.source ?? (opts?.file || opts?.blobUrl ? 'upload' : 'sample');
+        const pages = RENDERED[loaded.id]?.pages ?? loaded.meta?.pages ?? 0;
+        setActive(loaded.id);
+        setRecents(
+          touchRecent({
+            id: loaded.id,
+            filename: loaded.filename,
+            source,
+            pages,
+            lastOpenedAt: new Date().toISOString(),
+            blobUrl,
+          }),
+        );
+      } catch {
+        setView(doc ? 'editor' : 'open'); // a failed reopen shouldn't strand an open document
+        setOpenError('Something went wrong reading your proposal. Please try again.');
+      }
+    },
+    [doc],
+  );
 
-  const openSample = useCallback((s: Sample) => openDoc(s.hash, s.filename), [openDoc]);
+  const openSample = useCallback(
+    (s: Sample) => openDoc(s.hash, s.filename, { source: 'sample' }),
+    [openDoc],
+  );
 
   const onFile = useCallback(
     async (f: File) => {
       setView('reading');
       const hash = await sha256(f);
-      void openDoc(hash, f.name, f);
+      void openDoc(hash, f.name, { file: f, source: 'upload' });
     },
     [openDoc],
   );
+
+  // Return to the backstage / Open screen without closing the current doc (its snapshot stays).
+  // Cancel anything in flight first, so a late AI response can't land on the next document and no
+  // confirm/review card is left hanging over the Open screen.
+  const goBackstage = useCallback(() => {
+    reqRef.current++; // invalidate any in-flight edit response
+    chatReqRef.current++; // …and any in-flight chat turn
+    setOpenError(null);
+    setRefineOpen(false);
+    setConfirm(null);
+    setNote(null);
+    dispatch({ type: 'CANCEL_THINKING' }); // clears thinking + any pending review card
+    setView('open');
+  }, []);
+
+  const backToDoc = useCallback(() => {
+    if (doc) setView('editor');
+  }, [doc]);
+
+  const openRecent = useCallback(
+    (r: RecentDoc) => {
+      if (doc && r.id === doc.id) {
+        backToDoc(); // already loaded — just return to it
+        return;
+      }
+      const sess = loadSession(r.id);
+      if (sess) {
+        // Restore the saved working snapshot (edits + undo history) — no network, no re-parse.
+        dispatch({
+          type: 'HYDRATE',
+          doc: sess.doc,
+          history: sess.history,
+          cursor: sess.cursor,
+          selectedId: sess.selectedId,
+        });
+        originalTextRef.current = originalTextMap(sess.doc, sess.history, sess.cursor);
+        setDocView(sess.docView === 'original' ? 'original' : 'document');
+        setView('editor');
+        setActive(r.id);
+        setRecents(touchRecent({ ...r, lastOpenedAt: new Date().toISOString() }));
+        return;
+      }
+      void openDoc(r.id, r.filename, { blobUrl: r.blobUrl, source: r.source });
+    },
+    [doc, backToDoc, openDoc],
+  );
+
+  const removeRecent = useCallback((id: string) => {
+    setRecents(removeRecentEntry(id));
+  }, []);
 
   const onSelect = useCallback((id: string) => {
     reqRef.current++; // cancel any in-flight edit for the previous selection
@@ -723,12 +979,14 @@ export function Editor() {
     else if (selectedId) statusLeft = '1 section selected';
     else statusLeft = `Ready · ${sectionCount} sections`;
   }
-  const saved = view === 'editor' && status === 'idle' && !pending;
+  const saved = view === 'editor' && status === 'idle' && !pending && persistOk;
 
   return (
     <div className="app">
       <Titlebar
+        mode={view === 'editor' ? 'editor' : 'backstage'}
         docName={doc?.filename ?? 'Proposal Editor'}
+        onHome={view === 'editor' ? goBackstage : undefined}
         canUndo={canUndo(state)}
         canRedo={canRedo(state)}
         undoTip={canUndo(state) ? 'Undo your last change' : 'Nothing to undo yet'}
@@ -740,15 +998,26 @@ export function Editor() {
         onToggleChanges={() => setShowChanges((v) => !v)}
       />
 
+      {view === 'boot' && <div className="backstage" aria-hidden />}
       {view === 'open' && (
-        <OpenScreen onSample={openSample} onFile={onFile} error={openError} />
+        <OpenScreen
+          recents={recents}
+          activeId={doc?.id ?? null}
+          hasOpenDoc={!!doc}
+          onSample={openSample}
+          onFile={onFile}
+          onOpenRecent={openRecent}
+          onRemoveRecent={removeRecent}
+          onBackToDoc={backToDoc}
+          error={openError}
+        />
       )}
       {view === 'reading' && <ReadingScreen />}
       {view === 'editor' && doc && (
         <div className="wbody">
           <div className="docarea">
             {originalAvailable && <DocViewSwitch value={docView} onChange={setDocView} />}
-            {docView === 'original' ? (
+            {docView === 'original' && originalAvailable ? (
               <PageView
                 doc={doc}
                 selectedId={selectedId}
