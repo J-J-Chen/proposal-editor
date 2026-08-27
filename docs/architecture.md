@@ -103,9 +103,16 @@ be untouched. On-brand (the brief foregrounds names), automatable, and yields a 
 See [checkpoint 5](../plans/checkpoint-5-eval-readme.md).
 
 ## KB grounding (stretch)
-Ingest the 5 `kb/` proposals once, chunk, retrieve (BM25/keyword is plenty for 5 docs — no
-vector DB needed), feed snippets into the edit prompt for KB-type actions, and **show
-provenance**. Constrain the model to retrieved content to avoid inventing project details.
+One interaction — **"Add similar experience"**: retrieve real past projects from the 5 `kb/`
+proposals (in-memory keyword overlap over a committed `src/kb/index.json`; no DB/vector/BM25
+stats), show provenance on candidate cards, **the human picks one before any generation**, then
+compose the inserted paragraph with the LLM **in MECO's voice** using only that project's facts,
+guarded by a deterministic entity-verbatim **fidelity net** (template fallback on failure). Insert
+via the reserved `'insert'` EditOp (undo removes it). A firm **voice card** mined from the KB is
+injected into the `docContext` of *every* edit, not just KB ones. Ingest is programmatic (reuse the
+parser) but the field bindings are **hand-verified**; `projectNumber` is deliberately not indexed
+(the `001-xxx` values are the SOQ's own doc id). Full design + rationale:
+[checkpoint 6](../plans/checkpoint-6-kb-grounding.md).
 
 ## Boundaries / structure (best-practice, cheaply)
 Keep concerns separated without over-engineering a 4-hour app:
