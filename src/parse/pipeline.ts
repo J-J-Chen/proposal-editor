@@ -3,7 +3,7 @@
 // generated L0 barrel). Cache-first orchestration lives in cache.ts (getOrParse).
 import type { Doc } from './types';
 import { extractLines } from './extract';
-import { dedupe, annotate, heuristicBlocks } from './heuristics';
+import { dedupe, orderLines, annotate, heuristicBlocks } from './heuristics';
 import { structure, STRUCTURE_MODEL } from './structure';
 import { assemble } from './assemble';
 import { sha256 } from './hash';
@@ -11,7 +11,7 @@ import { sha256 } from './hash';
 /** Parse raw PDF bytes into a Doc. Never throws on LLM failure — degrades to heuristics. */
 export async function parseBytes(bytes: Uint8Array, filename: string): Promise<Doc> {
   const id = sha256(bytes);
-  const annotated = annotate(dedupe(extractLines(bytes)));
+  const annotated = annotate(orderLines(dedupe(extractLines(bytes))));
 
   let model = STRUCTURE_MODEL;
   let refs;

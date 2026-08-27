@@ -16,21 +16,39 @@
       "page": 1
     },
     {
-      "id": "duj6dk",
-      "type": "other",
-      "text": "2701 Industrial Drive Jefferson City, MO 65109 573-893-5558",
-      "page": 1
-    },
-    {
       "id": "os5q82",
       "type": "other",
       "text": "May 24, 2025 041-560",
       "page": 1
     },
     {
-      "id": "1kyuelt",
+      "id": "duj6dk",
+      "type": "other",
+      "text": "2701 Industrial Drive Jefferson City, MO 65109 573-893-5558",
+      "page": 1
+    },
+    {
+      "id": "1pu61ow",
       "type": "paragraph",
-      "text": "April 14, 2025 Project No. 041-560 City of Dixon 305 S Elm Street Dixon, MO 65459 ATTN: Mary Wiles, Mayor RE: Statement of Qualifications for Professional Engineering Services Dear Mayor Wiles and Selection Committee,",
+      "text": "April 14, 2025 Project No. 041-560",
+      "page": 2
+    },
+    {
+      "id": "11q6nuq",
+      "type": "paragraph",
+      "text": "City of Dixon 305 S Elm Street Dixon, MO 65459 ATTN: Mary Wiles, Mayor",
+      "page": 2
+    },
+    {
+      "id": "1gz6rsn",
+      "type": "paragraph",
+      "text": "RE: Statement of Qualifications for Professional Engineering Services",
+      "page": 2
+    },
+    {
+      "id": "rlic7j",
+      "type": "paragraph",
+      "text": "Dear Mayor Wiles and Selection Committee,",
       "page": 2
     },
     {
@@ -192,12 +210,6 @@
       "page": 2
     },
     {
-      "id": "19vsod7",
-      "type": "other",
-      "text": "2701 Industrial Drive | Jefferson City, MO 65109 | 573-893-5558",
-      "page": 3
-    },
-    {
       "id": "cbgj3u",
       "type": "heading",
       "text": "RELEVANT EXPERIENCE",
@@ -320,6 +332,12 @@
       "page": 3
     },
     {
+      "id": "19vsod7",
+      "type": "other",
+      "text": "2701 Industrial Drive | Jefferson City, MO 65109 | 573-893-5558",
+      "page": 3
+    },
+    {
       "id": "8kc9e1",
       "type": "heading",
       "text": "OUR APPROACH",
@@ -357,15 +375,15 @@
       "page": 4
     },
     {
-      "id": "37rnxd",
-      "type": "other",
-      "text": "MECO Engineering Delivering Engineering Solutions that Work for 40 years",
+      "id": "ju7qsk",
+      "type": "caption",
+      "text": "Delivering Engineering Solutions that Work for 40 years",
       "page": 5
     },
     {
-      "id": "d9rvcx",
+      "id": "c35xe4",
       "type": "other",
-      "text": "MECO Engineering Company Hannibal, MO Jefferson City, MO Boonville, MO Fenton, MO Kirksville, MO Branson, MO Pittsfield, IL",
+      "text": "Hannibal, MO Boonville, MO Fenton, MO Kirksville, MO Branson, MO Pittsfield, IL",
       "page": 5
     },
     {
@@ -381,10 +399,94 @@
       "page": 5
     },
     {
-      "id": "1spj6wr",
+      "id": "z597up",
       "type": "other",
-      "text": "573-893-5558",
+      "text": "MECO Engineering Company Jefferson City, MO MECO Engineering 573-893-5558",
       "page": 5
+    },
+    {
+      "id": "ruu9s1",
+      "type": "caption",
+      "text": "Who We Are",
+      "page": 6
+    },
+    {
+      "id": "gbr7ex",
+      "type": "paragraph",
+      "text": "For 40 years, MECO has been dedicated to serving public and private clients. Our ability to excel is driven by integrity, quality and our commitment to client service.",
+      "page": 6
+    },
+    {
+      "id": "136fp9c",
+      "type": "list-item",
+      "text": "Civil and Site Civil Engineering",
+      "page": 6
+    },
+    {
+      "id": "13mdp7h",
+      "type": "list-item",
+      "text": "Public Works / Infrastructure Engineering",
+      "page": 6
+    },
+    {
+      "id": "1cdnnoq",
+      "type": "list-item",
+      "text": "Structural Engineering",
+      "page": 6
+    },
+    {
+      "id": "1e7nuvz",
+      "type": "list-item",
+      "text": "Bridge Engineering",
+      "page": 6
+    },
+    {
+      "id": "1jxznyg",
+      "type": "list-item",
+      "text": "Environmental Engineering",
+      "page": 6
+    },
+    {
+      "id": "1ds0c3t",
+      "type": "caption",
+      "text": "Water and Waste Treatment",
+      "page": 6
+    },
+    {
+      "id": "l6wdrc",
+      "type": "list-item",
+      "text": "Mechanical/Electrical/Plumbing (MEP) Engineering",
+      "page": 6
+    },
+    {
+      "id": "17octvq",
+      "type": "caption",
+      "text": "Including engineering efficiency studies and solutions",
+      "page": 6
+    },
+    {
+      "id": "1bt32w4",
+      "type": "list-item",
+      "text": "Roads/Streets/Highways, Sidewalks and Trail Systems",
+      "page": 6
+    },
+    {
+      "id": "1xmnljo",
+      "type": "list-item",
+      "text": "Land Use Planning and Development",
+      "page": 6
+    },
+    {
+      "id": "nybj09",
+      "type": "list-item",
+      "text": "Parks and Recreational Facilities",
+      "page": 6
+    },
+    {
+      "id": "ol2lvs",
+      "type": "list-item",
+      "text": "Surveying and Field Services",
+      "page": 6
     },
     {
       "id": "1bd2rnq",
@@ -393,57 +495,51 @@
       "page": 6
     },
     {
-      "id": "1k6hfii",
+      "id": "gsfknt",
       "type": "other",
-      "text": "Civil and Site Civil Engineering Public Works / Infrastructure Engineering Structural Engineering Bridge Engineering Environmental Engineering Water and Waste Treatment Mechanical/Electrical/Plumbing (MEP) Engineering Including engineering efficiency studies and solutions Roads/Streets/Highways, Sidewalks and Trail Systems Land Use Planning and Development Parks and Recreational Facilities Surveying and Field Services",
+      "text": "MECO Engineering Company 573-893-5558",
       "page": 6
     },
     {
-      "id": "16fnahd",
-      "type": "other",
-      "text": "Who We Are",
-      "page": 6
-    },
-    {
-      "id": "1sfjl7s",
-      "type": "other",
-      "text": "573-893-5558",
-      "page": 6
-    },
-    {
-      "id": "120ejxj",
-      "type": "other",
-      "text": "MECO Engineering Company For 40 years, MECO has been dedicated to serving public and private clients. Our ability to excel is driven by integrity, quality and our commitment to client service.",
-      "page": 6
-    },
-    {
-      "id": "r8h05w",
-      "type": "other",
-      "text": "MECO Engineering Company Kevin Garnett, PE Don Jenkins, PE Corporate Structure",
+      "id": "1t8m4j7",
+      "type": "caption",
+      "text": "Corporate Structure",
       "page": 7
     },
     {
-      "id": "f4sv7p",
-      "type": "other",
-      "text": "MECO Engineering Company is a corporation with principals, owners, a Board of Directors and officers. Scott vogler, pe max middendorf, pe Jim Bensman, PE,SE President Vice-President Vice-President Vice-President Vice-President",
+      "id": "ns39uw",
+      "type": "paragraph",
+      "text": "MECO Engineering Company is a corporation with principals, owners, a Board of Directors and officers.",
       "page": 7
     },
     {
-      "id": "1lud1im",
-      "type": "other",
-      "text": "MECO Engineering Company, Inc. is registered with the State of Missouri through the Department of Insurance, Financial Institutions and Professional Registration, Division of Professional Registration, Board for Architects, Engineers, Land Surveyors, and Landscape Architects as a Professional Engineering Corporation. Professional Engineering Corporation Missouri Corporate License No. 000898 Expires December 31, 2026",
+      "id": "obag56",
+      "type": "paragraph",
+      "text": "Scott vogler, pe President",
       "page": 7
     },
     {
-      "id": "hgvcjh",
-      "type": "other",
-      "text": "Professional Land Surveying Corporation Missouri Corporate License No. 000186 Expires December 31, 2026",
+      "id": "vpto1y",
+      "type": "paragraph",
+      "text": "max middendorf, pe Vice-President",
       "page": 7
     },
     {
-      "id": "r3wtp1",
-      "type": "other",
-      "text": "MECO Engineering Company, Inc. is registered in the following states to practice engineering and/or surveying: Arkansas Illinois Indiana Iowa Missouri Ohio South Dakota Texas",
+      "id": "15gdnoc",
+      "type": "paragraph",
+      "text": "Jim Bensman, PE,SE Vice-President",
+      "page": 7
+    },
+    {
+      "id": "cfsj6c",
+      "type": "paragraph",
+      "text": "Kevin Garnett, PE Vice-President",
+      "page": 7
+    },
+    {
+      "id": "174jobf",
+      "type": "paragraph",
+      "text": "Don Jenkins, PE Vice-President",
       "page": 7
     },
     {
@@ -451,24 +547,108 @@
       "type": "heading",
       "text": "CORPORATE REGISTRATION",
       "page": 7,
-      "level": 1
+      "level": 2
     },
     {
-      "id": "1pbq9j1",
+      "id": "qbgkd0",
+      "type": "paragraph",
+      "text": "MECO Engineering Company, Inc. is registered with the State of Missouri through the Department of Insurance, Financial Institutions and Professional Registration, Division of Professional Registration, Board for Architects, Engineers, Land Surveyors, and Landscape Architects as a Professional Engineering Corporation.",
+      "page": 7
+    },
+    {
+      "id": "1jfgpkx",
+      "type": "paragraph",
+      "text": "Professional Engineering Corporation Missouri Corporate License No. 000898 Expires December 31, 2026",
+      "page": 7
+    },
+    {
+      "id": "1rvi189",
+      "type": "paragraph",
+      "text": "Professional Land Surveying Corporation Missouri Corporate License No. 000186 Expires December 31, 2026",
+      "page": 7
+    },
+    {
+      "id": "8fzqfy",
+      "type": "paragraph",
+      "text": "MECO Engineering Company, Inc. is registered in the following states to practice engineering and/or surveying:",
+      "page": 7
+    },
+    {
+      "id": "s5tak9",
+      "type": "list-item",
+      "text": "Arkansas",
+      "page": 7
+    },
+    {
+      "id": "609ez8",
+      "type": "list-item",
+      "text": "Illinois",
+      "page": 7
+    },
+    {
+      "id": "195fqtx",
+      "type": "list-item",
+      "text": "Indiana",
+      "page": 7
+    },
+    {
+      "id": "6pf4nd",
+      "type": "list-item",
+      "text": "Iowa",
+      "page": 7
+    },
+    {
+      "id": "golzl8",
+      "type": "list-item",
+      "text": "Missouri",
+      "page": 7
+    },
+    {
+      "id": "y3rcku",
+      "type": "list-item",
+      "text": "Ohio",
+      "page": 7
+    },
+    {
+      "id": "cd4tcg",
+      "type": "list-item",
+      "text": "South Dakota",
+      "page": 7
+    },
+    {
+      "id": "16g200e",
+      "type": "list-item",
+      "text": "Texas",
+      "page": 7
+    },
+    {
+      "id": "1lqcusz",
       "type": "other",
-      "text": "We look forward to hearing from you! Thank You",
+      "text": "MECO Engineering Company",
+      "page": 7
+    },
+    {
+      "id": "d4slg2",
+      "type": "caption",
+      "text": "Thank You",
       "page": 8
     },
     {
-      "id": "1807um2",
+      "id": "1vh73g6",
+      "type": "caption",
+      "text": "We look forward to hearing from you!",
+      "page": 8
+    },
+    {
+      "id": "ffg4r8",
       "type": "other",
-      "text": "Don Jenkins, PE 573-893-5558 djenkins@mecoengineering.com www.mecoengineering.com",
+      "text": "Don Jenkins, PE djenkins@mecoengineering.com www.mecoengineering.com 573-893-5558",
       "page": 8
     }
   ],
   "meta": {
     "pages": 8,
-    "parsedAt": "2026-08-27T04:27:23.603Z",
+    "parsedAt": "2026-08-27T05:33:04.797Z",
     "model": "claude-sonnet-4-5"
   }
 }
