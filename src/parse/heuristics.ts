@@ -38,36 +38,105 @@ export function dedupe(lines: RawLine[], tol = 12): RawLine[] {
   return kept.map((l, idx) => ({ ...l, idx }));
 }
 
+/** x-gap (pt) that separates one text column from the next; indents (~20pt) stay within a column. */
+const COLUMN_GAP = 48;
+
 /**
- * Mark repeated page chrome (header/footer/page-number) so it can be de-prioritised as `other`
- * instead of polluting the block flow — but never hard-deleted (a hidden fixture might surface a
- * phone/project number only in a footer). A line is chrome if it's a bare page number, or its
- * text sits in the top/bottom band AND repeats on ≥2 pages.
+ * Reading order = column-aware, per page. mupdf's native order emits graphic-layout regions out
+ * of reading order — e.g. easy.pdf p7's org chart emits every NAME then every TITLE, so a
+ * name↔title 2-column region linearizes as "Scott… max… Jim… President Vice-President …". We
+ * cluster each page's lines into columns by gaps in their left-x, then read each column
+ * top-to-bottom, columns left-to-right. This pairs each name with the title directly beneath it
+ * AND keeps genuine parallel-column lists (p2 SERVICES) un-scrambled — where a naive global y-sort
+ * would interleave the columns. Single-column pages fall back to a plain top-to-bottom sort.
+ * Re-indexes the result 0..N (the LLM references these indices).
  */
-function chromeKeys(lines: RawLine[]): Set<string> {
-  const maxY = Math.max(1, ...lines.map((l) => l.y1));
-  const topBand = maxY * 0.06;
-  const botBand = maxY * 0.9;
-  const bandCount = new Map<string, Set<number>>();
-  for (const l of lines) {
-    if (l.y0 < topBand || l.y0 > botBand) {
-      const k = norm(l.text);
-      if (!k) continue;
-      (bandCount.get(k) ?? bandCount.set(k, new Set()).get(k)!).add(l.page);
-    }
+export function orderLines(lines: RawLine[]): RawLine[] {
+  const canonical = collectFurniture(lines);
+  const isFurn = (l: RawLine) => isFurniture(l.text, canonical);
+
+  const byPage = new Map<number, RawLine[]>();
+  for (const l of lines) (byPage.get(l.page) ?? byPage.set(l.page, []).get(l.page)!).push(l);
+
+  const out: RawLine[] = [];
+  for (const page of [...byPage.keys()].sort((a, b) => a - b)) {
+    out.push(...orderPage(byPage.get(page)!, isFurn));
   }
-  const keys = new Set<string>();
-  for (const [k, pages] of bandCount) if (pages.size >= 2) keys.add(k);
-  return keys;
+  return out.map((l, idx) => ({ ...l, idx }));
+}
+
+function orderPage(pl: RawLine[], isFurn: (l: RawLine) => boolean): RawLine[] {
+  const byY = (a: RawLine, b: RawLine) => a.y0 - b.y0 || a.x0 - b.x0;
+  if (pl.length < 4) return [...pl].sort(byY);
+
+  // Cluster left-x values into columns by gaps larger than COLUMN_GAP.
+  const xs = pl.map((l) => l.x0).sort((a, b) => a - b);
+  const colEnd: number[] = []; // max x0 of each column cluster
+  for (let i = 1; i <= xs.length; i++) {
+    if (i === xs.length || xs[i] - xs[i - 1] > COLUMN_GAP) colEnd.push(xs[i - 1]);
+  }
+  if (colEnd.length <= 1) return [...pl].sort(byY); // single column → plain top-to-bottom
+
+  const colOf = (x: number) => {
+    for (let c = 0; c < colEnd.length; c++) if (x <= colEnd[c]) return c;
+    return colEnd.length - 1;
+  };
+  // Sink repeated page furniture (a centered address/phone footer forms its own narrow x-cluster
+  // between two real columns) below the content columns so it never splits a multi-column list.
+  // Keyed on furniture DETECTION, not y-position — position can't tell footer furniture from real
+  // bottom-of-page content (e.g. p7's last org-chart entry sits as low as the footer).
+  const sink = (l: RawLine) => (isFurn(l) ? 1 : 0);
+  return [...pl].sort(
+    (a, b) => sink(a) - sink(b) || colOf(a.x0) - colOf(b.x0) || a.y0 - b.y0 || a.x0 - b.x0,
+  );
 }
 
 const isPageNumber = (s: string): boolean => /^\s*(?:page\s+)?\d{1,3}\s*$/i.test(s);
+/** A whole line that is just a phone number (address/contact furniture). */
+const isPhone = (s: string): boolean =>
+  /^\+?\d{0,2}[\s.-]?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}$/.test(s.trim());
+/** Normalize for furniture matching: drop separators so "A | B", "A, B" and "A B" compare equal. */
+const stripSep = (s: string): string => norm(s).replace(/[|,]/g, ' ').replace(/\s+/g, ' ').trim();
 
-/** Per-page "body left edge" = the leftmost non-chrome line x0 (used to detect indentation). */
-function bodyLeftByPage(lines: RawLine[], chrome: Set<string>): Map<number, number> {
+/**
+ * Build the set of repeated page "furniture" (header/footer/address) strings, separator-agnostic,
+ * from the top/bottom band. Used to demote furniture to `other` instead of letting it leak in as
+ * body — but never hard-deleted (a hidden fixture might surface an entity only in a footer).
+ * Robust to the SAME furniture appearing in different forms across pages: piped ("A | B | C"),
+ * space-joined, or split into separate lines (easy.pdf p1's address).
+ */
+function collectFurniture(lines: RawLine[]): Set<string> {
+  const maxY = Math.max(1, ...lines.map((l) => l.y1));
+  const topBand = maxY * 0.08;
+  const botBand = maxY * 0.88;
+  const bandPages = new Map<string, Set<number>>();
+  for (const l of lines) {
+    if (l.y0 < topBand || l.y0 > botBand) {
+      const k = stripSep(l.text);
+      if (k) (bandPages.get(k) ?? bandPages.set(k, new Set()).get(k)!).add(l.page);
+    }
+  }
+  const canonical = new Set<string>();
+  for (const [k, pages] of bandPages) if (pages.size >= 2) canonical.add(k);
+  return canonical;
+}
+
+/** A line is furniture if it's a page number, a standalone phone, or (a fragment of) a canonical. */
+function isFurniture(text: string, canonical: Set<string>): boolean {
+  if (isPageNumber(text) || isPhone(text)) return true;
+  const t = stripSep(text);
+  if (!t) return false;
+  if (canonical.has(t)) return true;
+  // a split fragment of a repeated furniture line (e.g. the address on its own line on the cover)
+  if (t.length >= 8) for (const c of canonical) if (c.includes(t)) return true;
+  return false;
+}
+
+/** Per-page "body left edge" = the leftmost non-furniture line x0 (used to detect indentation). */
+function bodyLeftByPage(lines: RawLine[], chromeIdx: Set<number>): Map<number, number> {
   const byPage = new Map<number, number[]>();
   for (const l of lines) {
-    if (chrome.has(norm(l.text)) || isPageNumber(l.text)) continue;
+    if (chromeIdx.has(l.idx)) continue;
     (byPage.get(l.page) ?? byPage.set(l.page, []).get(l.page)!).push(l.x0);
   }
   const out = new Map<number, number>();
@@ -77,14 +146,15 @@ function bodyLeftByPage(lines: RawLine[], chrome: Set<string>): Map<number, numb
 
 /** Attach per-line signals + a provisional label. The LLM refines boundaries/levels from here. */
 export function annotate(lines: RawLine[]): AnnotatedLine[] {
-  const chrome = chromeKeys(lines);
-  const bodyLeft = bodyLeftByPage(lines, chrome);
+  const canonical = collectFurniture(lines);
+  const chromeIdx = new Set(lines.filter((l) => isFurniture(l.text, canonical)).map((l) => l.idx));
+  const bodyLeft = bodyLeftByPage(lines, chromeIdx);
 
   return lines.map((l) => {
     const text = l.text.trim();
     const caps = isAllCaps(text);
     const words = text.split(/\s+/).length;
-    const isChrome = chrome.has(norm(text)) || isPageNumber(text);
+    const isChrome = chromeIdx.has(l.idx);
     const indent = l.x0 - (bodyLeft.get(l.page) ?? l.x0);
 
     let label: ProvLabel;
