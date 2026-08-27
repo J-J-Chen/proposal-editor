@@ -81,13 +81,19 @@ export function assemble(refs: BlockRef[], lines: AnnotatedLine[]): Block[] {
       let type: BlockType;
       let level: number | null;
       if (o === -1) {
-        // unreferenced: keep content, but demote page chrome to `other`
-        const allChrome = group.every((l) => l.chrome);
-        type = allChrome ? 'other' : group.length === 1 ? group[0].label : 'paragraph';
+        // unreferenced: keep content, typed from the lines' provisional labels
+        type = group.length === 1 ? group[0].label : 'paragraph';
         level = null;
       } else {
         type = refType[o];
         level = refLevel[o];
+      }
+      // Deterministic furniture demotion WINS over the LLM: a block whose lines are ALL page
+      // chrome (repeated header/footer/address/phone) is always `other`, never body. The LLM
+      // sometimes relabels furniture as a paragraph, so a live parse must not leak it as body.
+      if (group.every((l) => l.chrome)) {
+        type = 'other';
+        level = null;
       }
       const page = Math.min(...group.map((l) => l.page));
       const key = `${norm(text)}|${type}`;
@@ -105,5 +111,16 @@ export function assemble(refs: BlockRef[], lines: AnnotatedLine[]): Block[] {
     }
     i = j;
   }
-  return blocks;
+
+  // Collapse identical repeated furniture: the same footer/address on every page would otherwise
+  // render as N duplicate blocks (the noise John flagged). Keep the first occurrence — the footer
+  // entities (phone, address, project no.) survive verbatim there; only the exact-dupes are dropped.
+  const seenOther = new Set<string>();
+  return blocks.filter((b) => {
+    if (b.type !== 'other') return true;
+    const k = norm(b.text);
+    if (seenOther.has(k)) return false;
+    seenOther.add(k);
+    return true;
+  });
 }

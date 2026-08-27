@@ -16,9 +16,21 @@
       "page": 1
     },
     {
-      "id": "19dueqj",
+      "id": "1xp5jar",
       "type": "other",
-      "text": "119 W Potter Ave May 30, 2025 001-894 Kirksville, MO 63501 660-280-2010",
+      "text": "119 W Potter Ave",
+      "page": 1
+    },
+    {
+      "id": "73hyrz",
+      "type": "other",
+      "text": "May 30, 2025 001-894",
+      "page": 1
+    },
+    {
+      "id": "ezr8r",
+      "type": "other",
+      "text": "Kirksville, MO 63501 660-280-2010",
       "page": 1
     },
     {
@@ -134,32 +146,32 @@
       "page": 3
     },
     {
-      "id": "gb178f",
-      "type": "paragraph",
+      "id": "1w3b9zt",
+      "type": "list-item",
       "text": "Ryan Huseman, PE, Project Manager",
       "page": 3
     },
     {
-      "id": "5dl7jy",
-      "type": "paragraph",
+      "id": "1gy309k",
+      "type": "list-item",
       "text": "Max Middendorf, PE, Water Engineering Expert",
       "page": 3
     },
     {
-      "id": "17w16w5",
-      "type": "paragraph",
+      "id": "1mg9yyf",
+      "type": "list-item",
       "text": "Kevin W. Garnett, PE, Civil Engineer",
       "page": 3
     },
     {
-      "id": "15664wa",
-      "type": "paragraph",
+      "id": "zssk5o",
+      "type": "list-item",
       "text": "Robert Hogan, Civil Engineer",
       "page": 3
     },
     {
-      "id": "61j0ac",
-      "type": "paragraph",
+      "id": "qnvxly",
+      "type": "list-item",
       "text": "Andrew Long, Technical Manager",
       "page": 3
     },
@@ -168,18 +180,12 @@
       "type": "heading",
       "text": "YOUR PROJECT",
       "page": 3,
-      "level": 2
+      "level": 1
     },
     {
       "id": "1mje5f7",
       "type": "paragraph",
       "text": "Based in part on the feedback we gained meeting with Kirksville’s key water department personnel, and getting a tour and review of the City of Kirksville Water Treatment Facility, MECO can provide both short term and long term strategies to meet the city’s water demands. We recognize the condition of the current facility and have strategic cost effective solutions to maximize the equipment lifespan. We have Lidar 3d scanning technologies that make rehabbing existing treatment facilities a faster and more cost effective solution. In addition to strategic planning, we have the local presence to ensure all standard operating procedures are meeting all regulations and operating with standardized procedures. Our office is a mere 6 blocks away from the plant allowing MECO to be on site at a moments notice. We have the expertise, experience, and lack of conflict to handle all aspects of your project in house.",
-      "page": 3
-    },
-    {
-      "id": "1jatko4",
-      "type": "other",
-      "text": "119 W Potter | Kirksville, MO 63501 | 660-280-2010",
       "page": 3
     },
     {
@@ -196,27 +202,33 @@
       "page": 4
     },
     {
-      "id": "13bws8f",
-      "type": "paragraph",
-      "text": "Ryan Huseman, PE",
+      "id": "dqkt95",
+      "type": "other",
+      "text": "Ryan Huseman, PE 119 W Potter | Kirksville, MO 63501 | 660-280-2010",
       "page": 4
     },
     {
-      "id": "1k4sdr1",
-      "type": "other",
-      "text": "119 W Potter | Kirksville, MO 63501 | 660-280-2010",
-      "page": 4
-    },
-    {
-      "id": "19qvqf6",
-      "type": "other",
-      "text": "Delivering Engineering Solutions that Work for 40 years Hannibal, MO Jefferson City, MO Boonville, MO Fenton, MO Branson, MO Pittsfield, IL 60 EMPLOYEES including (13) Professional Engineers (PE) Specializing in municipal, environmental, structural/bridge (SE) and mechanical/electrical (MEP) engineering (5) Staff Engineers non-registered (4) Professional Land Surveyors (PLS) (1) Certified Floodplain Manager (CFM) PRE-QUALIFIED Missouri Department of Transportation (MoDOT) MoDOT LPA Consultant Illinois Department of Transportation (IDOT) Illinois Capital Development Board (CDB) MECO Engineering Company Kirksville, MO",
+      "id": "ju7qsk",
+      "type": "caption",
+      "text": "Delivering Engineering Solutions that Work for 40 years",
       "page": 5
     },
     {
-      "id": "6cwqa5",
+      "id": "cc8bz9",
       "type": "other",
-      "text": "MECO Engineering 660-280-2010",
+      "text": "Hannibal, MO Jefferson City, MO Boonville, MO Fenton, MO Branson, MO Pittsfield, IL",
+      "page": 5
+    },
+    {
+      "id": "orqwbr",
+      "type": "other",
+      "text": "60 EMPLOYEES including (13) Professional Engineers (PE) Specializing in municipal, environmental, structural/bridge (SE) and mechanical/electrical (MEP) engineering (5) Staff Engineers non-registered (4) Professional Land Surveyors (PLS) (1) Certified Floodplain Manager (CFM) PRE-QUALIFIED Missouri Department of Transportation (MoDOT) MoDOT LPA Consultant Illinois Department of Transportation (IDOT) Illinois Capital Development Board (CDB)",
+      "page": 5
+    },
+    {
+      "id": "1k1441x",
+      "type": "other",
+      "text": "MECO Engineering Company Kirksville, MO MECO Engineering 660-280-2010",
       "page": 5
     },
     {
@@ -262,15 +274,9 @@
       "page": 6
     },
     {
-      "id": "l6wdrc",
+      "id": "1c1y87h",
       "type": "list-item",
-      "text": "Mechanical/Electrical/Plumbing (MEP) Engineering",
-      "page": 6
-    },
-    {
-      "id": "aeux96",
-      "type": "paragraph",
-      "text": "Including engineering efficiency studies and solutions",
+      "text": "Mechanical/Electrical/Plumbing (MEP) Engineering Including engineering efficiency studies and solutions",
       "page": 6
     },
     {
@@ -310,11 +316,10 @@
       "page": 6
     },
     {
-      "id": "166k813",
-      "type": "heading",
+      "id": "1t8m4j7",
+      "type": "caption",
       "text": "Corporate Structure",
-      "page": 7,
-      "level": 2
+      "page": 7
     },
     {
       "id": "ns39uw",
@@ -323,14 +328,14 @@
       "page": 7
     },
     {
-      "id": "8lyl1l",
-      "type": "paragraph",
+      "id": "1hxoi0z",
+      "type": "list-item",
       "text": "Kevin Garnett, PE Executive Vice-President Owner",
       "page": 7
     },
     {
-      "id": "19b7j7d",
-      "type": "paragraph",
+      "id": "f2focz",
+      "type": "list-item",
       "text": "Don Jenkins, PE Executive Vice-President",
       "page": 7
     },
@@ -339,12 +344,18 @@
       "type": "heading",
       "text": "CORPORATE REGISTRATION",
       "page": 7,
-      "level": 1
+      "level": 2
     },
     {
-      "id": "xceic2",
+      "id": "qbgkd0",
       "type": "paragraph",
-      "text": "MECO Engineering Company, Inc. is registered with the State of Missouri through the Department of Insurance, Financial Institutions and Professional Registration, Division of Professional Registration, Board for Architects, Engineers, Land Surveyors, and Landscape Architects as a Professional Engineering Corporation. Professional Engineering Corporation Missouri Corporate License No. 000898 Expires December 31, 2026",
+      "text": "MECO Engineering Company, Inc. is registered with the State of Missouri through the Department of Insurance, Financial Institutions and Professional Registration, Division of Professional Registration, Board for Architects, Engineers, Land Surveyors, and Landscape Architects as a Professional Engineering Corporation.",
+      "page": 7
+    },
+    {
+      "id": "1jfgpkx",
+      "type": "paragraph",
+      "text": "Professional Engineering Corporation Missouri Corporate License No. 000898 Expires December 31, 2026",
       "page": 7
     },
     {
@@ -414,11 +425,10 @@
       "page": 7
     },
     {
-      "id": "yu0tw",
-      "type": "heading",
+      "id": "sgd2ek",
+      "type": "caption",
       "text": "Capacity + Capability",
-      "page": 8,
-      "level": 1
+      "page": 8
     },
     {
       "id": "zz8ndh",
@@ -427,26 +437,26 @@
       "page": 8
     },
     {
-      "id": "1djd1zh",
-      "type": "paragraph",
+      "id": "1rqycov",
+      "type": "list-item",
       "text": "Mechanical/Electrical Engineer Max Middendorf, PE Water Treatment Engineer Expert",
       "page": 8
     },
     {
-      "id": "dq5uis",
-      "type": "paragraph",
+      "id": "1mk5vyu",
+      "type": "list-item",
       "text": "Kevin Garnett, PE Civil Engineer",
       "page": 8
     },
     {
-      "id": "1e6vfzq",
-      "type": "paragraph",
+      "id": "h9r3f4",
+      "type": "list-item",
       "text": "Robert Hogan Civil Engineer",
       "page": 8
     },
     {
-      "id": "1b47nb0",
-      "type": "paragraph",
+      "id": "1a8c97y",
+      "type": "list-item",
       "text": "Andrew Long Technical Manager",
       "page": 8
     },
@@ -454,12 +464,6 @@
       "id": "35oz6e",
       "type": "other",
       "text": "% represents available capacity 30% 25% 20% 35% 30%",
-      "page": 8
-    },
-    {
-      "id": "1deplha",
-      "type": "other",
-      "text": "MECO Engineering Company Ryan Huseman, PE",
       "page": 8
     },
     {
@@ -480,7 +484,7 @@
       "type": "heading",
       "text": "WATER SYSTEM PROJECTS",
       "page": 9,
-      "level": 1
+      "level": 2
     },
     {
       "id": "1ba4ayg",
@@ -513,15 +517,9 @@
       "page": 9
     },
     {
-      "id": "6vuj4m",
+      "id": "19p7uyx",
       "type": "list-item",
-      "text": "Waterline distribution systems",
-      "page": 9
-    },
-    {
-      "id": "1v14jlo",
-      "type": "paragraph",
-      "text": "(new, extensions, replacements, relocations)",
+      "text": "Waterline distribution systems (new, extensions, replacements, relocations)",
       "page": 9
     },
     {
@@ -595,7 +593,7 @@
       "type": "heading",
       "text": "LAND SURVEYING DEPARTMENT",
       "page": 9,
-      "level": 1
+      "level": 2
     },
     {
       "id": "rgdkj1",
@@ -604,33 +602,9 @@
       "page": 9
     },
     {
-      "id": "mq2lc8",
+      "id": "1wqltjj",
       "type": "list-item",
-      "text": "Easement Acquisition Assistance",
-      "page": 9
-    },
-    {
-      "id": "sm2s3o",
-      "type": "list-item",
-      "text": "Research",
-      "page": 9
-    },
-    {
-      "id": "10uvrc2",
-      "type": "list-item",
-      "text": "Descriptions",
-      "page": 9
-    },
-    {
-      "id": "wrp549",
-      "type": "list-item",
-      "text": "Easement Documents",
-      "page": 9
-    },
-    {
-      "id": "1edsaem",
-      "type": "list-item",
-      "text": "Contact with Property Owners",
+      "text": "Easement Acquisition Assistance Research Descriptions Easement Documents Contact with Property Owners",
       "page": 9
     },
     {
@@ -638,7 +612,7 @@
       "type": "heading",
       "text": "PROJECT ADMINISTRATION SERVICES",
       "page": 9,
-      "level": 1
+      "level": 2
     },
     {
       "id": "3q29fl",
@@ -750,9 +724,15 @@
       "page": 10
     },
     {
-      "id": "exetj5",
+      "id": "gsi869",
       "type": "paragraph",
-      "text": "Set to go to bid in June of 2025 is a newly formed regional water system with Illinois Alluvial Regional Water Company. This is a $210M project serving 7 members with an 8MGD wellfield, 3 miles of 30\" raw water transmission main, a new 8 MGD water treatment plant, 2 1 MG clearwells, 2 MG composite elevated water tower and 50 miles of finished water transmission main. $66 million in government funding was applied for and granted for this project",
+      "text": "Set to go to bid in June of 2025 is a newly formed regional water system with Illinois Alluvial Regional Water Company. This is a $210M project serving 7 members with an 8MGD wellfield, 3 miles of 30\" raw water transmission main, a new 8 MGD water treatment plant, 2 1 MG clearwells, 2 MG composite elevated water tower and 50 miles of finished water transmission main.",
+      "page": 10
+    },
+    {
+      "id": "ozkv7l",
+      "type": "paragraph",
+      "text": "$66 million in government funding was applied for and granted for this project",
       "page": 10
     },
     {
@@ -835,7 +815,7 @@
       "type": "heading",
       "text": "LIDAR SCANNING",
       "page": 13,
-      "level": 2
+      "level": 3
     },
     {
       "id": "54jmvt",
@@ -848,7 +828,7 @@
       "type": "heading",
       "text": "Project Understanding + Approach",
       "page": 14,
-      "level": 1
+      "level": 2
     },
     {
       "id": "1cgc445",
@@ -869,9 +849,15 @@
       "page": 14
     },
     {
-      "id": "cv1v7e",
+      "id": "178a62z",
       "type": "paragraph",
-      "text": "Long-Term For future expansion, MECO staff have the knowledge to develop long-term site expansion and capital planning. We frequently establish long-term plans, and therefore are confident in our abilities to assist the City of Kirksville in developing a proper 2-20 year capital depreciation plans. We understand including preparing proposed site locations, negotiating with land owners, securing contracts for land purchase, and providing proposed water treatment technologies. We are experts in design plants with clarifiers that have no moving parts and provide unprecedented lifespans. MECO is well versed in semi autonomous water treatment, ensuring back up procedures for outage free service. MECO attends regular meetings to ensure all current standard operating procedures are OSHA / MoDNR compliant and take all precautions to ensure safety in handling hazardous materials in the water treatment industry. additional needs throughout process, your",
+      "text": "Long-Term For future expansion, MECO staff have the knowledge to develop long-term site expansion and capital planning. We frequently establish long-term plans, and therefore are confident in our abilities to assist the City of Kirksville in developing a proper 2-20 year capital depreciation plans. We understand including preparing proposed site locations, negotiating with land owners, securing contracts for land purchase, and providing proposed water treatment technologies. We are experts in design plants with clarifiers that have no moving parts and provide unprecedented lifespans. MECO is well versed in semi autonomous water treatment, ensuring back up procedures for outage free service. MECO attends regular meetings to ensure all current standard operating procedures are OSHA / MoDNR compliant and take all precautions to ensure safety in handling hazardous materials in the water treatment industry.",
+      "page": 14
+    },
+    {
+      "id": "ar7kpo",
+      "type": "other",
+      "text": "additional needs throughout process, your",
       "page": 14
     },
     {
@@ -879,14 +865,14 @@
       "type": "heading",
       "text": "OFFICE LOCATION",
       "page": 15,
-      "level": 1
+      "level": 2
     },
     {
       "id": "z1h17n",
       "type": "heading",
       "text": "AREA OF EXPERTISE/DESIGN",
       "page": 15,
-      "level": 1
+      "level": 2
     },
     {
       "id": "5dx8qt",
@@ -899,7 +885,7 @@
       "type": "heading",
       "text": "EXPERIENCE",
       "page": 15,
-      "level": 1
+      "level": 2
     },
     {
       "id": "1lffb37",
@@ -912,7 +898,7 @@
       "type": "heading",
       "text": "EDUCATION/CERTIFICATIONS",
       "page": 15,
-      "level": 1
+      "level": 2
     },
     {
       "id": "18d8xw",
@@ -925,7 +911,7 @@
       "type": "heading",
       "text": "PROFESSIONAL REGISTRATION",
       "page": 15,
-      "level": 1
+      "level": 2
     },
     {
       "id": "10sl6qa",
@@ -934,11 +920,10 @@
       "page": 15
     },
     {
-      "id": "1xfx3x6",
-      "type": "heading",
+      "id": "1qwbhh2",
+      "type": "caption",
       "text": "OWNER / SENIOR ENGINEER",
-      "page": 15,
-      "level": 2
+      "page": 15
     },
     {
       "id": "1b3qqga",
@@ -951,7 +936,7 @@
       "type": "heading",
       "text": "PROJECT EXPERIENCE",
       "page": 15,
-      "level": 1
+      "level": 2
     },
     {
       "id": "dnhwxl",
@@ -1078,7 +1063,7 @@
       "type": "heading",
       "text": "OFFICE LOCATION",
       "page": 16,
-      "level": 1
+      "level": 2
     },
     {
       "id": "q6poa2",
@@ -1091,7 +1076,7 @@
       "type": "heading",
       "text": "AREA OF EXPERTISE/DESIGN",
       "page": 16,
-      "level": 1
+      "level": 2
     },
     {
       "id": "465gs4",
@@ -1104,7 +1089,7 @@
       "type": "heading",
       "text": "EXPERIENCE",
       "page": 16,
-      "level": 1
+      "level": 2
     },
     {
       "id": "1k4sl0k",
@@ -1117,7 +1102,7 @@
       "type": "heading",
       "text": "EDUCATION/CERTIFICATIONS",
       "page": 16,
-      "level": 1
+      "level": 2
     },
     {
       "id": "xz7yxp",
@@ -1130,7 +1115,7 @@
       "type": "heading",
       "text": "PROFESSIONAL REGISTRATION",
       "page": 16,
-      "level": 1
+      "level": 2
     },
     {
       "id": "qwqx4p",
@@ -1143,7 +1128,7 @@
       "type": "heading",
       "text": "PROFESSIONAL AFFILIATIONS",
       "page": 16,
-      "level": 1
+      "level": 2
     },
     {
       "id": "oemne2",
@@ -1152,22 +1137,21 @@
       "page": 16
     },
     {
-      "id": "6lhdfw",
-      "type": "paragraph",
-      "text": "Max F. Middendorf, PE",
+      "id": "1gce3vz",
+      "type": "caption",
+      "text": "Max F. Middendorf, PE SENIOR PRINCIPAL ENGINEER",
       "page": 16
     },
     {
-      "id": "15lgca2",
-      "type": "heading",
-      "text": "SENIOR PRINCIPAL ENGINEER",
-      "page": 16,
-      "level": 2
+      "id": "d91o48",
+      "type": "paragraph",
+      "text": "Mr. Middendorf is a Senior Principal engineer, and former Vice-President of MECO Engineering, engaged in the daily management and operations of the firm. He is also Assistant Director of Engineering, working directly with the professional engineering staff in the Hannibal, Springfield and Pittsfield offices. In this capacity, he oversees work in progress and signs off on the plans and specifications of projects prepared by design professionals assigned as Project Managers for a variety of projects. In this capacity, he is a valuable member of the QC/QA team. As manager of MECO’s Illinois Regional Branch offices located in Pittsfield and Springfield, IL he is charged with a wide range of responsibilities including business development, project management; design, construction engineering and client coordination.",
+      "page": 16
     },
     {
-      "id": "166rgl6",
+      "id": "t7wpep",
       "type": "paragraph",
-      "text": "Mr. Middendorf is a Senior Principal engineer, and former Vice-President of MECO Engineering, engaged in the daily management and operations of the firm. He is also Assistant Director of Engineering, working directly with the professional engineering staff in the Hannibal, Springfield and Pittsfield offices. In this capacity, he oversees work in progress and signs off on the plans and specifications of projects prepared by design professionals assigned as Project Managers for a variety of projects. In this capacity, he is a valuable member of the QC/QA team. As manager of MECO’s Illinois Regional Branch offices located in Pittsfield and Springfield, IL he is charged with a wide range of responsibilities including business development, project management; design, construction engineering and client coordination. Throughout his tenure with the firm, Mr. Middendorf has been instrumental in the development and integration of software solutions to perform computations and modeling platforms specifically for MECO-specific engineering applications. These include water system modeling calculations and hydraulic testing on water distribution and treatment systems of all sizes. As flow-monitoring coordinator, Mr. Middendorf has developed revolutionary methods to monitor and model field flow distribution data. Mr. Middendorf excels as coordinating funding and regulatory agencies to ensure progress of projects through approval and funding stages and to maximize grant and loan dollars that are available to his client’s projects. His expertise in this field has resulted in the ARRA financing of multi-million dollar projects for the cities of Pittsfield and Barry, IL.",
+      "text": "Throughout his tenure with the firm, Mr. Middendorf has been instrumental in the development and integration of software solutions to perform computations and modeling platforms specifically for MECO-specific engineering applications. These include water system modeling calculations and hydraulic testing on water distribution and treatment systems of all sizes. As flow-monitoring coordinator, Mr. Middendorf has developed revolutionary methods to monitor and model field flow distribution data. Mr. Middendorf excels as coordinating funding and regulatory agencies to ensure progress of projects through approval and funding stages and to maximize grant and loan dollars that are available to his client’s projects. His expertise in this field has resulted in the ARRA financing of multi-million dollar projects for the cities of Pittsfield and Barry, IL.",
       "page": 16
     },
     {
@@ -1175,7 +1159,7 @@
       "type": "heading",
       "text": "PROJECT EXPERIENCE",
       "page": 16,
-      "level": 1
+      "level": 2
     },
     {
       "id": "18i4ex2",
@@ -1224,7 +1208,7 @@
       "type": "heading",
       "text": "OFFICE LOCATION",
       "page": 17,
-      "level": 1
+      "level": 2
     },
     {
       "id": "qgp9z1",
@@ -1237,7 +1221,7 @@
       "type": "heading",
       "text": "AREA OF EXPERTISE/DESIGN",
       "page": 17,
-      "level": 1
+      "level": 2
     },
     {
       "id": "15nozin",
@@ -1250,7 +1234,7 @@
       "type": "heading",
       "text": "EXPERIENCE",
       "page": 17,
-      "level": 1
+      "level": 2
     },
     {
       "id": "udk7rf",
@@ -1263,7 +1247,7 @@
       "type": "heading",
       "text": "EDUCATION/CERTIFICATIONS",
       "page": 17,
-      "level": 1
+      "level": 2
     },
     {
       "id": "1ce26vn",
@@ -1276,7 +1260,7 @@
       "type": "heading",
       "text": "PROFESSIONAL REGISTRATION",
       "page": 17,
-      "level": 1
+      "level": 2
     },
     {
       "id": "pwo0zq",
@@ -1289,7 +1273,7 @@
       "type": "heading",
       "text": "PROFESSIONAL AFFILIATIONS",
       "page": 17,
-      "level": 1
+      "level": 2
     },
     {
       "id": "w3hsgx",
@@ -1298,17 +1282,10 @@
       "page": 17
     },
     {
-      "id": "1a6l0pc",
-      "type": "paragraph",
-      "text": "Kevin Garnett, PE",
+      "id": "740a23",
+      "type": "caption",
+      "text": "Kevin Garnett, PE EXECUTIVE VICE PRESIDENT",
       "page": 17
-    },
-    {
-      "id": "1x4lk50",
-      "type": "heading",
-      "text": "EXECUTIVE VICE PRESIDENT",
-      "page": 17,
-      "level": 2
     },
     {
       "id": "hqqvgs",
@@ -1321,7 +1298,7 @@
       "type": "heading",
       "text": "PROJECT EXPERIENCE",
       "page": 17,
-      "level": 1
+      "level": 2
     },
     {
       "id": "1mua0zs",
@@ -1358,7 +1335,7 @@
       "type": "heading",
       "text": "OFFICE LOCATION",
       "page": 18,
-      "level": 1
+      "level": 2
     },
     {
       "id": "rmyyfe",
@@ -1371,7 +1348,7 @@
       "type": "heading",
       "text": "AREA OF EXPERTISE/DESIGN",
       "page": 18,
-      "level": 1
+      "level": 2
     },
     {
       "id": "1egwzsr",
@@ -1384,7 +1361,7 @@
       "type": "heading",
       "text": "EXPERIENCE",
       "page": 18,
-      "level": 1
+      "level": 2
     },
     {
       "id": "aumamv",
@@ -1397,7 +1374,7 @@
       "type": "heading",
       "text": "EDUCATION/CERTIFICATIONS",
       "page": 18,
-      "level": 1
+      "level": 2
     },
     {
       "id": "pzzd06",
@@ -1410,7 +1387,7 @@
       "type": "heading",
       "text": "PROFESSIONAL REGISTRATION",
       "page": 18,
-      "level": 1
+      "level": 2
     },
     {
       "id": "q6nmop",
@@ -1423,7 +1400,7 @@
       "type": "heading",
       "text": "PROFESSIONAL AFFILIATIONS",
       "page": 18,
-      "level": 1
+      "level": 2
     },
     {
       "id": "9g8b6f",
@@ -1432,17 +1409,10 @@
       "page": 18
     },
     {
-      "id": "118rr3y",
-      "type": "paragraph",
-      "text": "Robert Hogan",
+      "id": "7dg89v",
+      "type": "caption",
+      "text": "Robert Hogan SENIOR ENGINEER",
       "page": 18
-    },
-    {
-      "id": "1t8o5eo",
-      "type": "heading",
-      "text": "SENIOR ENGINEER",
-      "page": 18,
-      "level": 2
     },
     {
       "id": "hn4lrf",
@@ -1455,7 +1425,7 @@
       "type": "heading",
       "text": "PROJECT EXPERIENCE",
       "page": 18,
-      "level": 1
+      "level": 2
     },
     {
       "id": "17w9ut8",
@@ -1482,21 +1452,14 @@
       "page": 18
     },
     {
-      "id": "1jjjhn2",
-      "type": "other",
-      "text": "MECO Engineering Engineer",
-      "page": 18
-    },
-    {
-      "id": "1s6ahq",
-      "type": "heading",
+      "id": "d4slg2",
+      "type": "caption",
       "text": "Thank You",
-      "page": 19,
-      "level": 1
+      "page": 19
     },
     {
-      "id": "4eetxm",
-      "type": "paragraph",
+      "id": "1vh73g6",
+      "type": "caption",
       "text": "We look forward to hearing from you!",
       "page": 19
     },
@@ -1509,7 +1472,7 @@
   ],
   "meta": {
     "pages": 19,
-    "parsedAt": "2026-08-27T05:34:01.351Z",
+    "parsedAt": "2026-08-27T06:11:24.400Z",
     "model": "claude-sonnet-4-5"
   }
 }

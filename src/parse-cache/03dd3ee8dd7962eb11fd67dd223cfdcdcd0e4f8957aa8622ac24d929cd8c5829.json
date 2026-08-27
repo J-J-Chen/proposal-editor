@@ -108,15 +108,9 @@
       "page": 2
     },
     {
-      "id": "1olw75t",
+      "id": "ij5rw4",
       "type": "list-item",
-      "text": "Basic Transportation Design",
-      "page": 2
-    },
-    {
-      "id": "1dls93u",
-      "type": "list-item",
-      "text": "local streets, minor collectors, sidewalks",
+      "text": "Basic Transportation Design local streets, minor collectors, sidewalks",
       "page": 2
     },
     {
@@ -302,39 +296,33 @@
       "page": 3
     },
     {
-      "id": "msdohq",
-      "type": "paragraph",
+      "id": "flkqjc",
+      "type": "list-item",
       "text": "Donald J. Jenkins, PE, Vice President MO PE No. PE-2020000059, 10 years experience",
       "page": 3
     },
     {
-      "id": "10pzki3",
-      "type": "paragraph",
+      "id": "itg3bx",
+      "type": "list-item",
       "text": "Scott E. Vogler, PE, President MO PE No. 022510, 42 years experience",
       "page": 3
     },
     {
-      "id": "1ytsx5k",
-      "type": "paragraph",
+      "id": "1uj0yia",
+      "type": "list-item",
       "text": "David C. Uhlig, PE, Senior Engineer MO PE E-027521, 36 years experience",
       "page": 3
     },
     {
-      "id": "19xsbcc",
-      "type": "paragraph",
+      "id": "wmakla",
+      "type": "list-item",
       "text": "Kevin W. Garnett, PE, Vice President MO PE No. 2006023228, IL PE 062.057955, 26 years experience",
       "page": 3
     },
     {
-      "id": "18xw5pp",
-      "type": "paragraph",
+      "id": "zh8db3",
+      "type": "list-item",
       "text": "Evan Nickels Engineer",
-      "page": 3
-    },
-    {
-      "id": "19vsod7",
-      "type": "other",
-      "text": "2701 Industrial Drive | Jefferson City, MO 65109 | 573-893-5558",
       "page": 3
     },
     {
@@ -366,12 +354,6 @@
       "id": "15o0ryr",
       "type": "paragraph",
       "text": "Sincerely yours, MECO Engineering Company, Inc. Donald Jenkins, PE Vice President | Project Manager",
-      "page": 4
-    },
-    {
-      "id": "1a5sa26",
-      "type": "other",
-      "text": "2701 Industrial Drive | Jefferson City, MO 65109 | 573-893-5558",
       "page": 4
     },
     {
@@ -441,27 +423,15 @@
       "page": 6
     },
     {
-      "id": "1jxznyg",
+      "id": "adc8h8",
       "type": "list-item",
-      "text": "Environmental Engineering",
+      "text": "Environmental Engineering Water and Waste Treatment",
       "page": 6
     },
     {
-      "id": "1ds0c3t",
-      "type": "caption",
-      "text": "Water and Waste Treatment",
-      "page": 6
-    },
-    {
-      "id": "l6wdrc",
+      "id": "1c1y87h",
       "type": "list-item",
-      "text": "Mechanical/Electrical/Plumbing (MEP) Engineering",
-      "page": 6
-    },
-    {
-      "id": "17octvq",
-      "type": "caption",
-      "text": "Including engineering efficiency studies and solutions",
+      "text": "Mechanical/Electrical/Plumbing (MEP) Engineering Including engineering efficiency studies and solutions",
       "page": 6
     },
     {
@@ -513,32 +483,32 @@
       "page": 7
     },
     {
-      "id": "obag56",
-      "type": "paragraph",
+      "id": "yw0m4",
+      "type": "list-item",
       "text": "Scott vogler, pe President",
       "page": 7
     },
     {
-      "id": "vpto1y",
-      "type": "paragraph",
+      "id": "1bwumps",
+      "type": "list-item",
       "text": "max middendorf, pe Vice-President",
       "page": 7
     },
     {
-      "id": "15gdnoc",
-      "type": "paragraph",
+      "id": "1or826m",
+      "type": "list-item",
       "text": "Jim Bensman, PE,SE Vice-President",
       "page": 7
     },
     {
-      "id": "cfsj6c",
-      "type": "paragraph",
+      "id": "lw8mva",
+      "type": "list-item",
       "text": "Kevin Garnett, PE Vice-President",
       "page": 7
     },
     {
-      "id": "174jobf",
-      "type": "paragraph",
+      "id": "pw8e19",
+      "type": "list-item",
       "text": "Don Jenkins, PE Vice-President",
       "page": 7
     },
@@ -547,7 +517,7 @@
       "type": "heading",
       "text": "CORPORATE REGISTRATION",
       "page": 7,
-      "level": 2
+      "level": 1
     },
     {
       "id": "qbgkd0",
@@ -648,7 +618,7 @@
   ],
   "meta": {
     "pages": 8,
-    "parsedAt": "2026-08-27T05:33:04.797Z",
+    "parsedAt": "2026-08-27T06:10:25.241Z",
     "model": "claude-sonnet-4-5"
   }
 }

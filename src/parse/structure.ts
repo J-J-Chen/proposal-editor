@@ -41,6 +41,9 @@ const SYSTEM = [
   '  (section titles = 1). A bold but mixed-case line (a person name) is NOT a heading.',
   '- On brochure/infographic/cover pages, do NOT over-segment: label decorative stat blurbs and',
   '  scattered labels coarsely as "other" or "caption" rather than many tiny headings/list-items.',
+  '- Org chart / staff listing: a person entry is a name line (e.g. "Scott Vogler, PE") followed by',
+  '  a short title line (e.g. "President" / "Vice-President"). Emit EACH PERSON as its own list-item',
+  '  (name + title together) — never merge several people, or a pile of titles, into one block.',
   '- Merge a split title (e.g. "Statement of" + "Qualifications") into one heading block.',
   '- Every input line index must appear in exactly one block. Never emit text — ranges only.',
 ].join('\n');
@@ -53,6 +56,7 @@ export async function structure(lines: AnnotatedLine[]): Promise<BlockRef[]> {
   const res = await anthropic.messages.create({
     model: STRUCTURE_MODEL,
     max_tokens: 8000,
+    temperature: 0, // deterministic structuring → stable, reproducible seeds
     system: SYSTEM,
     tools: [
       {
