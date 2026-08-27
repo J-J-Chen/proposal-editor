@@ -450,12 +450,15 @@ export function Editor() {
     for (let i = 0; i < state.cursor; i++) touched.add(opBlockId(state.history[i].op));
     for (const b of doc.blocks) {
       if (!touched.has(b.id)) continue;
+      // Hide the control while THIS block has a review open — clicking it would silently drop the
+      // in-progress AI suggestion (SECTION_STEP clears pending). It returns after Keep/Discard.
+      if (state.pending?.blockId === b.id) continue;
       const orig = originalBaseline[b.id];
       if (orig === undefined) continue;
       m[b.id] = b.text !== orig ? 'undo' : 'redo';
     }
     return m;
-  }, [doc, originalBaseline, state.history, state.cursor]);
+  }, [doc, originalBaseline, state.history, state.cursor, state.pending]);
 
   const sectionStep = useCallback((blockId: string) => {
     dispatch({ type: 'SECTION_STEP', blockId });
