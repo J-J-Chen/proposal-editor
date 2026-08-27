@@ -273,7 +273,8 @@ trials, over-weighting the hard "rewrite in our voice" / "change tone" cases):
 > **hard.pdf — $-fidelity holdout, 710ccac (re-run with production docContext).** Dataset:
 > **hard.pdf** — a generalization fixture the parser/editor were never tuned to. It began as a
 > pristine never-seen holdout and has since been **reused for follow-up runs** (this one
-> included), so it is now a repeated-measurement fixture, not a one-shot blind test. 242 blocks,
+> included), so it is now a repeated-measurement fixture, not a one-shot blind test. 242 blocks (as served by
+> deployed `710ccac`; the committed seed has since been re-parsed to 237, not yet deployed),
 > 198 entity-bearing, 22 sampled including **all $-bearing blocks** → 198 trials (22 × 9
 > phrasings). Deploy `710ccac` · docContext firm=`"MECO Engineering Company, Inc."` + headings
 > (production-faithful) · editor `claude-sonnet-4-5` @ temp 0.2 · cross-model extractor
