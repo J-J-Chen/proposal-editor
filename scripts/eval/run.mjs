@@ -123,12 +123,15 @@ const { chosen, dropped } = selectBlocks(bearing, maxBlocks);
 let blocks = chosen;
 if (limit) blocks = blocks.slice(0, limit);
 
-const headings = allBlocks.filter((b) => b.type === 'heading').map((b) => b.text).slice(0, 12);
-// Firm name for docContext, derived generically (most frequent acronym across the doc) — NOT hardcoded.
-const acronymFreq = {};
-for (const b of allBlocks) for (const p of goldEntities(b.text || '').proper) if (p.kind === 'acronym') acronymFreq[p.value] = (acronymFreq[p.value] || 0) + 1;
-const firm = Object.entries(acronymFreq).sort((a, b) => b[1] - a[1])[0]?.[0];
-const docContext = { headings, ...(firm ? { firm } : {}) };
+// Mirror EXACTLY what the browser sends so the measurement matches production. The app builds
+// docContext in src/components/Editor.tsx:353 as { headings: <ALL heading texts>, firm: FIRM } with
+// the fixed constant FIRM = 'MECO Engineering Company, Inc.' (Editor.tsx:51). This is production
+// INPUT, not the scoring instrument, so pinning the app's literal value is correct — the earlier
+// generic derivation picked "MO" (frequent in addresses) and diverged from what any user runs.
+const FIRM = 'MECO Engineering Company, Inc.'; // keep in sync with src/components/Editor.tsx
+const headings = allBlocks.filter((b) => b.type === 'heading').map((b) => b.text);
+const firm = FIRM;
+const docContext = { headings, firm: FIRM };
 
 console.log(`  doc: ${parsedDoc.filename}  ·  ${allBlocks.length} blocks  ·  ${bearing.length} entity-bearing`);
 if (dropped) console.log(`  sampling: ${blocks.length} blocks (kept all $-bearing; dropped ${dropped} lower-diversity blocks — N per cell stated below)`);
@@ -328,5 +331,19 @@ if (outFile) {
   console.log(`\n✓ wrote ${outFile}`);
 }
 
+// Verdict + exit. An instrument that reports a fidelity % over a set where trials silently ERRORED
+// (or ALL errored) must never look green — that is a trust hole. Any errored trial fails the run.
 const effectivenessCollapsed = applicable.length > 0 && appliedOfApplicable === 0;
-process.exit(valueViolations.length === 0 && !effectivenessCollapsed ? 0 : 1);
+const instrumentFailed = ok.length === 0 || errored.length > 0;
+const contentFailed = valueViolations.length > 0 || effectivenessCollapsed;
+console.log('');
+if (ok.length === 0) {
+  console.log(`✗ FAIL (instrument) — ALL ${trials.length} trials errored; there is NO fidelity data. This run is not a pass.`);
+} else if (errored.length > 0) {
+  console.log(`✗ FAIL (instrument) — ${errored.length}/${trials.length} trials errored; a partial run must not report green. Fix the route/connectivity and re-run.`);
+} else if (contentFailed) {
+  console.log(`✗ FAIL (content) — ${valueViolations.length} value violation(s)${effectivenessCollapsed ? ' + effectiveness collapse' : ''}; see the violation list above (hand-adjudicate before acting).`);
+} else {
+  console.log('✓ PASS — every entity preserved by value, no trial errors, effectiveness intact.');
+}
+process.exit(instrumentFailed || contentFailed ? 1 : 0);
