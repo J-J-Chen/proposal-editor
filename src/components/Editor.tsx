@@ -870,7 +870,7 @@ export function Editor() {
             const flagged = changed.length > 0 || (e.warnings?.length ?? 0) > 0;
             return { ...e, flagged, section: sectionOf(doc, e.blockId) };
           });
-          setChatBatch({ summary, edits, baseCursor });
+          setChatBatch({ summary, edits, baseCursor, docId: doc.id });
           // Safe edits on by default; flagged ones OFF until the user explicitly turns them on.
           setChatIncluded(new Set(edits.filter((e) => !e.flagged).map((e) => e.blockId)));
         }
@@ -889,10 +889,32 @@ export function Editor() {
   }, []);
 
   const keepChatBatch = useCallback(() => {
-    if (!chatBatch) return;
-    const kept = chatBatch.edits.filter((e) => chatIncluded.has(e.blockId));
-    if (kept.length === 0) return;
-    const batch: Pending[] = kept.map((e) => ({
+    if (!chatBatch || !doc) return;
+    const included = chatBatch.edits.filter((e) => chatIncluded.has(e.blockId));
+    // Only edits that still apply cleanly to the CURRENT doc: right document, unchanged base, and
+    // the target block still holds exactly the text the edit was proposed against. This is the same
+    // check the reducer re-runs, so the count we report is the count that actually applies.
+    const applicable =
+      chatBatch.docId === doc.id && chatBatch.baseCursor === state.cursor
+        ? included.filter((e) => {
+            const b = doc.blocks.find((x) => x.id === e.blockId);
+            return !!b && b.text === e.before;
+          })
+        : [];
+    if (applicable.length === 0) {
+      setChatBatch(null);
+      setChatIncluded(new Set());
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          content:
+            'Those changes no longer apply — your document has moved on since. Nothing was changed.',
+        },
+      ]);
+      return;
+    }
+    const batch: Pending[] = applicable.map((e) => ({
       blockId: e.blockId,
       before: e.before,
       after: e.after,
@@ -900,21 +922,21 @@ export function Editor() {
       rationale: e.rationale,
       protectedKept: e.protectedKept,
       baseCursor: chatBatch.baseCursor,
+      docId: chatBatch.docId,
     }));
     dispatch({ type: 'KEEP_BATCH', batch });
     setChatBatch(null);
     setChatIncluded(new Set());
+    const n = applicable.length;
     setChatMessages((prev) => [
       ...prev,
       {
         role: 'assistant',
-        content: `Done — I applied ${kept.length} change${kept.length === 1 ? '' : 's'}. You can Undo the whole set from the top-left.`,
+        content: `Done — I applied ${n} change${n === 1 ? '' : 's'}. You can Undo the whole set from the top-left.`,
       },
     ]);
-    setToast(
-      `Applied ${kept.length} change${kept.length === 1 ? '' : 's'}. Undo reverses them together.`,
-    );
-  }, [chatBatch, chatIncluded]);
+    setToast(`Applied ${n} change${n === 1 ? '' : 's'}. Undo reverses them together.`);
+  }, [chatBatch, chatIncluded, doc, state.cursor]);
 
   const discardChatBatch = useCallback(() => {
     setChatBatch(null);
@@ -927,6 +949,17 @@ export function Editor() {
       },
     ]);
   }, []);
+
+  // A new (or reopened) document invalidates any in-flight chat turn and proposed batch — reset
+  // the whole chat surface so a proposal from one document can never bleed into another.
+  useEffect(() => {
+    chatReqRef.current++;
+    setChatOpen(false);
+    setChatStatus('idle');
+    setChatMessages([]);
+    setChatBatch(null);
+    setChatIncluded(new Set());
+  }, [doc?.id]);
 
   const visibleSuggestions = useMemo(
     () => suggestions.filter((s) => !dismissed.has(s.id) && !resolved.has(s.id)),
