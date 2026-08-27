@@ -18,7 +18,11 @@ export interface Entity {
 
 /** Proper names present across easy.pdf — the firm, personnel, client, official, place. */
 export const KNOWN_NAMES: readonly string[] = [
+  // Longest-first so the fullest firm form wins (scan() sorts by length, but the intermediate
+  // "…Company" form must exist or a bare "MECO Engineering Company" tints only "MECO Engineering"
+  // and drops "Company"). Mirrors the eval's ALIAS_GROUPS canonical forms.
   'MECO Engineering Company, Inc.',
+  'MECO Engineering Company',
   'MECO Engineering',
   'MECO',
   'City of Dixon',

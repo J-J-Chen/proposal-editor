@@ -51,6 +51,7 @@ export function BlockView({
   selected,
   dim,
   pulse,
+  peek,
   isTitle,
   onSelect,
 }: {
@@ -58,6 +59,7 @@ export function BlockView({
   selected: boolean;
   dim: boolean;
   pulse: boolean;
+  peek: boolean;
   isTitle: boolean;
   onSelect: (id: string) => void;
 }) {
@@ -66,6 +68,7 @@ export function BlockView({
     selected && 'selected',
     dim && 'dim',
     pulse && 'pulse',
+    peek && !selected && 'peek',
   ]
     .filter(Boolean)
     .join(' ');
@@ -89,6 +92,7 @@ export function BlockView({
       }}
     >
       {selected && <span className="sel-tag">You selected this {blockNoun(block)}</span>}
+      {peek && !selected && <span className="peek-tag">The suggestion is about this {blockNoun(block)}</span>}
       <Inner block={block} isTitle={isTitle} />
     </div>
   );

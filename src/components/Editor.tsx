@@ -177,6 +177,7 @@ export function Editor() {
   const [resolved, setResolved] = useState<Set<string>>(new Set());
   const [activeSuggestionId, setActiveSuggestionId] = useState<string | null>(null);
   const [highlightId, setHighlightId] = useState<string | null>(null);
+  const [peekId, setPeekId] = useState<string | null>(null);
   const reqRef = useRef(0);
 
   const { doc, selectedId, pending, status } = state;
@@ -242,6 +243,8 @@ export function Editor() {
     setNote(null);
     setConfirm(null);
     setRefineOpen(false); // a direct doc click leaves the Refine list
+    setActiveSuggestionId(null); // …so a later Keep isn't misattributed to a stale suggestion
+    setPeekId(null);
     dispatch({ type: 'SELECT', blockId: id });
   }, []);
 
@@ -308,14 +311,23 @@ export function Editor() {
     dispatch({ type: 'KEEP_PENDING' });
     setToast('Change saved. You can Undo if you change your mind.');
     if (activeSuggestionId) {
+      // Resolve this suggestion and return cleanly to the list (the kept block still pulses).
       setResolved((prev) => new Set(prev).add(activeSuggestionId));
       setActiveSuggestionId(null);
+      setPeekId(null);
+      dispatch({ type: 'SELECT', blockId: null });
     }
   }, [activeSuggestionId]);
   const onDiscard = useCallback(() => {
     dispatch({ type: 'DISCARD_PENDING' });
-    if (activeSuggestionId) setActiveSuggestionId(null);
-    else setNote({ kind: 'info', text: 'No changes made.' });
+    if (activeSuggestionId) {
+      // Leave the suggestion in the list (not resolved) and go back to it.
+      setActiveSuggestionId(null);
+      setPeekId(null);
+      dispatch({ type: 'SELECT', blockId: null });
+    } else {
+      setNote({ kind: 'info', text: 'No changes made.' });
+    }
   }, [activeSuggestionId]);
   const onCancel = useCallback(() => {
     reqRef.current++;
@@ -350,6 +362,7 @@ export function Editor() {
     setDismissed(new Set());
     setResolved(new Set());
     setActiveSuggestionId(null);
+    setPeekId(null);
     setNote(null);
     setConfirm(null);
     dispatch({ type: 'SELECT', blockId: null });
@@ -358,7 +371,28 @@ export function Editor() {
 
   const closeRefine = useCallback(() => {
     setRefineOpen(false);
+    setPeekId(null);
     dispatch({ type: 'SELECT', blockId: null });
+  }, []);
+
+  // Hovering a suggestion reveals its section in the document (steady highlight + gentle scroll).
+  const peekBlock = useCallback((id: string | null) => {
+    setPeekId(id);
+    if (id) {
+      document
+        .querySelector(`[data-block-id="${id}"]`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, []);
+
+  // From a suggestion's edit (thinking or review card) back to the full list, without Keep/Discard.
+  const backToSuggestions = useCallback(() => {
+    reqRef.current++; // ignore any in-flight edit response
+    setActiveSuggestionId(null);
+    setNote(null);
+    setConfirm(null);
+    setPeekId(null);
+    dispatch({ type: 'SELECT', blockId: null }); // clears pending + thinking; refineOpen stays → RefinePanel
   }, []);
 
   const visibleSuggestions = useMemo(
@@ -450,6 +484,7 @@ export function Editor() {
             doc={doc}
             selectedId={selectedId}
             pulseId={highlightId ?? state.lastChangedId}
+            peekId={peekId}
             onSelect={onSelect}
           />
           {refineOpen && status === 'idle' && !pending ? (
@@ -459,6 +494,7 @@ export function Editor() {
               onFix={fixSuggestion}
               onDismiss={dismissSuggestion}
               onGoto={highlightBlock}
+              onPeek={peekBlock}
               onClose={closeRefine}
             />
           ) : (
@@ -474,6 +510,7 @@ export function Editor() {
               onDiscard={onDiscard}
               onCancel={onCancel}
               onCheck={runScan}
+              onBack={refineOpen && activeSuggestionId ? backToSuggestions : undefined}
             />
           )}
         </div>
