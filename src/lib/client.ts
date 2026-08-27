@@ -33,15 +33,25 @@ export async function parseByHash(hash: string, filename: string): Promise<Parse
  * restricts to application/pdf — then hand /api/parse the blob URL to fetch + parse server-side.
  * We still send the sha256 `hash` so a since-seeded/warm file short-circuits to cache, no upload.
  */
-export async function parseByUpload(file: File, hash: string): Promise<Doc> {
+export async function parseByUpload(file: File, hash: string): Promise<{ doc: Doc; blobUrl: string }> {
   const blob = await upload(file.name, file, {
     access: 'private',
     handleUploadUrl: '/api/blob/upload',
   });
+  const doc = await parseByBlobUrl(hash, file.name, blob.url);
+  // Return the blob URL too, so "Recent documents" can reopen this upload later without a re-upload.
+  return { doc, blobUrl: blob.url };
+}
+
+/**
+ * Reopen an already-uploaded PDF by its Blob URL (no re-upload). Used both right after an upload
+ * and when reopening an uploaded doc from the Recent list after the server parse cache has cooled.
+ */
+export async function parseByBlobUrl(hash: string, filename: string, blobUrl: string): Promise<Doc> {
   const r = await fetch('/api/parse', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ hash, filename: file.name, blobUrl: blob.url }),
+    body: JSON.stringify({ hash, filename, blobUrl }),
   });
   if (!r.ok) throw new Error(`Couldn't read the proposal (status ${r.status}).`);
   const data = (await r.json()) as ParseResponse;

@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Proposal Editor",
-  description: "Upload a proposal PDF and edit it section-by-section with AI.",
+  description: "Open a proposal PDF and edit it section-by-section with AI.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {

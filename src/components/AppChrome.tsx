@@ -2,10 +2,12 @@
  *  the slide-in changes list. The undo/redo arrows sit exactly where a document editor puts them. */
 'use client';
 
-import { IconAssistant, IconHistory, IconRedo, IconUndo } from './icons';
+import { IconAssistant, IconFolder, IconHistory, IconRedo, IconUndo } from './icons';
 
 export function Titlebar({
+  mode,
   docName,
+  onHome,
   canUndo,
   canRedo,
   undoTip,
@@ -16,7 +18,11 @@ export function Titlebar({
   onOpenChat,
   onToggleChanges,
 }: {
+  /** 'editor' shows the doc controls; 'backstage' (open/reading) shows just the app identity. */
+  mode: 'backstage' | 'editor';
   docName: string;
+  /** When set (editor view), the leading "Proposals" button returns to the Open/Recent screen. */
+  onHome?: () => void;
   canUndo: boolean;
   canRedo: boolean;
   undoTip: string;
@@ -29,8 +35,26 @@ export function Titlebar({
   onOpenChat: () => void;
   onToggleChanges: () => void;
 }) {
+  if (mode !== 'editor') {
+    // Backstage / reading — nothing to undo or review yet, so keep the bar to the app identity.
+    return (
+      <header className="titlebar">
+        <span className="tb-brand">
+          <IconFolder />
+          Proposal Editor
+        </span>
+        <span className="tb-spacer" />
+      </header>
+    );
+  }
   return (
     <header className="titlebar">
+      {onHome && (
+        <button className="tbtn tb-home" onClick={onHome} title="Open another proposal">
+          <IconFolder />
+          Proposals
+        </button>
+      )}
       <div className="qat">
         <button
           className={`qbtn ${canUndo ? 'active' : ''}`}
