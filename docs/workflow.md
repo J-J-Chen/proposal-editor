@@ -6,15 +6,16 @@ never a hand commit or `git push`. That is the *entire* invariant, and it's abou
 (the commit graph), NOT about the shared repo-root checkout being spotless. (The one genesis
 commit that created the repo was the only direct commit to main.)
 
-Every session's cwd is the shared root (`/Users/john/proposal_editor`), so the root inevitably
-collects stray edits. That's fine: **`mq-land` auto-stashes stray root edits for the duration of
-a land and restores them after**, so one session's mess never blocks another's land. But those
-root edits are **never landed**. Therefore:
+**Canonical main = `origin/main`.** The queue is fully isolated: it merges + gates + pushes in
+its **own dedicated worktree** (`../proposal_editor-worktrees/.queue`, detached) and **never
+touches the shared root**. So stray edits in the root (every session's cwd) are simply
+irrelevant — there is nothing to stash and nothing to clobber; lands are independent. The root's
+local `main` ref is not advanced by the queue — always treat `origin/main` as the source of
+truth (`wt-new` branches off it). Therefore:
 
 - **Do all real work in your own worktree** (`scripts/wt-new.sh <task>`), commit there, land it.
-- **Treat the repo root as read-only.** If you catch yourself editing files under
-  `/Users/john/proposal_editor` directly, stop and move to a worktree — that work won't be landed
-  (it gets stashed aside during the next land).
+- **The repo root is not a workspace.** Edits made directly under `/Users/john/proposal_editor`
+  are never landed — move to a worktree.
 
 ## Worktrees + local merge queue
 Worktrees are siblings at `../proposal_editor-worktrees/<slug>`. This is what lets multiple
@@ -30,13 +31,14 @@ scripts/wt-list.sh ; scripts/wt-rm.sh <name> --delete-branch
 ```
 
 How the queue behaves:
-- A `mkdir` lock **serializes** lands (FIFO) so main never races.
-- It **auto-stashes stray root edits** before merging and restores them after — a dirty repo
-  root no longer blocks landing (if the restore ever conflicts, your edits stay safe in `git stash`).
+- A `mkdir` lock **serializes** lands (FIFO) so the queue worktree is single-writer.
+- It runs entirely in its **own detached worktree** (`.queue`) off `origin/main` — never the
+  shared root, so a dirty root can't block or corrupt a land. Nothing is stashed.
 - Merges are **`--no-ff`** → branch history preserved (brief forbids squashing).
-- A **light gate check** (`.mq/check.sh`, typecheck only, no tests — speed-first) runs on the
-  merged tree; failure rolls the merge back. Bypass with `MQ_SKIP_CHECK=1 scripts/mq-land.sh`.
-- On conflict: merge/rebase main into your branch, resolve, retry.
+- A **light gate check** (`.mq/check.sh`, typecheck only, no tests — speed-first) runs in the
+  queue worktree; failure aborts the land (nothing is pushed). Bypass with `MQ_SKIP_CHECK=1`.
+- On conflict: merge `origin/main` into your branch, resolve, retry.
+- The `.queue` worktree is created on first land and reused; it appears in `wt-list`/`mq-status`.
 
 ## Best-practice structure, cheaply
 Decompose by concern (parse / model / ai / api / ui) — not everything in one file — but don't

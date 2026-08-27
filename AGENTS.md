@@ -19,10 +19,11 @@ Start here, then open the docs relevant to your task:
 2. **Stack:** Next.js + TypeScript. Deploy on Vercel. DB optional (default none).
 3. **AI only via the Buoyant proxy**, server-side. **Never commit the token/secrets** — use
    `.env.local`. Spend is capped: cache parses, keep prompts small.
-4. **The main BRANCH advances only through the merge queue** (`scripts/mq-land.sh`, `--no-ff`) —
-   never commit or push main by hand. **Do all work in your own worktree** (`scripts/wt-new.sh`);
-   the shared repo **root is not a workspace**. Stray edits in the root are never landed and no
-   longer block landing (the queue auto-stashes them). See [docs/workflow.md](docs/workflow.md).
+4. **`origin/main` is canonical; it advances only through the merge queue** (`scripts/mq-land.sh`,
+   `--no-ff`) — never commit or push main by hand. The queue is **fully isolated** (its own
+   detached `.queue` worktree; never touches the shared root), so a dirty root never blocks a land.
+   **Do all work in your own worktree** (`scripts/wt-new.sh`); the shared repo **root is not a
+   workspace** (edits there are never landed). See [docs/workflow.md](docs/workflow.md).
 5. **Don't squash history** (the brief wants to see how work evolved). Merges are `--no-ff`.
 6. **Decompose sensibly** — not everything in one file — but don't over-abstract a 4-hour app.
 7. **Log non-obvious decisions** in [docs/decisions.md](docs/decisions.md).
