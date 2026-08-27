@@ -86,9 +86,59 @@ function orderPage(pl: RawLine[], isFurn: (l: RawLine) => boolean): RawLine[] {
   // Keyed on furniture DETECTION, not y-position — position can't tell footer furniture from real
   // bottom-of-page content (e.g. p7's last org-chart entry sits as low as the footer).
   const sink = (l: RawLine) => (isFurn(l) ? 1 : 0);
-  return [...pl].sort(
-    (a, b) => sink(a) - sink(b) || colOf(a.x0) - colOf(b.x0) || a.y0 - b.y0 || a.x0 - b.x0,
+  const columnSort = (arr: RawLine[]) =>
+    [...arr].sort(
+      (a, b) => sink(a) - sink(b) || colOf(a.x0) - colOf(b.x0) || a.y0 - b.y0 || a.x0 - b.x0,
+    );
+
+  // Band segmentation. The column sort's flaw is that column index outranks y, so a short line
+  // that owns its own x-cluster and sits clear of the real columns — a CENTERED HEADING above the
+  // body — is emitted after the body column instead of above it (the LLM can't repair it: it must
+  // cover lines in the supplied order). Detect such "separator" lines and read the page as bands
+  // top-to-bottom, column-sorting only within each genuine multi-column region.
+  //
+  // A separator is a lone content line (its column holds exactly ONE non-furniture line) whose
+  // y-range clears every genuine multi-line column. This is deliberately narrow so it is a NO-OP
+  // for real multi-column layouts: easy.pdf p2 (2-col SERVICES) and p7 (org chart) have no lone
+  // content columns, so they fall through to the exact column sort below, byte-for-byte unchanged.
+  const content = pl.filter((l) => !isFurn(l));
+  const perCol = new Map<number, RawLine[]>();
+  for (const l of content) (perCol.get(colOf(l.x0)) ?? perCol.set(colOf(l.x0), []).get(colOf(l.x0))!).push(l);
+  const multiRanges: [number, number][] = [];
+  for (const ls of perCol.values()) {
+    if (ls.length >= 2) multiRanges.push([Math.min(...ls.map((l) => l.y0)), Math.max(...ls.map((l) => l.y1))]);
+  }
+  const overlapsMulti = (l: RawLine) => multiRanges.some(([y0, y1]) => l.y1 > y0 && l.y0 < y1);
+  // Only normal, horizontally-set text can be a separator. Rotated/vertical text (e.g. hard.pdf's
+  // sideways "Thank You" cover word) has a taller-than-wide bbox and no reliable y reading order,
+  // so leaving it to the column sort keeps its prior placement.
+  const isHorizontal = (l: RawLine) => l.x1 - l.x0 >= l.y1 - l.y0;
+  const sepIdx = new Set(
+    content
+      .filter((l) => isHorizontal(l) && perCol.get(colOf(l.x0))!.length === 1 && !overlapsMulti(l))
+      .map((l) => l.idx),
   );
+
+  if (sepIdx.size === 0) return columnSort(pl); // no separators → exact prior behaviour
+
+  // Walk the content top-to-bottom: separators are their own band; runs of the remaining lines are
+  // genuine multi-column regions (column-sorted). Furniture always sinks to the end.
+  const out: RawLine[] = [];
+  let region: RawLine[] = [];
+  for (const l of [...content].sort(byY)) {
+    if (sepIdx.has(l.idx)) {
+      if (region.length) {
+        out.push(...columnSort(region));
+        region = [];
+      }
+      out.push(l);
+    } else {
+      region.push(l);
+    }
+  }
+  if (region.length) out.push(...columnSort(region));
+  out.push(...pl.filter((l) => isFurn(l)).sort(byY));
+  return out;
 }
 
 const isPageNumber = (s: string): boolean => /^\s*(?:page\s+)?\d{1,3}\s*$/i.test(s);
