@@ -22,7 +22,8 @@ and one real evaluation.
 
 ## Non-goals (explicitly cut — see also [decisions.md](decisions.md))
 Pixel-perfect PDF fidelity · export-back-to-PDF · robust multi-column/table handling &
-`hard.pdf` · multi-paragraph chat · DB / auth / multi-user · OCR · exhaustive test suites.
+`hard.pdf` · multi-paragraph chat · DB / auth / multi-user · OCR · exhaustive test suites ·
+KB enrichment / write-back (the product KB stays read-only grounding — see [decisions.md](decisions.md)).
 Any of these can become a goal later; today they are out.
 
 ## How we'll know it's working (if shipped to prod)
