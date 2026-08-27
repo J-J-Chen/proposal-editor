@@ -158,7 +158,11 @@ Speed-first, and *intentional* scope beats feature count. Explicit cuts:
   same signal into the document with a gold protected-entity tint and a "Kept exactly as
   written" line. *Caveat:* the gate catches **alter/drop of entities present in the original
   block**, not a **fabricated new** entity the original didn't contain — that is a
-  model-guardrail concern (§7). (5) the §5 eval measures how often the raw edit route holds
+  model-guardrail concern (§7). And its **name** protection is corpus-based — a known roster of
+  firm / personnel / client names (`KNOWN_NAMES`) — whereas the PE-license / project # / $ / phone
+  protection is regex-based and generalizes; so on an *unseen* proposal, numbers and licenses stay
+  protected but a novel **person name** is not auto-shielded (open-class name coverage is a §7
+  item). (5) the §5 eval measures how often the raw edit route holds
   the line before this gate.
 - **Over-eager edits** — the model "improving" things it wasn't asked to. Mitigated by the
   explicit "do exactly what's asked and nothing more" rule and by tuning toward small, surgical
@@ -277,11 +281,13 @@ trials, over-weighting the hard "rewrite in our voice" / "change tone" cases):
 
 1. **Harden the parse for real layouts** — proper multi-column and table reconstruction, then take
    on `hard.pdf`. This is the biggest generalization risk.
-2. **Close the fidelity gap the confirm gate can't see** — the deterministic gate catches
-   *alter/drop* of entities that were in the original block, but not a **fabricated new** name
-   or number the model invents from nothing. Add a model-side guardrail plus a post-edit check
-   for entities that appear in the output but not the input (KB hallucination, §4, is one
-   instance).
+2. **Close the fidelity gaps the confirm gate can't see** — two of them. (a) The gate catches
+   *alter/drop* of entities in the original but not a **fabricated new** name or number the
+   model invents from nothing — add a model-side guardrail plus a post-edit check for entities
+   that appear in the output but not the input (KB hallucination, §4, is one instance). (b)
+   **Name** protection is a fixed `KNOWN_NAMES` roster — generalize it (e.g. NER) so an
+   open-class person name in an *unseen* proposal is protected the way the license / project #
+   / $ / phone regexes already generalize.
 3. **Ship KB grounding + grounded rationales** (both designed, neither built yet) — the "Add
    similar experience" flow (retrieve *real* past projects, human picks *before* any generation,
    insert in the firm's voice with a verbatim fidelity net — the app never invents a project),
