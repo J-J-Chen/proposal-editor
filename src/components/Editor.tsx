@@ -17,7 +17,7 @@ import {
   type Pending,
 } from '@/state/editor';
 import { parseByHash, parseByUpload, requestEdit } from '@/lib/client';
-import { protectedStrings } from '@/lib/entities';
+import { extractEntities, protectedStrings, type EntityKind } from '@/lib/entities';
 import { isNoChange } from '@/lib/text/diff';
 import { DocumentView } from './DocumentView';
 import { EditPanel } from './EditPanel';
@@ -78,6 +78,9 @@ function OpenScreen({
       >
         <input
           ref={inputRef}
+          id="proposal-file"
+          name="proposal-file"
+          aria-label="Choose a proposal PDF"
           type="file"
           accept="application/pdf,.pdf"
           hidden
@@ -125,23 +128,40 @@ function ReadingScreen() {
   );
 }
 
+/** What to call each protected-entity kind in plain language. */
+const ENTITY_NOUN: Record<EntityKind, string> = {
+  name: 'name',
+  license: 'license number',
+  projectNo: 'project number',
+  money: 'dollar amount',
+  phone: 'phone number',
+};
+
 function ConfirmModal({
   token,
+  kind,
   onYes,
   onNo,
 }: {
   token: string;
+  kind: EntityKind;
   onYes: () => void;
   onNo: () => void;
 }) {
+  const noun = ENTITY_NOUN[kind];
   return (
-    <div className="scrim" role="dialog" aria-modal="true" aria-label="Change a protected name?">
+    <div
+      className="scrim"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Change a ${noun} we usually keep exactly?`}
+    >
       <div className="modal">
         <div className="m-body">
           <div className="m-ico">
             <IconShield />
           </div>
-          <h3>Change a name we usually keep exactly?</h3>
+          <h3>Change a {noun} we usually keep exactly?</h3>
           <p>
             You asked to change <span className="tok">{token}</span>. We normally keep names and
             numbers exactly as written so your proposal stays accurate. Are you sure you want to
@@ -166,7 +186,9 @@ export function Editor() {
   const [view, setView] = useState<View>('open');
   const [openError, setOpenError] = useState<string | null>(null);
   const [note, setNote] = useState<{ kind: 'info' | 'warn'; text: string } | null>(null);
-  const [confirm, setConfirm] = useState<{ token: string; data: Pending } | null>(null);
+  const [confirm, setConfirm] = useState<{ token: string; kind: EntityKind; data: Pending } | null>(
+    null,
+  );
   const [toast, setToast] = useState<string | null>(null);
   const [showChanges, setShowChanges] = useState(false);
   const [lastInstruction, setLastInstruction] = useState('');
@@ -193,11 +215,26 @@ export function Editor() {
     return () => clearTimeout(t);
   }, [toast]);
 
+  // Clear a settled selection — clicking blank space, or pressing Escape. Guarded so it never
+  // yanks a change out from under the user while they're mid-edit (thinking or reviewing).
+  const deselect = useCallback(() => {
+    if (status !== 'idle' || pending || !selectedId) return;
+    reqRef.current++;
+    setNote(null);
+    setConfirm(null);
+    setPeekId(null);
+    dispatch({ type: 'SELECT', blockId: null });
+  }, [status, pending, selectedId]);
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (view !== 'editor') return;
       const target = e.target as HTMLElement | null;
       if (target && /^(INPUT|TEXTAREA)$/.test(target.tagName)) return;
+      if (e.key === 'Escape') {
+        deselect();
+        return;
+      }
       const mod = e.metaKey || e.ctrlKey;
       if (mod && e.key.toLowerCase() === 'z') {
         e.preventDefault();
@@ -209,7 +246,7 @@ export function Editor() {
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [view]);
+  }, [view, deselect]);
 
   const openDoc = useCallback(async (hash: string, filename: string, file?: File) => {
     setOpenError(null);
@@ -289,8 +326,12 @@ export function Editor() {
         baseCursor,
       };
       if (protectedChanged.length > 0) {
+        // Name the kind of the first changed entity so the confirm says "phone number" / "license
+        // number" / … rather than always "name".
+        const ents = extractEntities(block.text);
+        const kind: EntityKind = ents.find((e) => e.text === protectedChanged[0])?.kind ?? 'name';
         dispatch({ type: 'CANCEL_THINKING' });
-        setConfirm({ token: protectedChanged[0], data });
+        setConfirm({ token: protectedChanged[0], kind, data });
       } else {
         dispatch({ type: 'SET_PENDING', pending: data });
       }
@@ -486,6 +527,7 @@ export function Editor() {
             pulseId={highlightId ?? state.lastChangedId}
             peekId={peekId}
             onSelect={onSelect}
+            onBackgroundClick={deselect}
           />
           {refineOpen && status === 'idle' && !pending ? (
             <RefinePanel
@@ -531,7 +573,14 @@ export function Editor() {
           {toast}
         </div>
       )}
-      {confirm && <ConfirmModal token={confirm.token} onYes={confirmYes} onNo={confirmNo} />}
+      {confirm && (
+        <ConfirmModal
+          token={confirm.token}
+          kind={confirm.kind}
+          onYes={confirmYes}
+          onNo={confirmNo}
+        />
+      )}
     </div>
   );
 }

@@ -185,8 +185,12 @@ export function EditPanel({
         </button>
       ))}
       <div className="freebox">
-        <div className="lab">Or tell us in your own words</div>
+        <label className="lab" htmlFor="assistant-request">
+          Or tell us in your own words
+        </label>
         <textarea
+          id="assistant-request"
+          name="assistant-request"
           value={freeText}
           onChange={(e) => setFreeText(e.target.value)}
           placeholder="For example: make the tone more confident"

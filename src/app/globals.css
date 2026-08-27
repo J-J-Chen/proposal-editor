@@ -657,6 +657,12 @@ button {
   text-underline-offset: 2px;
   font-weight: 600;
 }
+/* A replaced word puts the removed + added marks side by side with no whitespace between them
+   ("long-spanningenduring"). Nudge adjacent old/new marks apart so they read as two words. */
+.newbox .rm + .ad,
+.newbox .ad + .rm {
+  margin-left: 0.3em;
+}
 .keptline {
   margin: 12px 16px;
   background: var(--protect);

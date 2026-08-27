@@ -16,21 +16,36 @@ export interface Entity {
   kind: EntityKind;
 }
 
-/** Proper names present across easy.pdf — the firm, personnel, client, official, place. */
+/**
+ * Proper names present across easy.pdf — the firm, personnel, client, official, place.
+ * Every real personnel variant that appears in the corpus is listed (full name AND the
+ * short forms used in the signature / corporate-structure blocks), because the gate protects
+ * an entity only when it's in this set — "Donald J. Jenkins" in the team list doesn't cover
+ * "Donald Jenkins"/"Don Jenkins" in the sign-off. (Corpus-based; it does not generalize to
+ * unseen names.) scan() sorts longest-first so the fullest form always wins.
+ */
 export const KNOWN_NAMES: readonly string[] = [
-  // Longest-first so the fullest firm form wins (scan() sorts by length, but the intermediate
-  // "…Company" form must exist or a bare "MECO Engineering Company" tints only "MECO Engineering"
-  // and drops "Company"). Mirrors the eval's ALIAS_GROUPS canonical forms.
+  // Firm — the intermediate "…Company" form must exist or a bare "MECO Engineering Company"
+  // tints only "MECO Engineering" and drops "Company". Mirrors the eval's ALIAS_GROUPS.
   'MECO Engineering Company, Inc.',
   'MECO Engineering Company',
   'MECO Engineering',
   'MECO',
-  'City of Dixon',
-  'Mary Wiles',
+  // Personnel — full names and the short forms that appear in the signature / corporate blocks.
   'Donald J. Jenkins',
+  'Donald Jenkins',
+  'Don Jenkins',
   'Scott E. Vogler',
+  'Scott Vogler',
   'David C. Uhlig',
   'Kevin W. Garnett',
+  'Kevin Garnett',
+  'Evan Nickels',
+  'Max Middendorf',
+  'Jim Bensman',
+  // Client, official, places.
+  'City of Dixon',
+  'Mary Wiles',
   'Jefferson City',
 ];
 
