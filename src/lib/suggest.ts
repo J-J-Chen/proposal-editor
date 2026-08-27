@@ -25,6 +25,7 @@
 import { AI_MODELS, getAnthropic } from './ai';
 import { protectedStrings } from './entities';
 import { FIRM_VOICE } from '@/kb';
+import { sha256 } from '@/parse/hash';
 import type { LlmRefineCategory, LlmSuggestion } from './contracts';
 import type { Block, Doc } from './types';
 
@@ -217,13 +218,24 @@ function toSuggestion(raw: RawItem, byId: Map<string, Block>): LlmSuggestion | n
   };
 }
 
-// Per-doc cache: doc.id is a content hash, so the same document never re-spends within a warm
-// instance. Ephemeral (per-instance) is fine — the point is bounding spend, not durability.
+// Per-doc cache, keyed by a SERVER-COMPUTED hash of the submitted block content — never the
+// client-supplied doc.id. Trusting doc.id would let a client pass another request's id and read
+// back that document's cached suggestions/evidence (a cross-request content leak); deriving the
+// key from the content actually submitted means you can only ever retrieve suggestions for content
+// you sent. Ephemeral (per-instance) is fine — the point is bounding spend, not durability.
 const CACHE = new Map<string, LlmSuggestion[]>();
+
+/** Cache key from the content the server actually sees (not the client-asserted doc.id). */
+function contentKey(doc: Doc): string {
+  const canon = doc.blocks
+    .map((b) => `${b.id} ${b.type} ${b.level ?? ''} ${b.text}`)
+    .join('');
+  return `${SUGGEST_VERSION}:${sha256(Buffer.from(canon, 'utf8'))}`;
+}
 
 /** Compute (or reuse) the grounded LLM suggestions for a document. */
 export async function getSuggestions(doc: Doc): Promise<{ suggestions: LlmSuggestion[]; cached: boolean }> {
-  const key = `${SUGGEST_VERSION}:${doc.id}`;
+  const key = contentKey(doc);
   const hit = CACHE.get(key);
   if (hit) return { suggestions: hit, cached: true };
 
