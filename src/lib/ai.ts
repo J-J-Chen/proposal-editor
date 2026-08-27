@@ -30,12 +30,18 @@ export function isAiConfigured(): boolean {
   return typeof TOKEN === 'string' && TOKEN.length > 0;
 }
 
+// The Buoyant proxy returns compressed bodies that fail to decode in the Node/undici
+// fetch the SDKs use here (garbled bytes → "not valid JSON"). Forcing an identity
+// (uncompressed) response avoids the broken decode path. Verified: with the SDK default
+// Accept-Encoding the call errors; with identity it returns cleanly.
+const PROXY_HEADERS = { 'accept-encoding': 'identity' } as const;
+
 export function getAnthropic(): Anthropic {
   if (!isAiConfigured()) throw new Error('BUOYANT_PROXY_TOKEN is not set');
-  return new Anthropic({ apiKey: TOKEN, baseURL: ANTHROPIC_BASE_URL });
+  return new Anthropic({ apiKey: TOKEN, baseURL: ANTHROPIC_BASE_URL, defaultHeaders: PROXY_HEADERS });
 }
 
 export function getOpenAI(): OpenAI {
   if (!isAiConfigured()) throw new Error('BUOYANT_PROXY_TOKEN is not set');
-  return new OpenAI({ apiKey: TOKEN, baseURL: OPENAI_BASE_URL });
+  return new OpenAI({ apiKey: TOKEN, baseURL: OPENAI_BASE_URL, defaultHeaders: PROXY_HEADERS });
 }
