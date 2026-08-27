@@ -346,7 +346,11 @@ headline %, and report **raw k/n per instruction** with the entity-bearing denom
   verbatim text) as a zero-model floor, plus an **LLM editorial layer** (`/api/suggest`, aligned
   to the firm's KB voice, every quote verified verbatim) for wordiness / clarity / consistency.
   Each suggestion shows **why**, quoted from the user's own text, and routes through the exact same
-  review-and-apply card — same fidelity guarantees, nothing new to learn.
+  review-and-apply card — same fidelity guarantees, nothing new to learn. Those review decisions
+  also create the right future learning signal: once captured, each Keep / Discard / Adjust
+  outcome tells us whether a rubric rule produces genuinely useful suggestions, while
+  human-approved wording can reinforce the firm's voice profile. That improves both rubric and
+  data quality without promoting unreviewed model output into canonical source material.
 - **Operational polish** — clean `503`/`400`/`502` degradation on the AI routes, and a cross-model
   evaluation harness that keeps the editor from grading itself.
 
@@ -354,27 +358,30 @@ headline %, and report **raw k/n per instruction** with the entity-bearing denom
 
 ## 7. What I'd build next, given another 8 hours
 
-1. **Harden the parse for real layouts** — proper multi-column and table reconstruction, then the
+1. **Polish user flows and UI** — tighten onboarding, selection and deselection, loading and error
+   feedback, and responsive details so the existing end-to-end loop feels obvious and
+   customer-ready before adding more surface area.
+2. **Harden the parse for real layouts** — proper multi-column and table reconstruction, then the
    densest `hard.pdf` brochure pages. Biggest generalization risk.
-2. **Close the two fidelity gaps the confirm gate can't see.** (a) It catches *alter/drop* of
+3. **Close the two fidelity gaps the confirm gate can't see.** (a) It catches *alter/drop* of
    entities in the original but not a **fabricated new** name or number the model invents — add a
    model-side guardrail plus a post-edit check for entities in the output but not the input (KB
    hallucination is one instance). (b) **Name** protection is a fixed `KNOWN_NAMES` roster —
    generalize it (NER) so an open-class person name in an *unseen* proposal is protected the way
    the license / project # / $ / phone regexes already are.
-3. **Ship the KB retrieve-and-insert flow + grounded rationales.** The "Add similar experience"
+4. **Ship the KB retrieve-and-insert flow + grounded rationales.** The "Add similar experience"
    flow (retrieve *real* past projects, human picks *before* any generation, insert in the firm's
    voice with a verbatim fidelity net), plus a grounded "why" behind each suggestion — a plain
    **rubric check** or a **verbatim KB citation with provenance**, never free-form justification.
    Both reuse one retrieval spine; the corpus moves from fixed + hand-verified toward a live,
    user-uploaded KB (deferred because trust needs verification time, not spend).
-4. **The suggestion-outcome feedback loop** — capture Keep/Discard/Adjust signal and pick a
+5. **The suggestion-outcome feedback loop** — capture Keep/Discard/Adjust signal and pick a
    principled sink for it (ground future edits, personalization, or corpus enrichment) — and only
    *then* add persistence, if it earns its keep.
-5. **Export back to PDF / DOCX** so the edited proposal leaves the tool in a format the firm sends.
-6. **Put the eval in CI** — run the fidelity grid on every deploy and fail the build on a
+6. **Export back to PDF / DOCX** so the edited proposal leaves the tool in a format the firm sends.
+7. **Put the eval in CI** — run the fidelity grid on every deploy and fail the build on a
    regression, so the guardrail can't silently rot.
-7. **Persistence + multi-user** (documents, versions, comments) — the first thing a real customer
+8. **Persistence + multi-user** (documents, versions, comments) — the first thing a real customer
    asks for after the loop feels good.
 
 ---
