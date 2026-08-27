@@ -28,7 +28,7 @@ import {
   type RecentDoc,
   type DocSource,
 } from '@/lib/persist';
-import { extractEntities, protectedStrings, type EntityKind } from '@/lib/entities';
+import { droppedEntities, extractEntities, protectedStrings, type EntityKind } from '@/lib/entities';
 import { isNoChange } from '@/lib/text/diff';
 import { DocumentView } from './DocumentView';
 import { PageView } from './PageView';
@@ -669,9 +669,11 @@ export function Editor() {
         return;
       }
 
-      const beforeEnts = protectedStrings(block.text);
-      const protectedKept = beforeEnts.filter((s) => after.includes(s));
-      const protectedChanged = beforeEnts.filter((s) => !after.includes(s));
+      // Occurrence-counting gate (shared with the batch backstop) — catches appended-digit
+      // tampering and dropped duplicates that a substring `.includes` would silently pass.
+      const protectedChanged = droppedEntities(block.text, after);
+      const changedSet = new Set(protectedChanged);
+      const protectedKept = protectedStrings(block.text).filter((s) => !changedSet.has(s));
       const data: Pending = {
         blockId: block.id,
         before: block.text,
@@ -862,8 +864,9 @@ export function Editor() {
         if (proposedEdits.length > 0) {
           const edits: ChatEdit[] = proposedEdits.map((e) => {
             // Independent client-side entity gate (∪ the server's warnings): a protected change
-            // can never be silently kept, even if a server warning were missing.
-            const changed = protectedStrings(e.before).filter((s) => !e.after.includes(s));
+            // can never be silently kept, even if a server warning were missing. Same
+            // occurrence-counting check as the single-block gate.
+            const changed = droppedEntities(e.before, e.after);
             const flagged = changed.length > 0 || (e.warnings?.length ?? 0) > 0;
             return { ...e, flagged, section: sectionOf(doc, e.blockId) };
           });
