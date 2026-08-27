@@ -78,10 +78,21 @@ one `baseCursor`. Suggested reducer additions (a0's call): a `pendingBatch: Pend
 `groupId` on `HistoryEntry`) so N Kept edits apply/undo as one transaction. An edit with a
 non-empty `warnings` should get the same loud treatment as the single-block confirm modal.
 
-## Bounds & spend
+## Bounds & spend (public, unauthenticated endpoint — hardened)
 
+All caps live in `src/lib/agent/limits.ts` (one source of truth for route + agent).
+
+- **Hard ceiling on total model calls per request: `maxModelCalls` = 12** (was ~33 worst-case:
+  1 planner + 16 edits + 16 repairs). Planner, every block edit, and every repair draw from ONE
+  budget; edits are spent before repairs (coverage beats polish — a still-dropped entity ships
+  flagged either way); when the budget is gone we stop calling and say so in the reply.
+- **Input bounds (route → 400):** `message` ≤ `maxMessageChars` (4000); `blocks[]` ≤ `maxBlocks`
+  (300). History is trimmed to the newest `maxHistoryTurns` (20) / `maxHistoryChars` (8000).
+- **Per-block input cap:** a block over `maxBlockChars` (8000) is SKIPPED from editing before any
+  model call (not truncated — that would drop its tail from the rewrite) and surfaced in the reply.
+- ≤ `maxEditBlocks` (8) edits proposed/turn (also caps human review load); concurrency 4; one
+  repair retry only on an entity drop.
 - Planner sees previews only; editor sees one block at a time → prompt size stays small.
-- ≤ `MAX_EDIT_BLOCKS` (16) edits/turn; concurrency 4; one repair retry only on an entity drop.
 - All calls go through the Buoyant proxy server-side (`getAnthropic`), model `anthropicMain`.
 
 ## Verified (live, against the proxy)

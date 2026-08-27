@@ -8,6 +8,7 @@
 import { NextResponse } from 'next/server';
 import { isAiConfigured } from '@/lib/ai';
 import { runAgent } from '@/lib/agent';
+import { LIMITS } from '@/lib/agent/limits';
 import type { ChatRequest, ChatResponse } from '@/lib/agent/contract';
 
 export const dynamic = 'force-dynamic';
@@ -29,11 +30,25 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'invalid JSON body' }, { status: 400 });
   }
 
+  // Input bounds — a public, unauthenticated endpoint must reject oversized payloads before any
+  // model call (they drive both prompt size and the fan-out). See src/lib/agent/limits.ts.
   if (!body?.message?.trim()) {
     return NextResponse.json({ error: 'message is required' }, { status: 400 });
   }
+  if (body.message.length > LIMITS.maxMessageChars) {
+    return NextResponse.json(
+      { error: `message is too long (max ${LIMITS.maxMessageChars} characters)` },
+      { status: 400 },
+    );
+  }
   if (!Array.isArray(body.blocks)) {
     return NextResponse.json({ error: 'blocks[] is required' }, { status: 400 });
+  }
+  if (body.blocks.length > LIMITS.maxBlocks) {
+    return NextResponse.json(
+      { error: `too many blocks (max ${LIMITS.maxBlocks})` },
+      { status: 400 },
+    );
   }
 
   try {

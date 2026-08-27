@@ -827,6 +827,20 @@ button {
   background: #f0ecf8;
   color: #6b4ea6;
 }
+/* Editorial pass (LLM) — a cohesive green family so "judgment call" reads distinct from the
+   mechanical defects above (orange/teal/purple). */
+.rf-cat.wordiness {
+  background: #e9f3ea;
+  color: #3a6b3a;
+}
+.rf-cat.clarity {
+  background: #e6f1ee;
+  color: #2f6a5a;
+}
+.rf-cat.consistency {
+  background: #eef0e2;
+  color: #5f6733;
+}
 .rf-title {
   display: block;
   font-size: 15px;
@@ -852,6 +866,20 @@ button {
 }
 .refcard:hover .rf-where {
   opacity: 1;
+}
+/* "Looking for more…" — shown while the LLM editorial pass runs, below the instant client-scan
+   list (or on its own when the scan floor is empty). Calm, muted, with the same dots as the pane. */
+.rf-looking {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 4px 2px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.rf-looking .tdots {
+  flex: none;
 }
 .rf-act {
   border-top: 1px solid var(--line);

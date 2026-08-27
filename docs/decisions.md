@@ -410,3 +410,20 @@ identical content → same key → hit; bounded spend unchanged.
 content and does NOT leak the original doc's evidence; a genuine resubmit still hits the cache.
 **Rejected:** validating the supplied id against a server-known doc (more state, same outcome as
 just hashing the content); trusting doc.id (the vulnerability).
+### 2026-08-26 — Harden /api/chat: hard model-call ceiling + input bounds (pre-deploy)
+**Decision:** /api/chat is public + unauthenticated, and one request fanned out to ~33 model calls
+(1 planner + up to 16 block-edits + up to 16 repairs) — a spend/abuse amplification vector flagged
+in security review. Added `src/lib/agent/limits.ts`: a HARD ceiling of **12 total model calls** per
+request (planner + edits + repairs share one budget; edits spent before repairs; over-budget calls
+are skipped, not made), plus input bounds enforced in the route (message ≤ 4000 chars → 400;
+blocks[] ≤ 300 → 400) and history trimming (≤ 20 turns / ≤ 8000 chars). Per-turn edits lowered
+16 → 8. Truncation is surfaced in the reply ("focused on N sections — ask me to continue"), never
+silent. Dormant on main (no FE), landed for wave-2, no deploy.
+**Why:** A public endpoint that can be induced into dozens of paid model calls per request is the
+real risk; the ceiling caps worst-case spend/request at ~⅓ of before regardless of what the planner
+returns. Edits-before-repairs keeps coverage (the entity gate still flags any unrepaired drop).
+**Rejected:** auth/rate-limiting infra (out of scope for the take-home; a hard per-request ceiling
+is the cheap, sufficient guard); rejecting long history (trimming is friendlier and equally bounded).
+**Follow-up (same wave):** per-block input cap `maxBlockChars` (8000) — a pathologically large block
+is SKIPPED from editing before any model call (truncating edit input would drop its tail from the
+proposed rewrite) and surfaced honestly in the reply. Closes the last unbounded per-edit input vector.
