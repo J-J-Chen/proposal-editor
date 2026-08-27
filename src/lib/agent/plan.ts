@@ -14,11 +14,10 @@
 import { AI_MODELS, getAnthropic } from '@/lib/ai';
 import type { Block } from '@/lib/types';
 import type { ChatTurn } from './contract';
+import { LIMITS } from './limits';
 
 /** How much of each block we show the planner. Enough to identify relevance, small enough to cap spend. */
 const PREVIEW_CHARS = 180;
-/** Hard ceiling on blocks the planner may target in one turn — bounds spend AND review load. */
-export const MAX_EDIT_BLOCKS = 16;
 
 /** One planned unit of work: a block id and the single-block instruction to apply to it. */
 export interface PlannedEdit {
@@ -118,10 +117,24 @@ function buildPlanUserMessage(
   return parts.join('\n');
 }
 
-/** Prior turns as SDK messages, so the planner has conversation context (bounded by the FE). */
+/**
+ * Prior turns as SDK messages. History is client-supplied and goes into the prompt, so bound it:
+ * keep only the most recent `maxHistoryTurns`, and within those keep newest-first until
+ * `maxHistoryChars` is reached. Trims rather than rejects — a long conversation stays usable.
+ */
 function historyMessages(history?: ChatTurn[]): { role: 'user' | 'assistant'; content: string }[] {
   if (!history?.length) return [];
-  return history.map((t) => ({ role: t.role, content: t.content }));
+  const recent = history.slice(-LIMITS.maxHistoryTurns);
+  const out: { role: 'user' | 'assistant'; content: string }[] = [];
+  let chars = 0;
+  for (let i = recent.length - 1; i >= 0; i--) {
+    const content = typeof recent[i]?.content === 'string' ? recent[i].content : '';
+    if (!content) continue;
+    chars += content.length;
+    if (chars > LIMITS.maxHistoryChars && out.length > 0) break;
+    out.unshift({ role: recent[i].role, content });
+  }
+  return out;
 }
 
 /** Ask the model for a plan. Throws if it doesn't return the forced tool (route surfaces a 502). */
@@ -167,7 +180,7 @@ export async function runPlan(
       if (!instruction || !known.has(e.blockId) || seen.has(e.blockId)) continue;
       seen.add(e.blockId);
       edits.push({ blockId: e.blockId, instruction });
-      if (edits.length >= MAX_EDIT_BLOCKS) break;
+      if (edits.length >= LIMITS.maxEditBlocks) break;
     }
   }
 
