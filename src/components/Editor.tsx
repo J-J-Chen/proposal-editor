@@ -287,7 +287,7 @@ function ConfirmModal({
   );
 }
 
-/** The "Your document | Original PDF" switch over the canvas — plain words, Word-familiar. */
+/** The "Original PDF | Your document" switch over the canvas — plain words, Word-familiar. */
 function DocViewSwitch({
   value,
   onChange,
@@ -299,19 +299,19 @@ function DocViewSwitch({
     <div className="viewswitch" role="tablist" aria-label="How to view your proposal">
       <button
         role="tab"
-        aria-selected={value === 'document'}
-        className={value === 'document' ? 'on' : ''}
-        onClick={() => onChange('document')}
-      >
-        Your document
-      </button>
-      <button
-        role="tab"
         aria-selected={value === 'original'}
         className={value === 'original' ? 'on' : ''}
         onClick={() => onChange('original')}
       >
         Original PDF
+      </button>
+      <button
+        role="tab"
+        aria-selected={value === 'document'}
+        className={value === 'document' ? 'on' : ''}
+        onClick={() => onChange('document')}
+      >
+        Your document
       </button>
     </div>
   );
@@ -337,7 +337,7 @@ function mergeSuggestions(doc: Doc, clientScan: Suggestion[], server: Suggestion
 export function Editor() {
   const [state, dispatch] = useReducer(editorReducer, initialEditorState);
   const [view, setView] = useState<View>('boot');
-  const [docView, setDocView] = useState<DocView>('document');
+  const [docView, setDocView] = useState<DocView>('original');
   // Snapshot of each block's ORIGINAL text (as parsed), so the Original-PDF overlay knows which
   // blocks have been edited (their current text differs) and patches them in place.
   const originalTextRef = useRef<Record<string, string>>({});
@@ -539,7 +539,10 @@ export function Editor() {
         if (!loaded) throw new Error('cache miss with no bytes to parse');
         originalTextRef.current = Object.fromEntries(loaded.blocks.map((b) => [b.id, b.text]));
         dispatch({ type: 'LOAD_DOC', doc: loaded });
-        setDocView('document'); // always land on the editable surface
+        // Land on the faithful Original PDF (the main view) when we have page renders for it; fall
+        // back to the block view only when there's nothing to rasterise (so the toggle stays usable).
+        const hasOriginal = (RENDERED[loaded.id]?.pages ?? loaded.meta?.pages ?? 0) > 0;
+        setDocView(hasOriginal ? 'original' : 'document');
         setView('editor');
         const source: DocSource =
           opts?.source ?? (opts?.file || opts?.blobUrl ? 'upload' : 'sample');
