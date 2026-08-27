@@ -5,7 +5,8 @@
  */
 import { upload } from '@vercel/blob/client';
 import type { Doc } from './types';
-import type { EditRequest, EditResponse, ParseResponse } from './contracts';
+import type { EditRequest, EditResponse, ParseResponse, SuggestResponse } from './contracts';
+import type { Suggestion } from '@/refine/scan';
 
 export type ParseByHash = { doc: Doc } | { needsUpload: true };
 
@@ -76,4 +77,26 @@ export async function requestEdit(req: EditRequest): Promise<EditResult> {
     kind: 'proxyError',
     message: 'The helper isn’t responding right now. Your document is safe and nothing changed.',
   };
+}
+
+/**
+ * POST /api/suggest → the LLM editorial pass for "Check my proposal". Returns suggestions in the
+ * same shape the RefinePanel renders (an LlmSuggestion is structurally a Suggestion — its category
+ * is a subset of RefineCategory). This is purely ADDITIVE on top of the deterministic client scan,
+ * so any failure (unconfigured 503, proxy 5xx, network) degrades SILENTLY to [] — the instant
+ * client-scan floor still stands and the user sees no error.
+ */
+export async function requestSuggestions(doc: Doc): Promise<Suggestion[]> {
+  try {
+    const r = await fetch('/api/suggest', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ doc }),
+    });
+    if (!r.ok) return [];
+    const data = (await r.json()) as SuggestResponse;
+    return data.suggestions;
+  } catch {
+    return [];
+  }
 }

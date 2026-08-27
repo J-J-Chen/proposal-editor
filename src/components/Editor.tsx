@@ -7,7 +7,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
-import type { Block } from '@/lib/types';
+import type { Block, Doc } from '@/lib/types';
 import {
   canRedo,
   canUndo,
@@ -16,7 +16,7 @@ import {
   sectionOf,
   type Pending,
 } from '@/state/editor';
-import { parseByHash, parseByUpload, requestEdit } from '@/lib/client';
+import { parseByHash, parseByUpload, requestEdit, requestSuggestions } from '@/lib/client';
 import { extractEntities, protectedStrings, type EntityKind } from '@/lib/entities';
 import { isNoChange } from '@/lib/text/diff';
 import { DocumentView } from './DocumentView';
@@ -228,6 +228,23 @@ function DocViewSwitch({
   );
 }
 
+/**
+ * Merge the LLM editorial suggestions onto the deterministic client scan. Dedupe by id (client
+ * wins — the two category sets don't overlap anyway), and staleness-guard the server list: drop
+ * any whose `evidence` is no longer a verbatim substring of its current block text. da guarantees
+ * server evidence is verbatim, so this filters both cache-stale items and anything the user edited
+ * out mid-review. The client scan is always freshly computed, so it passes through untouched.
+ */
+function mergeSuggestions(doc: Doc, clientScan: Suggestion[], server: Suggestion[]): Suggestion[] {
+  const seen = new Set(clientScan.map((s) => s.id));
+  const fresh = server.filter((s) => {
+    if (seen.has(s.id)) return false;
+    const block = doc.blocks.find((b) => b.id === s.blockId);
+    return !!block && block.text.includes(s.evidence);
+  });
+  return [...clientScan, ...fresh];
+}
+
 export function Editor() {
   const [state, dispatch] = useReducer(editorReducer, initialEditorState);
   const [view, setView] = useState<View>('open');
@@ -248,7 +265,9 @@ export function Editor() {
   const [activeSuggestionId, setActiveSuggestionId] = useState<string | null>(null);
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const [peekId, setPeekId] = useState<string | null>(null);
+  const [suggestLoading, setSuggestLoading] = useState(false);
   const reqRef = useRef(0);
+  const suggestReqRef = useRef(0); // guards a stale /api/suggest response from a superseded scan
 
   const { doc, selectedId, pending, status } = state;
   const selectedBlock = useMemo(
@@ -452,7 +471,9 @@ export function Editor() {
   // ---- Refine ("Check my proposal for things to fix") ----
   const runScan = useCallback(() => {
     if (!doc) return;
-    setSuggestions(scanForRefinements(doc));
+    // Instant, no-spend floor: the deterministic client scan shows immediately…
+    const clientScan = scanForRefinements(doc);
+    setSuggestions(clientScan);
     setDismissed(new Set());
     setResolved(new Set());
     setActiveSuggestionId(null);
@@ -461,9 +482,20 @@ export function Editor() {
     setConfirm(null);
     dispatch({ type: 'SELECT', blockId: null });
     setRefineOpen(true);
+    // …then the LLM editorial pass runs in parallel and merges in when it returns. Any failure
+    // degrades silently to [] (requestSuggestions swallows it), leaving the client floor intact.
+    const myReq = ++suggestReqRef.current;
+    setSuggestLoading(true);
+    void requestSuggestions(doc).then((server) => {
+      if (myReq !== suggestReqRef.current) return; // a newer scan (or close) superseded this one
+      if (server.length) setSuggestions((prev) => mergeSuggestions(doc, prev, server));
+      setSuggestLoading(false);
+    });
   }, [doc]);
 
   const closeRefine = useCallback(() => {
+    suggestReqRef.current++; // drop any in-flight editorial pass
+    setSuggestLoading(false);
     setRefineOpen(false);
     setPeekId(null);
     dispatch({ type: 'SELECT', blockId: null });
@@ -593,6 +625,7 @@ export function Editor() {
             <RefinePanel
               suggestions={visibleSuggestions}
               reviewedCount={reviewedCount}
+              loadingMore={suggestLoading}
               onFix={fixSuggestion}
               onDismiss={dismissSuggestion}
               onGoto={highlightBlock}

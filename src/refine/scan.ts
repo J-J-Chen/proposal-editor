@@ -12,7 +12,16 @@
  */
 import type { Doc } from '@/lib/types';
 
-export type RefineCategory = 'placeholder' | 'casing' | 'repetition';
+// The first three come from the deterministic client scan below. The last three come from the
+// LLM editorial pass (POST /api/suggest, contracts.ts `LlmRefineCategory`) and are merged into the
+// same RefinePanel — widening the union here makes an LlmSuggestion structurally a Suggestion.
+export type RefineCategory =
+  | 'placeholder'
+  | 'casing'
+  | 'repetition'
+  | 'wordiness'
+  | 'clarity'
+  | 'consistency';
 
 export interface Suggestion {
   id: string; // stable: `${category}:${blockId}`
