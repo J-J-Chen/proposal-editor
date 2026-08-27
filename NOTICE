@@ -1,0 +1,36 @@
+Proposal Editor
+Copyright (C) 2026 John Chen
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU Affero General Public License, version 3, as published by
+the Free Software Foundation. See the LICENSE file for the full license text.
+
+Why AGPL-3.0
+------------
+This project links MuPDF for PDF parsing. MuPDF is distributed under the GNU
+Affero General Public License (AGPL-3.0-or-later), a strong copyleft license.
+Because this repository is public and distributes source that depends on MuPDF,
+the project as a whole is licensed under AGPL-3.0-or-later to comply with those
+terms.
+
+Third-party components
+----------------------
+This software includes or depends on the following third-party packages. Each
+package's full license text is available in its directory under node_modules/.
+
+  MuPDF (mupdf)                    AGPL-3.0-or-later   Artifex Software, Inc.
+      https://mupdf.com — PDF text/layout extraction (the dependency whose
+      copyleft governs this project's license).
+
+Other notable dependencies (permissive licenses):
+
+  Next.js (next)                  MIT
+  React (react, react-dom)        MIT
+  @anthropic-ai/sdk               MIT
+  openai                          Apache-2.0
+  Tailwind CSS (tailwindcss)      MIT
+  TypeScript (typescript)         Apache-2.0
+  zod                             MIT
+
+The AI proxy (the Buoyant hiring proxy) is a hosted service, not a bundled
+dependency, and is used only via the official OpenAI/Anthropic SDKs.

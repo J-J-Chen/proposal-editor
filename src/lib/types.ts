@@ -48,4 +48,10 @@ export interface HistoryEntry {
   at: string; // ISO timestamp
   source: EditSource;
   rationale?: string;
+  /**
+   * Groups entries that must undo/redo as ONE transaction — a batch of per-block edits Kept
+   * together from the agentic chat. Contiguous entries sharing a groupId pop/reapply as a unit.
+   * Absent for ordinary single-block edits (each its own step). Additive; optional.
+   */
+  groupId?: string;
 }

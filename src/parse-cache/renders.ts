@@ -2,5 +2,6 @@
 // Hashes whose "Original PDF" page images are committed under public/pages/<hash>/<n>.jpg,
 // pre-rendered so the seeded demo's Original view is instant and needs no source bytes server-side.
 export const RENDERED: Record<string, { pages: number; scale: number }> = {
+  '02d30cdbbdf08ce1f8a743b233665e4d6f5550343e1a96cc4da0223733851bf9': { pages: 19, scale: 1.5 },
   '03dd3ee8dd7962eb11fd67dd223cfdcdcd0e4f8957aa8622ac24d929cd8c5829': { pages: 8, scale: 1.5 },
 };

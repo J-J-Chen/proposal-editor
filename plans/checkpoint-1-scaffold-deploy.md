@@ -1,5 +1,7 @@
 # Checkpoint 1 — Scaffold + Deploy
 
+> **STATUS — BUILT.** Scaffold + Vercel deploy shipped; the live app and the `/api/health/ai` route are up. Historical plan below.
+
 **Goal:** a live Next.js/TS app on Vercel that can make a real AI call through the
 Buoyant proxy from a server route. Deploy in the first ~30 minutes; the graded artifact
 is the *deployed* app, so get the pipeline working before building features.

@@ -147,7 +147,19 @@ export async function runAgent(req: ChatRequest): Promise<ChatResponse> {
   const byId = new Map(blocks.map((b) => [b.id, b]));
   // The firm name is a doc-specific protected name the gate should also defend.
   const extraNames = req.docContext?.firm ? [req.docContext.firm] : [];
-  const targets = plan.edits.filter((e): e is PlannedEdit => byId.has(e.blockId));
+
+  // Drop planned blocks that don't exist, and skip pathologically large ones before any model
+  // call (a huge block can't be truncated safely — see limits.maxBlockChars). Count the skips.
+  let oversized = 0;
+  const targets = plan.edits.filter((e): e is PlannedEdit => {
+    const b = byId.get(e.blockId);
+    if (!b) return false;
+    if (b.text.length > LIMITS.maxBlockChars) {
+      oversized++;
+      return false;
+    }
+    return true;
+  });
 
   // Phase 1 — EDITS first (coverage prioritized over repair polish), each budget-gated.
   let skippedForBudget = 0;
@@ -175,13 +187,21 @@ export async function runAgent(req: ChatRequest): Promise<ChatResponse> {
 
   const proposedEdits = drafts.map((d) => d.proposed);
 
-  // Honest truncation note — no silent caps. We hit the per-turn block cap or ran out of budget,
-  // so there may be more the user can ask us to continue with.
-  let reply = plan.reply;
+  // Honest notes — no silent caps. Combine the "there's more" signal (hit the per-turn block cap
+  // or ran out of call budget) with any oversized-block skips.
+  const notes: string[] = [];
   if (skippedForBudget > 0 || plan.edits.length >= LIMITS.maxEditBlocks) {
     const n = proposedEdits.length;
-    reply += ` (I focused on ${n} section${n === 1 ? '' : 's'} this round — ask me to continue and I’ll keep going.)`;
+    notes.push(
+      `I focused on ${n} section${n === 1 ? '' : 's'} this round — ask me to continue and I’ll keep going.`,
+    );
   }
+  if (oversized > 0) {
+    notes.push(
+      `${oversized} section${oversized === 1 ? ' was' : 's were'} too large to edit safely, so I left ${oversized === 1 ? 'it' : 'them'} unchanged.`,
+    );
+  }
+  const reply = notes.length ? `${plan.reply} (${notes.join(' ')})` : plan.reply;
 
   return { reply, summary: plan.summary, proposedEdits };
 }

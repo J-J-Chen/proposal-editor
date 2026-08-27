@@ -24,7 +24,10 @@ import { PageView } from './PageView';
 import { EditPanel } from './EditPanel';
 import { ChangesPanel, StatusBar, Titlebar, type ChangeItem } from './AppChrome';
 import { RefinePanel } from './RefinePanel';
+import { ChatPanel, type ChatBatch, type ChatEdit } from './ChatPanel';
 import { scanForRefinements, type Suggestion } from '@/refine/scan';
+import { requestChat } from '@/lib/agent/client';
+import type { ChatTurn } from '@/lib/agent/contract';
 import { RENDERED } from '@/parse-cache/renders';
 import { IconCheck, IconFolder, IconShield } from './icons';
 
@@ -269,8 +272,15 @@ export function Editor() {
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const [peekId, setPeekId] = useState<string | null>(null);
   const [suggestLoading, setSuggestLoading] = useState(false);
+  // Agentic chat ("Ask the assistant") state.
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatTurn[]>([]);
+  const [chatStatus, setChatStatus] = useState<'idle' | 'thinking'>('idle');
+  const [chatBatch, setChatBatch] = useState<ChatBatch | null>(null);
+  const [chatIncluded, setChatIncluded] = useState<Set<string>>(new Set());
   const reqRef = useRef(0);
   const suggestReqRef = useRef(0); // guards a stale /api/suggest response from a superseded scan
+  const chatReqRef = useRef(0); // guards a stale /api/chat response from a superseded turn
 
   const { doc, selectedId, pending, status } = state;
   const selectedBlock = useMemo(
@@ -366,6 +376,7 @@ export function Editor() {
     setNote(null);
     setConfirm(null);
     setRefineOpen(false); // a direct doc click leaves the Refine list
+    setChatOpen(false); // …and leaves chat → the single-block Assistant for this block
     setActiveSuggestionId(null); // …so a later Keep isn't misattributed to a stale suggestion
     setPeekId(null);
     dispatch({ type: 'SELECT', blockId: id });
@@ -535,6 +546,116 @@ export function Editor() {
     dispatch({ type: 'SELECT', blockId: null }); // clears pending + thinking; refineOpen stays → RefinePanel
   }, []);
 
+  // ---- Agentic chat ("Ask the assistant") ----
+  const openChat = useCallback(() => {
+    reqRef.current++;
+    setRefineOpen(false);
+    setActiveSuggestionId(null);
+    setPeekId(null);
+    setNote(null);
+    setConfirm(null);
+    dispatch({ type: 'SELECT', blockId: null });
+    setChatOpen(true);
+  }, []);
+
+  const closeChat = useCallback(() => {
+    chatReqRef.current++; // drop any in-flight turn
+    setChatOpen(false);
+    setChatStatus('idle');
+    setPeekId(null);
+  }, []);
+
+  const sendChat = useCallback(
+    (message: string) => {
+      if (!doc) return;
+      const history = chatMessages;
+      setChatMessages((prev) => [...prev, { role: 'user', content: message }]);
+      setChatBatch(null);
+      setChatIncluded(new Set());
+      setChatStatus('thinking');
+      const myReq = ++chatReqRef.current;
+      const baseCursor = state.cursor;
+      void requestChat({
+        message,
+        history,
+        blocks: doc.blocks,
+        selection: selectedId,
+        docContext: { firm: FIRM },
+      }).then((result) => {
+        if (myReq !== chatReqRef.current) return; // superseded turn or chat closed
+        setChatStatus('idle');
+        if (!result.ok) {
+          setChatMessages((prev) => [...prev, { role: 'assistant', content: result.message }]);
+          return;
+        }
+        const { reply, summary, proposedEdits } = result.res;
+        setChatMessages((prev) => [...prev, { role: 'assistant', content: reply }]);
+        if (proposedEdits.length > 0) {
+          const edits: ChatEdit[] = proposedEdits.map((e) => {
+            // Independent client-side entity gate (∪ the server's warnings): a protected change
+            // can never be silently kept, even if a server warning were missing.
+            const changed = protectedStrings(e.before).filter((s) => !e.after.includes(s));
+            const flagged = changed.length > 0 || (e.warnings?.length ?? 0) > 0;
+            return { ...e, flagged, section: sectionOf(doc, e.blockId) };
+          });
+          setChatBatch({ summary, edits, baseCursor });
+          // Safe edits on by default; flagged ones OFF until the user explicitly turns them on.
+          setChatIncluded(new Set(edits.filter((e) => !e.flagged).map((e) => e.blockId)));
+        }
+      });
+    },
+    [doc, chatMessages, state.cursor, selectedId],
+  );
+
+  const toggleChatInclude = useCallback((blockId: string) => {
+    setChatIncluded((prev) => {
+      const next = new Set(prev);
+      if (next.has(blockId)) next.delete(blockId);
+      else next.add(blockId);
+      return next;
+    });
+  }, []);
+
+  const keepChatBatch = useCallback(() => {
+    if (!chatBatch) return;
+    const kept = chatBatch.edits.filter((e) => chatIncluded.has(e.blockId));
+    if (kept.length === 0) return;
+    const batch: Pending[] = kept.map((e) => ({
+      blockId: e.blockId,
+      before: e.before,
+      after: e.after,
+      instruction: e.instruction,
+      rationale: e.rationale,
+      protectedKept: e.protectedKept,
+      baseCursor: chatBatch.baseCursor,
+    }));
+    dispatch({ type: 'KEEP_BATCH', batch });
+    setChatBatch(null);
+    setChatIncluded(new Set());
+    setChatMessages((prev) => [
+      ...prev,
+      {
+        role: 'assistant',
+        content: `Done — I applied ${kept.length} change${kept.length === 1 ? '' : 's'}. You can Undo the whole set from the top-left.`,
+      },
+    ]);
+    setToast(
+      `Applied ${kept.length} change${kept.length === 1 ? '' : 's'}. Undo reverses them together.`,
+    );
+  }, [chatBatch, chatIncluded]);
+
+  const discardChatBatch = useCallback(() => {
+    setChatBatch(null);
+    setChatIncluded(new Set());
+    setChatMessages((prev) => [
+      ...prev,
+      {
+        role: 'assistant',
+        content: 'No problem — I discarded those suggestions. Nothing changed.',
+      },
+    ]);
+  }, []);
+
   const visibleSuggestions = useMemo(
     () => suggestions.filter((s) => !dismissed.has(s.id) && !resolved.has(s.id)),
     [suggestions, dismissed, resolved],
@@ -609,8 +730,10 @@ export function Editor() {
         canRedo={canRedo(state)}
         undoTip={canUndo(state) ? 'Undo your last change' : 'Nothing to undo yet'}
         redoTip={canRedo(state) ? 'Redo' : 'Nothing to redo yet'}
+        chatActive={chatOpen}
         onUndo={() => dispatch({ type: 'UNDO' })}
         onRedo={() => dispatch({ type: 'REDO' })}
+        onOpenChat={chatOpen ? closeChat : openChat}
         onToggleChanges={() => setShowChanges((v) => !v)}
       />
 
@@ -641,7 +764,20 @@ export function Editor() {
               />
             )}
           </div>
-          {refineOpen && status === 'idle' && !pending ? (
+          {chatOpen ? (
+            <ChatPanel
+              messages={chatMessages}
+              status={chatStatus}
+              batch={chatBatch}
+              included={chatIncluded}
+              onSend={sendChat}
+              onToggleInclude={toggleChatInclude}
+              onKeepBatch={keepChatBatch}
+              onDiscardBatch={discardChatBatch}
+              onClose={closeChat}
+              onPeek={peekBlock}
+            />
+          ) : refineOpen && status === 'idle' && !pending ? (
             <RefinePanel
               suggestions={visibleSuggestions}
               reviewedCount={reviewedCount}

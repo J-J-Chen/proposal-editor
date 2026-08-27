@@ -1,5 +1,7 @@
 # Checkpoint 4 — Edit Loop (closes the bar)
 
+> **STATUS — BUILT.** The full edit loop (AI edit → diff → apply/reject → compose → undo/redo) is shipped and closed the bar on the deployed app. Historical plan below.
+
 **Goal:** the full loop works end-to-end on the deployed app: select a block → ask AI →
 review a diff → apply → edits compose → undo / redo. **This is the pass/fail checkpoint.**
 
