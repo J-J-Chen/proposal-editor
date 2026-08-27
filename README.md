@@ -3,9 +3,10 @@
 Upload a proposal PDF, edit it section-by-section with AI, and apply changes with a
 review-and-diff loop. Built for the Buoyant Founding Engineer take-home.
 
-**Live app:** _TODO (deployed URL)_
+**Live app:** https://proposal-editor-sandy.vercel.app
 
-> Status: scaffolding. This README is graded and gets filled in during Checkpoint 5.
+> Status: Checkpoint 1 done — app scaffolded and deployed; the edit loop lands in CP2–CP4.
+> This README is graded and gets filled in during Checkpoint 5.
 > See `plans/00-overview.md` for the plan and `AGENTS.md` for how the repo works.
 
 ---
