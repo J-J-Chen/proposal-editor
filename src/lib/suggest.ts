@@ -24,6 +24,7 @@
  */
 import { AI_MODELS, getAnthropic } from './ai';
 import { protectedStrings } from './entities';
+import { FIRM_VOICE } from '@/kb';
 import type { LlmRefineCategory, LlmSuggestion } from './contracts';
 import type { Block, Doc } from './types';
 
@@ -96,7 +97,17 @@ Hard rules:
 
 Report your result by calling the report_suggestions tool.`;
 
-/** The firm's established register: the document's own longest prose paragraphs. Server-side only. */
+/**
+ * The firm's established register. Primary source is the committed KB voice card (FIRM_VOICE);
+ * we fall back to the document's own longest prose paragraphs only if that card is ever empty
+ * (defensive — the interim behavior for an unseen firm/document). Server-side only; never shown.
+ */
+function resolveVoice(doc: Doc): { register: string[]; samples: string[] } {
+  const samples = FIRM_VOICE.exemplars.length ? FIRM_VOICE.exemplars : deriveVoiceSamples(doc);
+  return { register: FIRM_VOICE.register, samples };
+}
+
+/** Fallback register signal: the document's own longest prose paragraphs. */
 function deriveVoiceSamples(doc: Doc, k = 3): string[] {
   return doc.blocks
     .filter((b) => b.type === 'paragraph' && b.text.trim().length >= 120)
@@ -116,16 +127,19 @@ function reviewableBlocks(doc: Doc): Block[] {
     .slice(0, MAX_BLOCKS_REVIEWED);
 }
 
-function buildUserMessage(doc: Doc, blocks: Block[], voice: string[]): string {
+function buildUserMessage(
+  doc: Doc,
+  blocks: Block[],
+  voice: { register: string[]; samples: string[] },
+): string {
   const parts: string[] = [];
-  if (voice.length) {
-    parts.push(
-      "The firm's established writing style — match this register; do NOT quote or mention it:",
-      '"""',
-      voice.join('\n\n'),
-      '"""',
-      '',
-    );
+  if (voice.register.length || voice.samples.length) {
+    parts.push("The firm's established writing voice — match this register; do NOT quote or mention it:");
+    if (voice.register.length) parts.push(...voice.register.map((r) => `- ${r}`));
+    if (voice.samples.length) {
+      parts.push('Representative sentences in that voice:', '"""', voice.samples.join('\n\n'), '"""');
+    }
+    parts.push('');
   }
   parts.push('Review these blocks. Refer to each by its bracketed id:', '');
   for (const b of blocks) {
@@ -227,7 +241,7 @@ export async function getSuggestions(doc: Doc): Promise<{ suggestions: LlmSugges
     system: SUGGEST_SYSTEM_PROMPT,
     tools: [SUGGEST_TOOL],
     tool_choice: { type: 'tool', name: SUGGEST_TOOL.name },
-    messages: [{ role: 'user', content: buildUserMessage(doc, blocks, deriveVoiceSamples(doc)) }],
+    messages: [{ role: 'user', content: buildUserMessage(doc, blocks, resolveVoice(doc)) }],
   });
 
   const toolUse = res.content.find((b) => b.type === 'tool_use');
