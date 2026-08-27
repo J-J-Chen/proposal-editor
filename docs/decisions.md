@@ -57,3 +57,21 @@ token has no access to the Strala scope, so it's impossible to deploy there by a
 auth also leaves the Strala CLI login untouched.
 **Rejected:** Deploying with the existing CLI login (wrong account); logging the CLI out of
 Strala (disruptive to the owner's work).
+
+### 2026-08-26 — Undo/redo via an inverse-command log + cursor (not a two-stack undo)
+**Decision:** Promote the `{ blockId, before, after }` entry to a first-class `history:
+HistoryEntry[]` log with a `cursor` (count of applied entries), held in one `useReducer`.
+Undo = `cursor--` + invert the op; redo = `cursor++` + apply it — one array, no second stack.
+Redo-invalidation = `history.slice(0, cursor)` on apply. The AI proposal lives in a separate
+`pending` slot so Reject can't pollute history. Grafts: a structural-sharing `setText`, a
+`baseCursor` stale-pending guard, and a discriminated-union `op` field + `groupId` reserved for
+future structural/multi-block edits (routed via `applyOp`/`invertOp`, but **not built now**).
+Closes the docs' undo-but-not-redo gap. Container is `useReducer` (zero deps, ~45-line pure,
+testable reducer); lifting into Context/Zustand later is mechanical if cross-component state grows.
+**Why:** Zero new deps; redo-invalidation and reject-isolation are correct *by construction*, not
+by discipline; compose is automatic; the log doubles as the graded audit trail.
+**Rejected:** Whole-doc snapshots (nearly tied — grafted its best parts instead of storing whole
+docs + a parallel audit record); Immer patches (dep + `enablePatches()` footgun + positional
+paths that fight stable ids); Zustand+zundo (two deps + silent `partialize`/equality footguns);
+Yjs/CRDT (full collaboration tax with no single-user payoff); non-linear/branching undo (the real
+budget-sink). Decided via a 5-design judge panel; see `docs/architecture.md` "The edit loop".
