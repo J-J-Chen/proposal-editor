@@ -56,6 +56,27 @@ Repo: **https://github.com/J-J-Chen/proposal-editor** (public, required). Owned 
 active `gh` account (`gh auth switch --user J-J-Chen`) with `gh` as the git credential helper.
 Switch back to Strala work with `gh auth switch --user john-strala`.
 
+## Deploying (Vercel — personal account only)
+**Live app:** https://proposal-editor-sandy.vercel.app
+(alias of `proposal-editor-john-chen-s-projects.vercel.app`)
+
+Deploy under the **personal** Vercel account **jjchen2019@gmail.com** (`jjchen2019-5995` /
+"John Chen's projects", project `proposal-editor`). **Never the Strala account.** The machine's
+Vercel CLI is logged into the *work* account (`john.chen@strala.ai`), so we deploy with a
+**personal access token** instead — it has no Strala scope, so a wrong-account deploy is
+impossible.
+
+```sh
+export VERCEL_TOKEN=<personal access token from vercel.com/account/tokens as jjchen2019>
+scripts/deploy.sh prod     # production; omit "prod" for a preview
+# equivalently: vercel deploy --prod --yes --token "$VERCEL_TOKEN"
+```
+- First time in a fresh checkout: `vercel link --yes --project proposal-editor --token "$VERCEL_TOKEN"`.
+- `ssoProtection` is **off** so the URL is public (required for grading). Don't re-enable it.
+- App env vars (set on the Vercel project, not committed): `BUOYANT_PROXY_TOKEN` (+ optionally
+  the base URLs). Add with `vercel env add BUOYANT_PROXY_TOKEN production --token "$VERCEL_TOKEN"`
+  then redeploy. Until it's set, `/api/health/ai` returns 503 "not configured" (by design).
+
 ## Session context for agents
 A `SessionStart` hook (`.claude/settings.json`) cats `docs/README.md` into context on
 startup/resume/clear, so every session loads the KB index automatically. Read the deeper docs

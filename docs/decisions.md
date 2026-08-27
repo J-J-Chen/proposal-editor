@@ -47,6 +47,17 @@ index of hard rules.
 **Why:** "Not everything in one file"; ensures new sessions/agents have context automatically.
 **Rejected:** One large AGENTS.md (poor separation, easy to drift, heavy to load fully).
 
+### 2026-08-26 — Deploy to the personal Vercel account via access token (not the CLI login)
+**Decision:** Deploy under **jjchen2019@gmail.com** (Vercel `jjchen2019-5995` / "John Chen's
+projects") using a personal access token (`vercel deploy --token …`), and disabled the
+project's `ssoProtection` so the `.vercel.app` URL is publicly reachable for grading.
+**Why:** The machine's Vercel CLI is logged into the **work** account (john.chen@strala.ai,
+`johnchen-6968`, default scope = Strala team) — which the owner said not to use. The personal
+token has no access to the Strala scope, so it's impossible to deploy there by accident. Token
+auth also leaves the Strala CLI login untouched.
+**Rejected:** Deploying with the existing CLI login (wrong account); logging the CLI out of
+Strala (disruptive to the owner's work).
+
 ### 2026-08-26 — Undo/redo via an inverse-command log + cursor (not a two-stack undo)
 **Decision:** Promote the `{ blockId, before, after }` entry to a first-class `history:
 HistoryEntry[]` log with a `cursor` (count of applied entries), held in one `useReducer`.
