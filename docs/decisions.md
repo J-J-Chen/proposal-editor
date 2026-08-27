@@ -396,3 +396,17 @@ punchier), entities preserved, evidence still grounded.
 (disclosure risk — and none was on disk anyway); wiring `FIRM_FACTS` into generation now (fabrication
 surface — that's CP6's human-picks-first + fidelity-net design); blocking on a corpus that doesn't
 exist (the committed seeds are a sound, shippable source).
+
+### 2026-08-26 — /api/suggest cache keyed by server-computed content hash (not client doc.id)
+**Decision:** The suggestion cache key is a **server-computed sha256 of the submitted block content**
+(`src/lib/suggest.ts` `contentKey`), never the client-supplied `doc.id`.
+**Why:** keying on the client-asserted `doc.id` let a client pass another request's id and read back
+that document's cached suggestions/evidence (a cross-request content leak; `evidence` is verbatim
+document text). Deriving the key from the content the server actually received means a client can
+only ever retrieve suggestions for content it submitted. Dormant on main (not yet deployed) — a
+pre-deploy hardening flagged in review (Codex), relayed via 58. The caching benefit is preserved:
+identical content → same key → hit; bounded spend unchanged.
+**Verified:** same asserted id + different content returns freshly-computed suggestions for the new
+content and does NOT leak the original doc's evidence; a genuine resubmit still hits the cache.
+**Rejected:** validating the supplied id against a server-known doc (more state, same outcome as
+just hashing the content); trusting doc.id (the vulnerability).
