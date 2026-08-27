@@ -85,14 +85,14 @@ load-bearing ones:
   clicking a DOM node; apply is replacing `block.text`; compose and undo fall out for free. This
   is the choice the brief blesses ("the core problem is the edit loop, not PDF reconstruction").
 
-- **The parse is entity-safe *by construction*.** Parsing is hybrid: deterministic text+layout
-  extraction, heuristics for the easy ~80% of structure, then **one LLM structuring call that
-  labels line ranges by reference and never re-emits the document text.** Because that model can't
-  rewrite text, it is *incapable* of altering `MECO`, a `041-560` job number, or a `$` figure
-  during parsing — pushing every entity risk into exactly one place, the edit call, which is what
-  makes the evaluation (§5) tractable. The parse is **cached by file hash** (`Doc.id` *is* the
-  sha256 of the bytes) plus a committed pre-parsed seed, so each PDF is parsed once even though
-  parsing is the slow, metered step.
+- **The parse is entity-safe *by construction*.** MuPDF runs server-side as WASM in the Node
+  runtime and provides text plus layout metadata without a native deployment dependency. Parsing
+  is hybrid: deterministic extraction and column-aware heuristics, then **one LLM structuring call
+  that labels line ranges by reference and never re-emits the document text.** If that call fails,
+  the heuristic grouping is a usable fallback. Because the model can't rewrite text, it is
+  *incapable* of altering `MECO`, a `041-560` job number, or a `$` figure during parsing — pushing
+  every entity risk into exactly one place, the edit call, which makes the evaluation (§5)
+  tractable.
 
 - **The edit loop: one guardrailed, structured route.** `POST /api/edit` takes
   `{ block, instruction, docContext?, kbContext? }` and returns `{ newText, rationale? }`
@@ -103,6 +103,15 @@ load-bearing ones:
   call a `submit_edit` tool returning the rewrite as *data*, so a `"Sure, here's your revised
   paragraph:"` preamble can never leak into the document. Non-streaming on purpose: Apply is
   all-or-nothing and the diff needs the whole rewrite.
+
+- **AI proposes; the human commits — and the safety is visible.** AI responses live as pending
+  proposals, separate from applied history; only an explicit **Keep** creates an `EditOp`.
+  Suggestions and chat reuse that contract, so no AI path silently mutates the document. Safety is
+  defense-in-depth: after the entity-safe parse, prompt guardrail, and structured output, a
+  deterministic before/after gate catches protected names, licenses, project numbers, and dollar
+  figures that were altered or dropped. Gold highlighting and an extra confirmation turn that
+  backstop into something the user can inspect rather than an invisible model promise. Known gaps
+  — fabricated new entities and unseen proper names — stay explicit in §4.
 
 - **Two surfaces, one model.** The same block model backs a pixel-faithful **Original PDF** view
   (mupdf page rasters — the default on open) *and* a clean semantic **Document** view. Where a
@@ -120,6 +129,25 @@ load-bearing ones:
   construction*, and the log doubles as the demo's audit trail. Chat's multi-edit batches apply
   and undo as **one grouped transaction**.
 
+- **Proactive suggestions are grounded and precision-first.** An instant deterministic scan is
+  the dependable floor; one cached LLM pass adds judgment about wordiness, clarity, and
+  consistency. Every visible reason must quote a span from the user's document: deterministic
+  checks derive it directly, and the server verifies LLM-supplied evidence verbatim. An ungrounded
+  suggestion is dropped, never dressed up with plausible AI prose. Clicking a suggestion starts
+  the same review → Keep/Discard → undo loop instead of a parallel, less-safe editing path.
+
+- **Chat plans broadly, edits narrowly, and never applies on its own.** A planner sees a compact
+  document map and selects the minimum relevant blocks; each selected block then passes through
+  the existing guarded editor and deterministic entity gate. The user reviews the batch and Keeps
+  or Discards it as one grouped transaction. Input bounds and a hard shared model-call budget cap
+  the cost of the public endpoint regardless of what the planner returns.
+
+- **Voice and facts have separate trust boundaries.** A committed, read-only firm voice card
+  steers suggestion tone, while the closed firm-facts corpus is reference-only and is not fed into
+  generation. A future retrieve-and-insert flow requires a human to choose a real,
+  provenance-backed project *before* generation. This reinforces the firm's register without
+  creating a surface for invented facts or laundering unreviewed output into canonical data.
+
 - **UX for a Word-native, non-technical user — "recognisable, not identical."** The audience is a
   proposal manager or city engineer who lives in Word. So we borrow Word's **habits and plain
   words** — *Open* not Upload, *Keep this change / Discard* not Accept/Reject, Undo/Redo top-left,
@@ -127,13 +155,30 @@ load-bearing ones:
   product its **own calm blueprint-teal skin** rather than cloning the ribbon (a faithful clone
   hits the "broken Word" uncanny valley the moment a right-click menu is missing). The AI's
   proposal is a **calm stacked card** — *"The wording now"* over *"The suggested new wording,"*
-  read top-to-bottom like a letter — not a developer redline.
+  read top-to-bottom like a letter — not a developer redline. Accessibility is a functional floor,
+  not polish: document text starts at 20px, controls have 48px targets, essential contrast meets
+  7:1, focus is visible, no critical action is hover-only, and loading or failure states explain
+  what is happening in plain language.
+
+- **Expensive work is content-addressed.** `Doc.id` is the sha256 of the PDF bytes; committed parse
+  seeds and page rasters make the bundled path deterministic, while bounded in-process caches
+  accelerate repeats without becoming a store of record. Suggestions are cached by a
+  **server-computed hash of the submitted block content**, never a client-asserted document id —
+  preserving the performance win without turning the cache into a cross-request document leak.
 
 - **AI only via the Buoyant proxy, server-side; no database.** State lives in client memory; the
   parse cache is committed pre-parsed JSON (`src/parse-cache/`) plus an in-process map — no DB, no
   disk. (Vercel Blob only ferries a large PDF's bytes to the server on a cache miss.) The brief
   says DB is optional and nothing in the single-user loop needs one — adding one would be infra
-  for its own sake.
+  for its own sake. Ephemeral caches are accelerators only, and if an uploaded PDF's raster preview
+  falls out of memory, the semantic Document view remains editable rather than failing the whole
+  workflow.
+
+- **Evaluation is part of the design, not post-hoc QA.** Preservation is paired with
+  no-op-defeating effectiveness, trials call the real deployed route, and a different model helps
+  identify open-class proper nouns so the editor does not grade itself. §5 reports raw
+  denominators and every violation before the headline percentage; the measurement is designed to
+  be harder to game than a single flattering score.
 
 ---
 
@@ -148,6 +193,11 @@ Speed-first, and *intentional* scope beats feature count. Explicit cuts:
   (raster) and let you edit on it, but the editable unit is a text **Block**, not a reflowed
   vector clone. Rebuilding the PDF's exact layout as an editable surface is the trap that sinks
   the budget for near-zero user value.
+- **Sub-paragraph / cross-block text selection** — edits operate on a whole **Block** (paragraph),
+  not an arbitrary span. Finer selection is a useful future refinement, but it needs real product
+  thought first: how a user clearly *unselects* or switches selection without accidentally starting
+  an edit, and how the entity gate and the diff scope to a *fragment* while the rest of the block
+  stays pinned. Half-building that is worse than a clean block unit. (§7 candidate.)
 - **Images / logos / photos as *editable* content** — they're not AI-editable text and would
   complicate entity fidelity, so the Document view is clean text while the Original PDF view keeps
   the full visuals for reference. "Edit the text, not the graphics" is a deliberate call.
@@ -166,12 +216,6 @@ Speed-first, and *intentional* scope beats feature count. Explicit cuts:
   This is a *time + trust* cut, not a budget one (the owner was explicit spend isn't the
   constraint): a curated corpus is what makes grounding trustworthy, and better to ship the core
   loop rock-solid than a half-verified KB that cites a real-but-wrong project. (§7.)
-- **Selection below the paragraph — sub-block or cross-block spans.** The **Block** is the
-  selection unit: you click a paragraph, not an arbitrary run of words. Free-text selection ("just
-  fix this clause") is genuinely nice, but it needs a real answer for *de*-selecting and for
-  editing *part* of a block while the rest stays pinned — including how the entity gate and the
-  diff scope to a fragment. Half-building that is worse than a clean block unit, so it's deferred
-  with intent (a finer-grained selection model is a §7 candidate).
 - **Manual free-text typing into the document.** Every edit flows through the reviewed AI loop
   (select → instruct → diff → Keep); you can't click into a block and just type. Deliberate: the
   whole safety model — the entity-fidelity gate, the structured diff, the inverse-command audit log
@@ -223,9 +267,20 @@ Speed-first, and *intentional* scope beats feature count. Explicit cuts:
   risk). The retrieve-and-insert design (§7) never lets the model invent: a human picks a *real*
   retrieved project **before** any generation, and a deterministic check requires every entity to
   appear verbatim, falling back to a template on failure.
+- **Security hardening before real customer documents** — this is a public, unauthenticated
+  take-home, not yet a production trust boundary. It already keeps provider credentials
+  server-side, stores uploads privately, restricts upload tokens to declared PDFs up to 25 MB,
+  and caps chat's model-call fan-out per request. Before a paying customer, add authentication and
+  tenant-level authorization; rate limits and spend quotas on every AI and parse route; PDF
+  magic-byte, malformed-file, and parser resource-limit checks; an explicit upload retention and
+  deletion policy; redacted errors and logs; security headers and dependency scanning; and
+  adversarial tests for prompt injection and cross-tenant document leakage. The silent security
+  failure to design against is one customer's proposal, metadata, or derived output becoming
+  visible to another.
 - **Pre-customer checks I'd want:** the §5 fidelity number on a real grid, the preamble/refusal
-  leak regex at zero, and a spot-check that the parse cache key (file hash) never collides across
-  the corpus.
+  leak regex at zero, a spot-check that the parse cache key (file hash) never collides across the
+  corpus, and the security release gates above exercised with negative tests rather than only a
+  happy-path UI pass.
 
 ---
 
@@ -349,7 +404,11 @@ headline %, and report **raw k/n per instruction** with the entity-bearing denom
   verbatim text) as a zero-model floor, plus an **LLM editorial layer** (`/api/suggest`, aligned
   to the firm's KB voice, every quote verified verbatim) for wordiness / clarity / consistency.
   Each suggestion shows **why**, quoted from the user's own text, and routes through the exact same
-  review-and-apply card — same fidelity guarantees, nothing new to learn.
+  review-and-apply card — same fidelity guarantees, nothing new to learn. Those review decisions
+  also create the right future learning signal: once captured, each Keep / Discard / Adjust
+  outcome tells us whether a rubric rule produces genuinely useful suggestions, while
+  human-approved wording can reinforce the firm's voice profile. That improves both rubric and
+  data quality without promoting unreviewed model output into canonical source material.
 - **Operational polish** — clean `503`/`400`/`502` degradation on the AI routes, and a cross-model
   evaluation harness that keeps the editor from grading itself.
 
@@ -357,29 +416,32 @@ headline %, and report **raw k/n per instruction** with the entity-bearing denom
 
 ## 7. What I'd build next, given another 8 hours
 
-1. **Harden the parse for real layouts** — proper multi-column and table reconstruction, then the
+1. **Polish user flows and UI** — tighten onboarding, selection and deselection, loading and error
+   feedback, and responsive details so the existing end-to-end loop feels obvious and
+   customer-ready before adding more surface area.
+2. **Harden the parse for real layouts** — proper multi-column and table reconstruction, then the
    densest `hard.pdf` brochure pages. Biggest generalization risk.
-2. **Close the two fidelity gaps the confirm gate can't see.** (a) It catches *alter/drop* of
+3. **Close the two fidelity gaps the confirm gate can't see.** (a) It catches *alter/drop* of
    entities in the original but not a **fabricated new** name or number the model invents — add a
    model-side guardrail plus a post-edit check for entities in the output but not the input (KB
    hallucination is one instance). (b) **Name** protection is a fixed `KNOWN_NAMES` roster —
    generalize it (NER) so an open-class person name in an *unseen* proposal is protected the way
    the license / project # / $ / phone regexes already are.
-3. **Ship the KB retrieve-and-insert flow + grounded rationales.** The "Add similar experience"
+4. **Ship the KB retrieve-and-insert flow + grounded rationales.** The "Add similar experience"
    flow (retrieve *real* past projects, human picks *before* any generation, insert in the firm's
    voice with a verbatim fidelity net), plus a grounded "why" behind each suggestion — a plain
    **rubric check** or a **verbatim KB citation with provenance**, never free-form justification.
    Both reuse one retrieval spine; the corpus moves from fixed + hand-verified toward a live,
    user-uploaded KB (deferred because trust needs verification time, not spend).
-4. **Close the rubric → KB feedback loop.** Capture the Keep/Discard/Adjust signal on every
+5. **Close the rubric → KB feedback loop.** Capture the Keep/Discard/Adjust signal on every
    suggestion and edit and feed it back into the KB — **starting with today's static, hand-verified
    KB** and letting confirmed outcomes enrich it over time (which phrasings the firm actually keeps,
    which it rejects), so the rubric and the grounding sharpen with use. Add persistence only once
    this signal earns it.
-5. **Export back to PDF / DOCX** so the edited proposal leaves the tool in a format the firm sends.
-6. **Put the eval in CI** — run the fidelity grid on every deploy and fail the build on a
+6. **Export back to PDF / DOCX** so the edited proposal leaves the tool in a format the firm sends.
+7. **Put the eval in CI** — run the fidelity grid on every deploy and fail the build on a
    regression, so the guardrail can't silently rot.
-7. **Persistence + multi-user** (documents, versions, comments) — the first thing a real customer
+8. **Persistence + multi-user** (documents, versions, comments) — the first thing a real customer
    asks for after the loop feels good.
 
 ---
