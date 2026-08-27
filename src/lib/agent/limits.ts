@@ -24,6 +24,13 @@ export const LIMITS = {
   /** Max blocks the agent will propose edits for in one turn (also caps human review load). */
   maxEditBlocks: 8,
   /**
+   * Max characters of a single block we'll send to the guarded editor. Bounds per-edit INPUT
+   * tokens (runEdit already caps output). Generous — real proposal blocks are far smaller; this
+   * only trips on a pathological megablock. Such a block is SKIPPED (not truncated: truncating
+   * edit input would drop the block's tail from the proposed rewrite) and surfaced in the reply.
+   */
+  maxBlockChars: 8_000,
+  /**
    * HARD ceiling on TOTAL model calls per /api/chat request — planner + every block edit + every
    * repair retry, all counted against this one budget. Was ~33 worst-case (1 + 16 + 16); now 12.
    */
