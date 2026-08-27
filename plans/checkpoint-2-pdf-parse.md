@@ -12,11 +12,15 @@ unseen SOQ.
 ## Bottom line (what the research changed)
 Deterministic extraction is far stronger than the KB first assumed: **the extractor itself gives
 bold-vs-normal per line.** So we do ~80% of structuring with deterministic TypeScript and use
-**one cheap LLM call** only to group lines into blocks + assign heading levels — and that call
+**one LLM call** only to group lines into blocks + assign heading levels — and that call
 **references line indices, it never re-emits text.** Consequences:
 - **Entity fidelity by construction** — the model cannot alter "MECO", "041-560",
-  "MO PE No. 022510", `$` figures, etc.; it only emits `{type, level, startLine, endLine}`.
-- **Cheapest path under the spend cap** — output tokens ~3–4× smaller than re-emitting text.
+  "MO PE No. 022510", `$` figures, etc.; it only emits `{type, level, startLine, endLine}`. This is
+  the CP2 half of "the parse is entity-safe by construction; the edit route is the only place an
+  entity can break" (see the Evaluation v2 decision in [decisions.md](../docs/decisions.md)).
+- **Small, clean output** — ~3–4× fewer output tokens than re-emitting text: a latency/quality win.
+  (Spend is **not** a constraint per the owner — reference-based output is kept for fidelity +
+  latency, not cost.)
 - **Degrades to heuristics-only** if the LLM/proxy flakes.
 
 ## Pipeline
@@ -30,7 +34,8 @@ browser: pick PDF → sha256 (Web Crypto) → send hash to /api/parse-check
                                             4. ASSEMBLE   join referenced lines VERBATIM → Block[] + stable ids + coverage-validate
                                             5. CACHE       write-back → Doc (blocks JSON, ~10–30KB)
 ```
-The cache value is the finished `Doc`. We cache the slow/metered LLM pass, not the ~90ms extraction.
+The cache value is the finished `Doc`. We cache the slow LLM pass (for latency + a deterministic
+demo, not spend), not the ~90ms extraction.
 
 ## Extraction library — `mupdf` (WASM)
 **Pick:** `mupdf@1.28.0`, **server-side, Node runtime** (never Edge — needs fs/WASM).
@@ -116,12 +121,15 @@ The LLM owns only the ambiguous ~20%: (a) fix block boundaries the heuristic mis
 heading **levels** (h1/h2/h3), (c) coarsely label brochure/infographic pages as `other`/`caption`
 instead of over-segmenting. **It references line ranges; it never emits text.**
 
-Always run the single cheap call on a cache miss — **do not** skip it "when heuristics look
+Always run the single LLM call on a cache miss — **do not** skip it "when heuristics look
 confident" (cut: infographic stat labels like `60 EMPLOYEES`, `PRE-QUALIFIED` are bold+CAPS+short
 and would fire as false headings without the LLM's coarse relabel).
 
-**Model:** `claude-sonnet-5`, effort `low` (mechanical label-by-reference; per-parse cost is cents
-and cached by hash). Fallback lever `claude-haiku-4-5` if spend tightens; reserve Opus for CP4 edits.
+**Model:** default `claude-sonnet-5`, effort `low` — the label-by-reference task is mechanical, so
+Sonnet is plenty. **Spend is not a constraint** (owner directive), so choose for QUALITY, not cost:
+bump the structuring pass to `claude-opus-5` if it improves block boundaries / heading levels on the
+hidden fixture — don't down-tier to save money. (`claude-haiku-4-5` only if you want lower latency on
+a clearly-easy page.)
 
 **Structured output:** prefer the Anthropic SDK `messages.parse()` + zod schema via
 `output_config.format` through the Buoyant proxy baseURL. **⚠ Verify the proxy forwards it before
@@ -144,8 +152,9 @@ User content = compact numbered lines, verbatim text after `|`:
 1 p2 B CAPS x76 heading | OUR FIRM
 2 p2 . .    x76 paragraph | MECO Engineering Company, Inc. is a ...
 ```
-**Token budget (measured):** easy ≈3.0K input tok, hard(19pp) ≈12.2K — both fit ONE request.
-Chunk **per page** only above ~50pp / ~25K input tok (not needed for the provided set).
+**Context budget (measured):** easy ≈3.0K input tok, hard(19pp) ≈12.2K — both fit ONE request.
+Chunk **per page** only above ~50pp / ~25K input tok to stay within the context window (a
+reliability concern, not a spend one) — not needed for the provided set.
 
 **Assemble:** join `lines[startLine..endLine]` VERBATIM; `page = min(page of lines)`; derive id
 (below). **Validate coverage:** `0 ≤ start ≤ end ≤ N`, each line used ≤1×; unreferenced content
@@ -228,7 +237,9 @@ scripts/seed-parse.ts      # run pipeline over provided PDFs → write src/parse
   fallback ⇒ never crashes; worst case renders selectable heuristic blocks.
 - **Infographic/brochure pages** (easy 5–8, dense hard pages): LLM labels them coarse
   `other`/`caption`; render read-only. No layout reconstruction.
-- **No OCR** — all provided PDFs have a text layer; scanned input is a documented gap.
+- **No OCR** — all provided PDFs have a text layer, and the owner confirms the hidden fixture is
+  **another MECO-style SOQ with a real text layer** (so the provided set is representative; no
+  scanned path). Scanned input remains a documented gap.
 
 ## Scope boundary with CP3
 CP2 = the parse pipeline + `/api/parse` returning Doc JSON + a **throwaway test page that dumps the
@@ -246,7 +257,7 @@ is **CP3**.
 | Two-column pages scrambled | x0-cluster column detection + per-column y-sort |
 | Over-aggressive dedup deletes real content | Position-bucketed, same-text-same-position only; never font-name-based |
 | Footer strip drops an entity | Relabel footer lines as `other`, don't hard-delete |
-| Parse latency / spend | Cache by hash (parse once); one small model call; L0 seed for graded path |
+| Parse latency (spend is not a constraint) | Cache by hash (parse once); L0 seed makes the graded path instant |
 
 **Cut for CP2:** gridded-table extraction; robust dense multi-column beyond the 2-bucket split;
 infographic layout reconstruction; sub-line (per-char) weight via `walk()`; skip-LLM-when-confident;
@@ -263,7 +274,8 @@ durable Blob write-back + dev-disk cache; OCR; Runtime Cache/KV; DB/multi-user.
 6. `parse/heuristics.ts` — dedup → header/footer → column-sort → line-merge → labels. Verify easy
    p1–4 (6 headings, services list unscrambled, cover deduped).
 7. `parse/assemble.ts` — line-ranges → `Block[]`, verbatim join, coverage validation, stable ids.
-8. `parse/structure.ts` — numbered-line repr, `messages.parse()` + zod (or fallback), Sonnet-5-low.
+8. `parse/structure.ts` — numbered-line repr, `messages.parse()` + zod (or fallback), Sonnet 5
+   (bump to Opus 5 if structure quality needs it — spend is not a constraint).
 9. `parse/cache.ts` (sha256 key, L1 Map, L0 seed, Blob upload) + `parse/pipeline.ts` (heuristics-only
    fallback).
 10. `scripts/seed-parse.ts` — run pipeline over the 7 PDFs; commit `src/parse-cache/{sha256}.json`.
