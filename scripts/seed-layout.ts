@@ -53,6 +53,42 @@ for (const t of files) {
     spans.push({ s, e: hay.length, i });
   });
 
+  // Some designed personnel lists are extracted column-first: all names arrive first, followed by
+  // all titles. The parsed block correctly joins each name with the title directly below it, so it
+  // cannot be found as a contiguous substring in `hay`. Recover those stacked list items by
+  // following matching text fragments down the same page, preferring the nearest aligned line.
+  const stackedListLines = (block: Doc['blocks'][number]): typeof lines => {
+    if (block.type !== 'list-item') return [];
+    const pageLines = lines.filter((line) => line.page === block.page && norm(line.text));
+    const chosen: typeof lines = [];
+    let remaining = norm(block.text);
+
+    while (remaining && chosen.length < 4) {
+      const previous = chosen.at(-1);
+      const candidates = pageLines
+        .filter((line) => {
+          if (chosen.includes(line)) return false;
+          const text = norm(line.text);
+          if (remaining !== text && !remaining.startsWith(`${text} `)) return false;
+          if (!previous) return true;
+          const verticalGap = line.y0 - previous.y1;
+          return verticalGap >= -1 && verticalGap <= 36;
+        })
+        .sort((a, b) => {
+          if (!previous) return norm(b.text).length - norm(a.text).length;
+          const distance = (line: typeof lines[number]) =>
+            Math.abs(line.x0 - previous.x0) * 2 + Math.max(0, line.y0 - previous.y1);
+          return distance(a) - distance(b);
+        });
+      const next = candidates[0];
+      if (!next) return [];
+      chosen.push(next);
+      remaining = remaining.slice(norm(next.text).length).trim();
+    }
+
+    return remaining ? [] : chosen;
+  };
+
   const map: Record<string, Rect> = {};
   let cursor = 0;
   let matched = 0;
@@ -61,7 +97,8 @@ for (const t of files) {
     if (!bn) continue;
     let at = hay.indexOf(bn, cursor);
     if (at < 0) at = hay.indexOf(bn); // fall back to a global search (out-of-order dedup)
-    let endChar: number;
+    let endChar: number | undefined;
+    let grpLines: typeof lines | undefined;
     if (at >= 0) {
       endChar = at + bn.length;
     } else {
@@ -70,22 +107,30 @@ for (const t of files) {
       const tail = bn.slice(-18);
       const a = hay.indexOf(head, cursor);
       const b = a >= 0 ? hay.indexOf(tail, a) : -1;
-      if (a < 0 || b < 0) continue;
-      at = a;
-      endChar = b + tail.length;
+      if (a >= 0 && b >= 0) {
+        at = a;
+        endChar = b + tail.length;
+      } else {
+        grpLines = stackedListLines(block);
+        if (grpLines.length === 0) continue;
+      }
     }
-    const grpLines = spans.filter((sp) => sp.e > at && sp.s < endChar).map((sp) => lines[sp.i]);
-    if (grpLines.length === 0) continue;
-    cursor = endChar;
+    if (endChar !== undefined) {
+      grpLines = spans.filter((sp) => sp.e > at && sp.s < endChar).map((sp) => lines[sp.i]);
+      cursor = endChar;
+    }
+    if (!grpLines?.length) continue;
 
     // Union the bboxes on the block's dominant page.
-    const byPage = new Map<number, typeof grpLines>();
+    const byPage = new Map<number, typeof lines>();
     for (const l of grpLines) {
       const arr = byPage.get(l.page) ?? [];
       arr.push(l);
       byPage.set(l.page, arr);
     }
-    const page = [...byPage.entries()].sort((a, b) => b[1].length - a[1].length)[0][0];
+    const dominant = [...byPage.entries()].sort((a, b) => b[1].length - a[1].length)[0];
+    if (!dominant) continue;
+    const page = dominant[0];
     const g = byPage.get(page)!;
     const x0 = Math.min(...g.map((l) => l.x0));
     const y0 = Math.min(...g.map((l) => l.y0));

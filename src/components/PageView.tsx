@@ -19,12 +19,18 @@ function pageSrc(hash: string, n: number, hasStatic: boolean): string {
 export function PageView({
   doc,
   selectedId,
+  pulseId,
+  peekId,
   editedText,
   onSelect,
   onBackgroundClick,
 }: {
   doc: Doc;
   selectedId: string | null;
+  /** A recently changed block — briefly pulse its location on the PDF. */
+  pulseId: string | null;
+  /** A block previewed from an action card hover — keep its PDF location highlighted. */
+  peekId: string | null;
   /** blockId → current text, for blocks whose text differs from the original (patched in place). */
   editedText: Record<string, string>;
   onSelect?: (id: string) => void;
@@ -95,11 +101,14 @@ export function PageView({
                   const cls =
                     'orig-region' +
                     (id === selectedId ? ' sel' : '') +
+                    (id === pulseId ? ' pulse' : '') +
+                    (id === peekId ? ' peek' : '') +
                     (patched !== undefined ? ' edited' : '');
                   return (
                     <div
                       key={id}
                       className={cls}
+                      data-block-id={id}
                       style={{
                         left: `${rect.x * 100}%`,
                         top: `${rect.y * 100}%`,

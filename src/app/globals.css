@@ -1635,6 +1635,11 @@ div.recent {
   background: rgba(31, 106, 134, 0.1);
   outline: 2px solid var(--accent);
 }
+/* Reveal the paragraph targeted by a hovered action card, matching the editable document view. */
+.orig-region.peek {
+  background: rgba(31, 106, 134, 0.14);
+  outline: 2px solid var(--sel-bar);
+}
 /* an applied edit, patched in place: white mask over the original + the new wording. No full box —
    a thin green "changed" bar only — so it still selects/hovers/deselects like any other paragraph. */
 .orig-region.edited {
@@ -1650,6 +1655,24 @@ div.recent {
 .orig-region.edited.sel {
   background: #fff;
   outline: 2px solid var(--accent);
+}
+.orig-region.edited.peek {
+  background: #fff;
+  outline: 2px solid var(--sel-bar);
+}
+/* Keep the original text masked while briefly calling attention to a newly applied patch. */
+.orig-region.pulse {
+  animation: original-region-pulse 1.1s ease;
+}
+@keyframes original-region-pulse {
+  0% {
+    outline-color: var(--accent);
+    outline-width: 4px;
+  }
+  100% {
+    outline-color: transparent;
+    outline-width: 1px;
+  }
 }
 .orig-patch {
   display: block;

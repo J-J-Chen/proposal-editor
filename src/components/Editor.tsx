@@ -705,8 +705,18 @@ export function Editor() {
   );
 
   const onKeep = useCallback(() => {
+    const changedId = pending?.blockId;
     dispatch({ type: 'KEEP_PENDING' });
     setToast('Change saved. You can Undo if you change your mind.');
+    // The action may concern a paragraph on another PDF page. Reveal the applied patch after the
+    // reducer has rendered it instead of leaving the user at the old scroll position.
+    if (changedId) {
+      setTimeout(() => {
+        document
+          .querySelector(`[data-block-id="${changedId}"]`)
+          ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 30);
+    }
     if (activeSuggestionId) {
       // Resolve this suggestion and return cleanly to the list (the kept block still pulses).
       setResolved((prev) => new Set(prev).add(activeSuggestionId));
@@ -714,7 +724,7 @@ export function Editor() {
       setPeekId(null);
       dispatch({ type: 'SELECT', blockId: null });
     }
-  }, [activeSuggestionId]);
+  }, [activeSuggestionId, pending]);
   const onDiscard = useCallback(() => {
     dispatch({ type: 'DISCARD_PENDING' });
     if (activeSuggestionId) {
@@ -1021,6 +1031,8 @@ export function Editor() {
               <PageView
                 doc={doc}
                 selectedId={selectedId}
+                pulseId={highlightId ?? state.lastChangedId}
+                peekId={peekId}
                 editedText={editedText}
                 onSelect={onSelect}
                 onBackgroundClick={deselect}
