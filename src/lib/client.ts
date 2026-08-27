@@ -3,6 +3,7 @@
  * The FE never imports the mock fixture directly — it loads the document through /api/parse, so
  * it's forward-compatible when Track A's real parser + cache seed replace the stub.
  */
+import { upload } from '@vercel/blob/client';
 import type { Doc } from './types';
 import type { EditRequest, EditResponse, ParseResponse } from './contracts';
 
@@ -24,12 +25,23 @@ export async function parseByHash(hash: string, filename: string): Promise<Parse
   return { doc: data.doc };
 }
 
-/** POST /api/parse with the file bytes (multipart) — a cache miss on an unseen PDF. */
-export async function parseByUpload(file: File): Promise<Doc> {
-  const form = new FormData();
-  form.append('file', file);
-  form.append('filename', file.name);
-  const r = await fetch('/api/parse', { method: 'POST', body: form });
+/**
+ * A genuine cache miss on an unseen PDF. The file can be larger than the serverless function's
+ * request-body cap, so we don't stream the bytes through /api/parse. Instead we push them straight
+ * to Blob storage via a server-issued (private) client token — /api/blob/upload signs it and
+ * restricts to application/pdf — then hand /api/parse the blob URL to fetch + parse server-side.
+ * We still send the sha256 `hash` so a since-seeded/warm file short-circuits to cache, no upload.
+ */
+export async function parseByUpload(file: File, hash: string): Promise<Doc> {
+  const blob = await upload(file.name, file, {
+    access: 'private',
+    handleUploadUrl: '/api/blob/upload',
+  });
+  const r = await fetch('/api/parse', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ hash, filename: file.name, blobUrl: blob.url }),
+  });
   if (!r.ok) throw new Error(`Couldn't read the proposal (status ${r.status}).`);
   const data = (await r.json()) as ParseResponse;
   return data.doc;

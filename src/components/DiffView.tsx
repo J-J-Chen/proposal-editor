@@ -1,9 +1,10 @@
 /**
- * Track D — the calm review card. The AI's change shown as two labelled boxes, read top to
- * bottom like a letter (comprehension by reading, not merging). Removed/added words are marked
- * INSIDE the new-wording box (green underline / red strikethrough); those inline marks are the
- * first thing to cut per design-ui.md #3 — flip SHOW_INLINE_MARKS to false and the two boxes
- * stand on their own.
+ * Track D — the calm review card. The AI's change shown as three labelled boxes, read top to
+ * bottom like a letter (comprehension by reading, not merging): the wording now (old), the
+ * suggested new wording (clean, so the result reads on its own), then "What changed" — the same
+ * new wording with removed/added words marked inline (green underline / red strikethrough). Those
+ * inline marks are the first thing to cut per design-ui.md #3 — flip SHOW_INLINE_MARKS to false
+ * and the "What changed" box drops away, leaving the two plain old/new boxes.
  */
 import type { Pending } from '@/state/editor';
 import { wordDiff } from '@/lib/text/diff';
@@ -35,9 +36,15 @@ export function DiffView({
       <div className="boxlab" style={{ marginTop: 9 }}>
         The suggested new wording
       </div>
-      <div className="newbox">
-        {segs
-          ? segs.map((s, i) =>
+      <div className="newbox">{pending.after}</div>
+
+      {segs && (
+        <>
+          <div className="boxlab" style={{ marginTop: 9 }}>
+            What changed
+          </div>
+          <div className="diffbox">
+            {segs.map((s, i) =>
               s.kind === 'same' ? (
                 <span key={i}>{s.text}</span>
               ) : s.kind === 'add' ? (
@@ -49,9 +56,18 @@ export function DiffView({
                   {s.text}
                 </span>
               ),
-            )
-          : pending.after}
-      </div>
+            )}
+          </div>
+          <div className="legend">
+            <span>
+              <span className="rm2">red crossed-out</span> = removed
+            </span>
+            <span>
+              <span className="ad2">green underlined</span> = added
+            </span>
+          </div>
+        </>
+      )}
 
       {pending.protectedKept.length > 0 && (
         <div className="keptline">
@@ -63,17 +79,6 @@ export function DiffView({
               {s}
             </span>
           ))}
-        </div>
-      )}
-
-      {segs && (
-        <div className="legend">
-          <span>
-            <span className="rm2">red crossed-out</span> = removed
-          </span>
-          <span>
-            <span className="ad2">green underlined</span> = added
-          </span>
         </div>
       )}
 
