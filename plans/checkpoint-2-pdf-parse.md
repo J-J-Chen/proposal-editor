@@ -10,12 +10,11 @@ unseen SOQ.
 > for the recon, [architecture.md](../docs/architecture.md) for the bet.
 
 > **STATUS — BUILT (2026-08-26).** Implemented in `src/parse/*` + real `src/app/api/parse/route.ts`,
-> verified end-to-end on the fixtures (easy.pdf seed → 76 blocks; unseeded 12MB upload live-parses in
+> verified end-to-end on the fixtures (easy.pdf seed → 101 blocks; unseeded 12MB upload live-parses in
 > ~36s; `e2e-verify` ALL PASS). **Three deltas from the text below**, logged in
 > [decisions.md](../docs/decisions.md): (1) structured output via **tool-use**, not `messages.parse()`
-> (the latter was unverified on the proxy); (2) **no Vercel Blob / single `/api/parse` route** —
-> Vercel now allows 100MB bodies, so the fixtures POST directly (the `parse-check`/`upload`/Blob
-> design below is obsolete); (3) reading order = **mupdf native order** (a global y-sort scrambles the
+> (the latter was unverified on the proxy); (2) **a single `/api/parse` route** (no separate `parse-check`) plus a **Vercel Blob
+> client-upload** path (`/api/blob/upload`) used only when a large PDF misses the cache; (3) reading order = **mupdf native order** (a global y-sort scrambles the
 > two-column list), column-sort kept only as a hedge.
 
 ## Bottom line (what the research changed)

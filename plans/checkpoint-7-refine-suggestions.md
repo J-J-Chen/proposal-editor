@@ -1,6 +1,6 @@
 # Checkpoint 7 — Refine Suggestions (proactive review layer)
 
-**Status: DRAFT (2026-08-26).** Decided: build order (below) and **no KB enrichment** (KB is
+**Status: SHIPPED (2026-08-27)** — the Refine layer is built (`/api/suggest` + `src/lib/suggest.ts` + `src/refine/scan.ts` + the Refine panel); the design doc below is historical. Decided: build order (below) and **no KB enrichment** (KB is
 read-only). Deferred: the "feed outcomes back into the KB" sink (noted in the README). Still open:
 ambition — Phase 1 vs Phase 1+2. This is a design doc for a feature the owner requested: after
 import, proactively **suggest

@@ -43,8 +43,10 @@ Stable ids matter: edits target a block by id, and undo/compose rely on identity
    verified in the fixtures: duplicated cover text, headings glued to bodies, multi-column
    reading order. Use **structured output** (tool/JSON schema) so the model returns data,
    not prose.
-3. **Cache by file hash** (content hash → parsed doc), to disk or Blob. Parsing is slow
-   (5–10 min for big PDFs) and metered — parse each file once.
+3. **Cache by file hash** (content hash → parsed doc): committed pre-parsed seed JSON in
+   `src/parse-cache/` plus an in-process map — no disk, DB, or Blob *as the store*. (Vercel Blob
+   is used only to upload a large PDF's bytes on a genuine cache miss.) Parsing is slow and
+   metered — parse each file once.
 
 Rationale: heuristics alone choke on the branded/multi-column layout; pure-LLM-on-raw-text is
 slow/expensive and loses layout cues. Hybrid gets robustness at bounded cost, and generalizes
@@ -104,7 +106,7 @@ See [checkpoint 5](../plans/checkpoint-5-eval-readme.md).
 
 ## KB grounding (stretch)
 One interaction — **"Add similar experience"**: retrieve real past projects from the 5 `kb/`
-proposals (in-memory keyword overlap over a committed `src/kb/index.json`; no DB/vector/BM25
+proposals (in-memory keyword overlap over the committed `src/kb/` module (`voice.ts`/`facts.ts`); no DB/vector/BM25
 stats), show provenance on candidate cards, **the human picks one before any generation**, then
 compose the inserted paragraph with the LLM **in MECO's voice** using only that project's facts,
 guarded by a deterministic entity-verbatim **fidelity net** (template fallback on failure). Insert

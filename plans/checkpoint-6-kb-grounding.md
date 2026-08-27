@@ -1,5 +1,7 @@
 # Checkpoint 6 — KB Grounding (stretch)
 
+> **STATUS — PARTIAL.** `src/kb/` (`voice.ts`/`facts.ts`) exists and powers the firm voice card + Refine voice sourcing; the "Add similar experience" insert UI is **not** shipped. Design below.
+
 **Goal:** ground edits in the firm's past work. The brief's literal example — *"add a
 paragraph about a past project we did"* — should pull **real** content from the `kb/` corpus,
 rewritten in MECO's voice, with every entity verbatim and its **provenance shown**. This is

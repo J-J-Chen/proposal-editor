@@ -31,11 +31,14 @@ Everything AI-related is **server-side only** (`src/lib/ai.ts` reads the token f
 is never imported into a client component), so **the token never reaches the browser and is
 never committed** — it lives only in `.env.local` (gitignored).
 
-- **Env vars** (`.env.example`): `BUOYANT_PROXY_TOKEN` (required), `ANTHROPIC_BASE_URL`,
-  `OPENAI_BASE_URL` (both default to the hiring proxy; override only if Buoyant moves them).
-- **Models** (overridable via env): edits use `claude-sonnet-4-5` at `temperature: 0.2` (this
-  is editing, not brainstorming); the cheaper secondary calls (the structuring pass) use
-  `claude-haiku-4-5`; the eval's cross-model extractor uses `gpt-4o-mini`.
+- **Env vars** (`.env.example`): `BUOYANT_PROXY_TOKEN` (required), `ANTHROPIC_BASE_URL` /
+  `OPENAI_BASE_URL` (both default to the hiring proxy; override only if Buoyant moves them), and
+  `BLOB_READ_WRITE_TOKEN` (Vercel Blob — used only for the large-PDF upload path when the parse
+  cache misses).
+- **Models** (overridable via env): every live LLM call — edits, the parse structuring pass, and
+  the Refine suggestions — uses `claude-sonnet-4-5` at `temperature: 0.2` (this is editing, not
+  brainstorming); a smaller `claude-haiku-4-5` is configured but currently unused. The eval's
+  cross-model extractor uses `gpt-4.1` (the earlier easy-set run used `gpt-4o-mini`).
 - **Graceful degradation:** with no token set, the app still boots and the AI routes return a
   clean `503 { error: "AI is not configured" }` instead of crashing.
 - **One real gotcha, documented in code:** the proxy returns compressed bodies that the SDKs'
@@ -68,7 +71,7 @@ The load-bearing ones:
   reconstruction"). Re-rendering the original pixel-perfect is the trap that sinks the budget.
 
 - **The parse is entity-safe *by construction*, not by luck.** Parsing is hybrid: deterministic
-  text+layout extraction, heuristics for the easy ~80% of structure, then **one cheap LLM call
+  text+layout extraction, heuristics for the easy ~80% of structure, then **one LLM structuring call
   that labels line ranges by reference and never re-emits the document text.** Because the
   structuring model can't rewrite text, it is *incapable* of altering `MECO`, a `041-560` job
   number, or a `$` figure during parsing. That pushes every entity risk into exactly one place —
@@ -108,9 +111,11 @@ The load-bearing ones:
   *"The suggested new wording,"* read top-to-bottom like a letter — not a developer redline. See
   the design study: [Familiar as Word](https://claude.ai/code/artifact/acc75563-5a8d-463f-9fbc-97e8623d4404).
 
-- **AI only via the Buoyant proxy, server-side; no database.** State lives in client memory
-  (optional localStorage/Blob for the parse cache only). The brief says DB is optional and nothing
-  in the single-user loop needs one — so adding one would be infra for its own sake.
+- **AI only via the Buoyant proxy, server-side; no database.** State lives in client memory; the
+  parse cache is committed pre-parsed JSON (`src/parse-cache/`) plus an in-process map — no DB, no
+  disk, no `localStorage`. (Vercel Blob is used only to ferry a large PDF's bytes to the server on a
+  cache miss, not as the cache itself.) The brief says DB is optional and nothing in the single-user
+  loop needs one — so adding one would be infra for its own sake.
 
 ---
 
@@ -167,11 +172,11 @@ Speed-first, and *intentional* scope beats feature count. Explicit cuts:
   the line before this gate.
 - **Over-eager edits** — the model "improving" things it wasn't asked to. Mitigated by the
   explicit "do exactly what's asked and nothing more" rule and by tuning toward small, surgical
-  edits so a one-word fix reads as one word in the card. On the hard.pdf holdout (§5) the only *genuine* fidelity movements were aggressive "change
-  tone" / "rewrite" occasionally dropping a firm-branded term ("Standard of Care") or an
-  office-location name (Kirksville / Hannibal, MO) in a list or header rewrite — **never a
-  number, $, or ID, and never a swap to a different value** — mitigated by a firmer
-  surgical-edit constraint.
+  edits so a one-word fix reads as one word in the card. On the hard.pdf holdout (§5) the only *genuine* fidelity movements were an aggressive
+  "rewrite" / "tighten" nudging a long proper name — dropping a firm-branded term ("Standard
+  of Care"), and shortening a state agency ("Department of Insurance, Financial Institutions and
+  Professional Registration" → "Division of…") — never a number, $, or ID, and never a swap to a
+  fabricated value; mitigated by a firmer surgical-edit constraint.
 - **Parse edge cases** — duplicated/overlapping cover text, headings glued to body text,
   multi-column reading order (all seen in `easy.pdf` pages 1–2), and tables. The hybrid parse
   targets these; genuinely adversarial layouts and `hard.pdf` are a known, stated limit.
@@ -265,10 +270,14 @@ trials, over-weighting the hard "rewrite in our voice" / "change tone" cases):
 >
 > ---
 >
-> **hard.pdf — $-fidelity holdout, refreshed on `710ccac`.** Dataset: **hard.pdf** (generalization
-> holdout, never tuned to), re-seeded parse — 242 blocks, 209 entity-bearing, 22 sampled
-> including **all $-bearing blocks** → 198 trials (22 × 9 phrasings). Deploy `710ccac` ·
-> `claude-sonnet-4-5` @ temp 0.2 · cross-model extractor **gpt-4.1** · 2026-08-27.
+> **hard.pdf — $-fidelity holdout, 710ccac (re-run with production docContext).** Dataset:
+> **hard.pdf** — a generalization fixture the parser/editor were never tuned to. It began as a
+> pristine never-seen holdout and has since been **reused for follow-up runs** (this one
+> included), so it is now a repeated-measurement fixture, not a one-shot blind test. 242 blocks,
+> 198 entity-bearing, 22 sampled including **all $-bearing blocks** → 198 trials (22 × 9
+> phrasings). Deploy `710ccac` · docContext firm=`"MECO Engineering Company, Inc."` + headings
+> (production-faithful) · editor `claude-sonnet-4-5` @ temp 0.2 · cross-model extractor
+> **gpt-4.1** · 2026-08-27.
 >
 > **Headline:** **every** closed-class entity (all $ / numbers / dates / IDs) was **100%
 > value-preserved** across all 198 holdout trials — no entity was ever swapped to a different
@@ -276,27 +285,27 @@ trials, over-weighting the hard "rewrite in our voice" / "change tone" cases):
 >
 > **Per-entity-class (preserved/total, strict | value):** money 72/72 (100% | 100%) · project-no
 > 36/36 (100% | 100%) · year 144/144 (100% | 100%) · date 36/36 (100% | 100%) · zip 18/18
-> (100% | 100%) · program-id 126/126 (100% | 100%) · quantity 8/9 (89% | 9/9 100%; one
-> "40th" → "40 years" reformat, value kept) · proper-noun 1125/1287 (87% | 1267/1287 98%) →
-> **ALL 1565/1728 (91% strict | 1708/1728 99% value)**.
+> (100% | 100%) · program-id 126/126 (100% | 100%) · quantity 8/9 (89% | 9/9 100%) · proper-noun
+> 1077/1224 (88% | 1207/1224 99%) → **ALL 1517/1665 (91% strict | 1648/1665 99% value)**.
 >
-> **Effectiveness (applicability-aware):** applied-of-applicable 140/192 · changed-substantial
-> 172/189 · tighten-didn't-grow 19/22. Mean length drift 4.6%.
+> **Effectiveness (applicability-aware):** applied-of-applicable 153/192 · changed-substantial
+> 172/189 · tighten-didn't-grow 20/22. Mean length drift 5.1%.
 >
-> **Violations — 20 proper-noun value flags, hand-adjudicated (led with, none hidden):** 14 are
-> **parse artifacts**, not the edit route ("Highway58" for "Highway 58" ×8, run-on services
-> lists ×5, one cross-sentence span ×1) — these persist after the parse-quality deploy and are
-> being fixed upstream. 4 are instrument **over-capture** of generic terms, not real names (a
-> section label "EMPLOYEES" ×1; "QA" / "QC" / "Project Managers" ×3). 2 are **genuine +
-> minor** (one borderline): rewrite-voice dropped a firm-branded term ("Standard of Care") ×1,
-> and an aggressive header rewrite dropped office-city names (Kirksville / Hannibal, MO) ×1.
-> **No entity was ever swapped to a different real value.**
+> **Violations — 17 proper-noun value flags, hand-adjudicated (led with, none hidden):** 13 are
+> by-design **parse artifacts**, not the edit route ("Highway58" / "PumpingFlow" — the
+> documented dense-brochure limit). 2 are instrument **over-capture** of generic all-caps labels
+> ("QUALIFIED"; a cross-sentence span). 2 are **genuine + minor**: an aggressive rewrite-voice
+> dropped a firm-branded term ("Standard of Care") ×1, and a "tighten" shortened a state
+> agency's name ("Department of Insurance, Financial Institutions and Professional Registration"
+> → "Division of…") ×1 (the cross-model layer independently flagged it). **Never a $/number/ID,
+> and never a swap to a fabricated entity.**
 >
 > **Anti-overfit (holdout integrity):** no test-entity name lives in the instrument — closed-class
 > entities matched by generic regex, proper nouns by a generic capitalized-phrase + acronym
 > detector with a domain-generic stoplist; the **identical code path** scores easy and hard;
-> hard.pdf is an **untouched generalization holdout**; every violation is listed above (per-trial
-> JSON retained, not committed — it contains verbatim proposal text).
+> hard.pdf was an **untouched generalization holdout on first contact** (since reused for these
+> follow-up numbers); every violation is listed above (per-trial JSON retained, not committed —
+> it contains verbatim proposal text).
 
 ---
 
@@ -309,9 +318,12 @@ trials, over-weighting the hard "rewrite in our voice" / "change tone" cases):
   failure can't happen silently. It makes the fidelity the eval (§5) measures something the
   user *sees* on every edit, not just a number in a report — the product's strongest on-brand
   trust beat.
-- **Proactive suggestions — "Check my proposal for things to fix."** A rubric-driven list of
-  places to tighten, each one routing through the *exact same* review-and-apply card as a
-  manual edit — same fidelity guarantees, nothing new to learn.
+- **Proactive suggestions — "Check my proposal for things to fix."** Two layers merged into one
+  list: a **deterministic client-side scan** (`src/refine/scan.ts` — placeholder / casing /
+  repetition checks, each grounded in verbatim text) as a zero-model floor, plus an **LLM editorial
+  layer** (`/api/suggest`, `claude-sonnet-4-5`, structured output with every quote verified
+  verbatim) for wordiness / clarity / consistency. Each suggestion routes through the *exact same*
+  review-and-apply card as a manual edit — same fidelity guarantees, nothing new to learn.
 - **Operational polish** — clean `503`/`400`/`502` degradation on the AI routes, and a
   cross-model evaluation harness that keeps the editor from grading itself.
 
@@ -353,5 +365,6 @@ _Repo conventions (history is intentionally unsquashed so the evolution is visib
 happens in worktrees landed through a local merge queue; `main` only advances via
 `scripts/mq-land.sh` (`--no-ff`). See [`AGENTS.md`](AGENTS.md) and [`docs/`](docs/)._
 
-_**License note:** PDF parsing uses [**mupdf**](https://mupdf.com) (`mupdf@^1.28.0`), which is
-**AGPL-3.0-or-later**; this take-home repo is **source-available** accordingly._
+_**License:** [**AGPL-3.0**](LICENSE) — required by the copyleft of [**mupdf**](https://mupdf.com)
+(`mupdf@^1.28.0`, AGPL-3.0-or-later), used for PDF parsing; third-party credits are in
+[`NOTICE`](NOTICE)._
