@@ -146,3 +146,45 @@ entity can break**; the eval isolates it.
 **Rejected:** Single-axis preservation-only (perverse optimum); two independent LLM extractions
 set-diffed (stochastic false violations); the editor grading its own output (correlated blind
 spots); surface-string preservation (penalizes legitimate rewordings).
+
+### 2026-08-26 — Extractor = mupdf (WASM), server-side Node runtime
+**Decision:** Use `mupdf@1.28.0` (MuPDF compiled to WASM) as the CP2 extractor, via
+`page.toStructuredText("preserve-whitespace").asJSON()`, in a `runtime="nodejs"` route.
+**Why:** Same engine as the pymupdf that gave clean recon output; pure WASM, zero native deps on
+Vercel. **Verified on the real fixtures:** its per-line `font.weight` reports `"bold"` for the
+same-12pt-as-body headings ("OUR FIRM"/"SERVICES") — so heading detection needs no font-plumbing.
+**Rejected:** `pdfjs-serverless`/`unpdf` (weight requires `commonObjs.get(fontName)` resolution,
+unreliable for subset fonts like `Unnamed-T3`) — kept as the fallback only; `pdf-parse`/`pdfreader`
+(no structured span data). Only genuine risk: the ~10.4MB `.wasm` tracing into the Vercel bundle →
+smoke-test early, `outputFileTracingIncludes` if needed. See [checkpoint 2](../plans/checkpoint-2-pdf-parse.md).
+
+### 2026-08-26 — Structuring: heuristics-first, LLM labels by line-reference (never re-emits text)
+**Decision:** Do ~80% of structuring with deterministic TS (position-bucketed dedup, header/footer
+strip, x0-column reading-order sort, line→block merge, heading = bold+ALL-CAPS+short **not size**),
+then ONE LLM call (default `claude-sonnet-5`, effort `low`) that groups/labels/levels lines by
+returning `{type, level, startLine, endLine}` — a deterministic assembler rebuilds text VERBATIM
+from the referenced lines.
+**Why:** Makes proper-noun/number/$ corruption **impossible by construction** (the model can't emit
+text) — this is the CP2 half of "the parse is entity-safe by construction; the edit route is the
+only place an entity can break" (see the Evaluation v2 entry). Degrades to heuristics-only if the
+LLM/proxy fails. Corrects the KB's earlier "bigger=heading" assumption — recon shows headings are
+the same 12pt as body, distinguished by weight+caps. (Spend is not a constraint per Eric, so a
+stronger structuring model is fine where it helps; reference-based output is kept for FIDELITY, not
+cost.)
+**Rejected:** Pure-heuristic labeling (can't assign heading levels; misfires on infographic
+stat labels like "60 EMPLOYEES"); LLM re-emitting full block text (entity-corruption risk);
+"skip the LLM when heuristics look confident" (overbuilt + actively mislabels design pages).
+**Watch:** structured output through the Buoyant proxy is unverified — smoke-test `messages.parse()`
+before generating seeds; fall back to tool-use / JSON+zod if unsupported.
+
+### 2026-08-26 — Parse cache: committed seed + in-proc Map + Blob-for-upload; no DB
+**Decision:** Key parses by `sha256(bytes)`. Layers: **L0** committed pre-parsed JSON for the 7
+provided PDFs (`src/parse-cache/{sha256}.json`, loaded at module init) → graded demo is instant and
+deterministic; **L1** in-process Map; **Vercel Blob for the upload only** (files are 13–18MB,
+over Vercel's 4.5MB body cap → hash in the browser, Blob client-upload on a miss). Durable Blob
+write-back + dev-disk tiers are optional polish.
+**Why:** Speed-first, no DB (per project rules); the committed seed removes runtime/latency/413 risk
+from the pass/fail path (a demo/latency win, not a spend one — spend is not a constraint per Eric).
+`easy.pdf` sha256 = `03dd3ee8…c5829` (verified).
+**Rejected:** On-disk `.cache/` as the prod store (Vercel fs is ephemeral/per-instance); Runtime
+Cache/KV (non-durable / ≈ a DB). See [checkpoint 2](../plans/checkpoint-2-pdf-parse.md).
