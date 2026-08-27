@@ -12,31 +12,30 @@ import { IconCheck, IconShield } from './icons';
 
 const SHOW_INLINE_MARKS = true;
 
-export function DiffView({
-  pending,
-  onKeep,
-  onDiscard,
+/**
+ * The diff itself — three labelled boxes (now / suggested / what-changed) + the "Kept exactly as
+ * written" line. No actions, so it's reused by both the single-edit review card (DiffView) and
+ * each card in the chat's batch review (ChatPanel).
+ */
+export function DiffBody({
+  before,
+  after,
+  protectedKept,
 }: {
-  pending: Pending;
-  onKeep: () => void;
-  onDiscard: () => void;
+  before: string;
+  after: string;
+  protectedKept: string[];
 }) {
-  const segs = SHOW_INLINE_MARKS ? wordDiff(pending.before, pending.after) : null;
-
+  const segs = SHOW_INLINE_MARKS ? wordDiff(before, after) : null;
   return (
-    <div className="rcard">
-      <div className="rc-head">
-        <div className="t">Here is the suggested change</div>
-        <div className="asked">You asked: {pending.instruction}.</div>
-      </div>
-
+    <>
       <div className="boxlab">The wording now</div>
-      <div className="oldbox">{pending.before}</div>
+      <div className="oldbox">{before}</div>
 
       <div className="boxlab" style={{ marginTop: 9 }}>
         The suggested new wording
       </div>
-      <div className="newbox">{pending.after}</div>
+      <div className="newbox">{after}</div>
 
       {segs && (
         <>
@@ -69,18 +68,43 @@ export function DiffView({
         </>
       )}
 
-      {pending.protectedKept.length > 0 && (
+      {protectedKept.length > 0 && (
         <div className="keptline">
           <IconShield style={{ width: 14, height: 14, verticalAlign: -2, marginRight: 6 }} />
           <b>Kept exactly as written:</b>
           <br />
-          {pending.protectedKept.map((s, i) => (
+          {protectedKept.map((s, i) => (
             <span className="pill" key={i}>
               {s}
             </span>
           ))}
         </div>
       )}
+    </>
+  );
+}
+
+export function DiffView({
+  pending,
+  onKeep,
+  onDiscard,
+}: {
+  pending: Pending;
+  onKeep: () => void;
+  onDiscard: () => void;
+}) {
+  return (
+    <div className="rcard">
+      <div className="rc-head">
+        <div className="t">Here is the suggested change</div>
+        <div className="asked">You asked: {pending.instruction}.</div>
+      </div>
+
+      <DiffBody
+        before={pending.before}
+        after={pending.after}
+        protectedKept={pending.protectedKept}
+      />
 
       <div className="rc-actions">
         <button className="btn-keep" onClick={onKeep}>

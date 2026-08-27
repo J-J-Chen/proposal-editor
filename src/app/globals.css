@@ -1493,3 +1493,183 @@ button {
 .orig-missing small {
   font-size: 12px;
 }
+
+/* ---------------- agentic chat pane ---------------- */
+.pane.chat {
+  gap: 12px;
+}
+.pane-x {
+  margin-left: auto;
+  align-self: flex-start;
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  flex: none;
+}
+.pane-x:hover {
+  background: #f3f5f8;
+}
+.chat-log {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.chat-empty {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #42474e;
+  background: var(--accent-tint);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+.chat-empty b {
+  color: #2b3138;
+}
+.chat-msg {
+  font-size: 14px;
+  line-height: 1.5;
+  padding: 10px 13px;
+  border-radius: 12px;
+  max-width: 92%;
+  white-space: pre-wrap;
+}
+.chat-msg.user {
+  align-self: flex-end;
+  background: var(--sel);
+  color: #1c3b47;
+  border-bottom-right-radius: 4px;
+}
+.chat-msg.assistant {
+  align-self: flex-start;
+  background: #fff;
+  border: 1px solid var(--border);
+  color: #2b3138;
+  border-bottom-left-radius: 4px;
+}
+.chat-msg.thinking-msg {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+}
+/* batch review */
+.batch {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.batch-head {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.batch-head b {
+  font-size: 15px;
+  color: #2b3138;
+}
+.batch-head span {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+.batch-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 0;
+  background: #fff;
+}
+.batch-card.off {
+  opacity: 0.55;
+}
+.batch-card.flagged {
+  border-color: #e6b3a8;
+  box-shadow: inset 0 0 0 1px #f0d3c2;
+}
+.bc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 16px 8px;
+}
+.bc-sec {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent-deep);
+  letter-spacing: 0.02em;
+}
+.bc-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.bc-toggle input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--keep);
+  cursor: pointer;
+}
+.bc-warn {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 0 16px 8px;
+  padding: 9px 11px;
+  border-radius: 9px;
+  background: #fbeae4;
+  color: #8a3b23;
+  font-size: 12.5px;
+  line-height: 1.4;
+  font-weight: 600;
+}
+.bc-warn svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  margin-top: 1px;
+}
+.batch-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding-top: 2px;
+}
+.btn-keep:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.chat-input {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.chat-input textarea {
+  width: 100%;
+  min-height: 74px;
+  resize: vertical;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 11px 13px;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.5;
+  color: #2b3138;
+}
+.tbtn.on {
+  color: var(--accent);
+  background: var(--accent-tint);
+  border-color: var(--newbox-border);
+}

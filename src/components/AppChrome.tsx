@@ -2,7 +2,7 @@
  *  the slide-in changes list. The undo/redo arrows sit exactly where a document editor puts them. */
 'use client';
 
-import { IconHistory, IconRedo, IconUndo } from './icons';
+import { IconAssistant, IconHistory, IconRedo, IconUndo } from './icons';
 
 export function Titlebar({
   docName,
@@ -10,8 +10,10 @@ export function Titlebar({
   canRedo,
   undoTip,
   redoTip,
+  chatActive,
   onUndo,
   onRedo,
+  onOpenChat,
   onToggleChanges,
 }: {
   docName: string;
@@ -19,8 +21,12 @@ export function Titlebar({
   canRedo: boolean;
   undoTip: string;
   redoTip: string;
+  /** Whether the chat pane is currently open (highlights the button). */
+  chatActive: boolean;
   onUndo: () => void;
   onRedo: () => void;
+  /** Opens the always-available agentic chat (multi-block requests). */
+  onOpenChat: () => void;
   onToggleChanges: () => void;
 }) {
   return (
@@ -47,6 +53,14 @@ export function Titlebar({
       </div>
       <span className="doc-name">{docName}</span>
       <span className="tb-spacer" />
+      <button
+        className={`tbtn ${chatActive ? 'on' : ''}`}
+        onClick={onOpenChat}
+        aria-pressed={chatActive}
+      >
+        <IconAssistant />
+        Ask the assistant
+      </button>
       <button className="tbtn" onClick={onToggleChanges}>
         <IconHistory />
         Changes you’ve made
