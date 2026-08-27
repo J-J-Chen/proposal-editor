@@ -176,10 +176,10 @@ button {
   display: flex;
   flex: 1;
   min-height: 0;
-  /* On ultra-wide/4K, cap the workspace so the document and its assistant pane stay a cohesive
-     pair instead of drifting apart across a growing grey desk. No-op at ≤2240px. */
+  /* Cap the workspace so the document and its assistant pane stay a cohesive pair and centre on
+     the desk, instead of drifting apart across a growing grey gutter on wide/4K screens. */
   width: 100%;
-  max-width: 2240px;
+  max-width: 1760px;
   margin: 0 auto;
 }
 
@@ -321,10 +321,10 @@ button {
 
 /* ---------------- assistant pane ---------------- */
 .pane {
-  /* Fluid pane: compact on small screens, more generous on large ones. Continuous across the
-     whole desktop range (floors at 300px for ≤1111px), so no width override is needed until the
-     ≤820px stack. */
-  width: clamp(300px, 27vw, 560px);
+  /* Fluid but restrained: the pane holds an intro + a couple of controls, so a wide column just
+     reads as empty. Keep it a real sidebar (≈320–420px) across the desktop range; the ≤820px
+     block below stacks it full-width. */
+  width: clamp(320px, 22vw, 420px);
   flex: none;
   background: var(--panel);
   border-left: 1px solid var(--border);
