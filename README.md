@@ -44,8 +44,11 @@ never committed** — it lives only in `.env.local` (gitignored).
   `src/lib/ai.ts` — this cost real debugging time and is exactly the kind of thing a second
   engineer needs written down.
 
-**Deploy:** Vercel (Next.js 16 / React 19). Deployed commit SHA: _TODO — filled at cutover by
-the integration owner._
+**Deploy:** Vercel (Next.js 16 / React 19), personal account. **Live:**
+https://proposal-editor-sandy.vercel.app — deployed commit `5c6a0ae`
+(`5c6a0ae0b164fe79f71f1ae7a622326a03fd81d4`), 2026-08-27. Verified end-to-end on `easy.pdf`
+(open/upload → select → AI edit → keep → undo/redo) via `scripts/e2e-verify.mjs` against the
+live URL.
 
 ---
 
@@ -205,12 +208,34 @@ trials, over-weighting the hard "rewrite in our voice" / "change tone" cases):
   effectiveness number that rules it out.
 - **Close the loop:** measure → insight → action → re-run.
 
-> **Numbers:** _TODO — the eval session is running the full grid against the deployed route; the
-> per-instruction k/n table, violation list, and effectiveness/leak numbers land here, stamped
-> with the deploy SHA + edit model + date + temperature._ The **method** above is final and the
-> harness (`scripts/e2e-verify.mjs` plus the extractor) is in place; only the printed numbers are
-> pending, by design — a real run against the shipped route beats a stale number against a
-> throwaway prompt.
+> **Numbers** — recorded run against the **shipped** route: deploy `5c6a0ae`, editor
+> `claude-sonnet-4-5` @ temp 0.2, 2026-08-27. 31 entity-bearing blocks of the real parsed
+> `easy.pdf` × the preservation instruction set (`change-tone` / `rewrite-voice` over-sampled
+> 3×) = **279 trials**. Extraction is deterministic-regex ground truth for closed-class entities
+> (`$` figures, `MO PE No.`, project #, years) plus a cross-model **gpt-4o-mini** diff-aware pass
+> for open-class names, so the Anthropic editor never grades itself.
+>
+> **Violations (3 — the honest lead):** all *reformats* of the PE-license string under
+> formalizing instructions (no invented or swapped values):
+> - `[make-formal]` `MO PE No. 022510` → "Missouri Professional Engineer No. 022510"
+> - `[rewrite-voice]` `MO PE No. 022510` → "Missouri PE No. 022510"
+> - `[rewrite-voice]` `MO PE No. 2006023228` dropped in a bio rewrite
+>
+> **Preservation, k/n (entity-bearing denominator):** tighten 31/31 · make-formal 30/31 ·
+> fix-grammar 31/31 · change-tone 93/93 · rewrite-voice 91/93 → **276/279 ≈ 99%** (rounded
+> headline only).
+>
+> **Effectiveness (the check a no-op fails):** substantial edits changed 149/180 ·
+> tighten-didn't-grow 27/31 · cross-model "instruction applied?" 93/120 (hard, substantial).
+> **Leaks:** 0/279 preamble/fence. Mean length drift 8.6%.
+>
+> **Caveat + next action:** fidelity alone has a perverse optimum (a no-op scores 100%) — the
+> effectiveness numbers rule that out. The 3 misses are the same failure mode: `MO PE No.`
+> reformatted under "make formal / rewrite," which the deterministic extractor already flags. The
+> fix is a `MO PE No.` normalization/confirm guard in the edit post-check (would take
+> rewrite-voice to 93/93) — flagged for the next iteration, not yet applied. Reproduce:
+> `node scripts/eval/run.mjs --base <url> --sha <sha> --out eval.json` (artifact not committed —
+> it contains verbatim proposal text).
 
 ---
 
