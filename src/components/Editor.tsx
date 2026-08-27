@@ -65,6 +65,11 @@ const SAMPLES: Sample[] = [
   },
 ];
 const FIRM = 'MECO Engineering Company, Inc.';
+/** Firm voice/context for the guardrail — only for the seeded MECO samples. An unseen upload is
+ *  someone else's proposal, so injecting "MECO" would bias its edits toward the wrong firm. */
+function firmFor(docId: string): string | undefined {
+  return SAMPLES.some((s) => s.hash === docId) ? FIRM : undefined;
+}
 
 function relTime(iso: string): string {
   const secs = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000));
@@ -339,8 +344,9 @@ export function Editor() {
   const [view, setView] = useState<View>('boot');
   const [docView, setDocView] = useState<DocView>('original');
   // Snapshot of each block's ORIGINAL text (as parsed), so the Original-PDF overlay knows which
-  // blocks have been edited (their current text differs) and patches them in place.
-  const originalTextRef = useRef<Record<string, string>>({});
+  // blocks have been edited (their current text differs) and patches them in place. Held in STATE
+  // (not a ref) so the editedText memo below is reactive and doesn't read a ref during render.
+  const [originalBaseline, setOriginalBaseline] = useState<Record<string, string>>({});
   const [openError, setOpenError] = useState<string | null>(null);
   const [note, setNote] = useState<{ kind: 'info' | 'warn'; text: string } | null>(null);
   const [confirm, setConfirm] = useState<{ token: string; kind: EntityKind; data: Pending } | null>(
@@ -388,12 +394,13 @@ export function Editor() {
   const editedText = useMemo(() => {
     const out: Record<string, string> = {};
     if (!doc) return out;
-    const orig = originalTextRef.current;
     for (const b of doc.blocks) {
-      if (orig[b.id] !== undefined && b.text !== orig[b.id]) out[b.id] = b.text;
+      if (originalBaseline[b.id] !== undefined && b.text !== originalBaseline[b.id]) {
+        out[b.id] = b.text;
+      }
     }
     return out;
-  }, [doc]);
+  }, [doc, originalBaseline]);
 
   useEffect(() => {
     if (!toast) return;
@@ -419,7 +426,7 @@ export function Editor() {
         cursor: sess.cursor,
         selectedId: sess.selectedId,
       });
-      originalTextRef.current = originalTextMap(sess.doc, sess.history, sess.cursor);
+      setOriginalBaseline(originalTextMap(sess.doc, sess.history, sess.cursor));
       setDocView(sess.docView === 'original' ? 'original' : 'document');
       setView('editor');
     } else {
@@ -504,7 +511,7 @@ export function Editor() {
           selectedId: existing.selectedId,
         });
         // Baseline for the Original-PDF overlay: pristine text before any restored edits.
-        originalTextRef.current = originalTextMap(existing.doc, existing.history, existing.cursor);
+        setOriginalBaseline(originalTextMap(existing.doc, existing.history, existing.cursor));
         setDocView(existing.docView === 'original' ? 'original' : 'document');
         setView('editor');
         setActive(hash);
@@ -537,7 +544,7 @@ export function Editor() {
           loaded = await parseByBlobUrl(hash, filename, opts.blobUrl); // reopen an upload
         }
         if (!loaded) throw new Error('cache miss with no bytes to parse');
-        originalTextRef.current = Object.fromEntries(loaded.blocks.map((b) => [b.id, b.text]));
+        setOriginalBaseline(Object.fromEntries(loaded.blocks.map((b) => [b.id, b.text])));
         dispatch({ type: 'LOAD_DOC', doc: loaded });
         // Land on the faithful Original PDF (the main view) when we have page renders for it; fall
         // back to the block view only when there's nothing to rasterise (so the toggle stays usable).
@@ -559,8 +566,15 @@ export function Editor() {
           }),
         );
       } catch {
-        setView(doc ? 'editor' : 'open'); // a failed reopen shouldn't strand an open document
-        setOpenError('Something went wrong reading your proposal. Please try again.');
+        if (doc) {
+          // A failed open/reopen while a document is already open: stay on it, and surface the
+          // error where it's visible — the Open-screen error banner isn't rendered in editor view.
+          setView('editor');
+          setToast('Couldn’t read that file — your current document is unchanged.');
+        } else {
+          setView('open');
+          setOpenError('Something went wrong reading your proposal. Please try again.');
+        }
       }
     },
     [doc],
@@ -614,7 +628,7 @@ export function Editor() {
           cursor: sess.cursor,
           selectedId: sess.selectedId,
         });
-        originalTextRef.current = originalTextMap(sess.doc, sess.history, sess.cursor);
+        setOriginalBaseline(originalTextMap(sess.doc, sess.history, sess.cursor));
         setDocView(sess.docView === 'original' ? 'original' : 'document');
         setView('editor');
         setActive(r.id);
@@ -653,7 +667,7 @@ export function Editor() {
       const result = await requestEdit({
         block: { id: block.id, text: block.text, type: block.type },
         instruction,
-        docContext: { headings, firm: FIRM },
+        docContext: { headings, firm: doc ? firmFor(doc.id) : undefined },
       });
       if (myReq !== reqRef.current) return; // stale — user reselected or cancelled
 
@@ -851,7 +865,7 @@ export function Editor() {
         history,
         blocks: doc.blocks,
         selection: selectedId,
-        docContext: { firm: FIRM },
+        docContext: { firm: doc ? firmFor(doc.id) : undefined },
       }).then((result) => {
         if (myReq !== chatReqRef.current) return; // superseded turn or chat closed
         setChatStatus('idle');
@@ -951,15 +965,21 @@ export function Editor() {
   }, []);
 
   // A new (or reopened) document invalidates any in-flight chat turn and proposed batch — reset
-  // the whole chat surface so a proposal from one document can never bleed into another.
-  useEffect(() => {
+  // the whole chat surface so a proposal from one document can never bleed into another. Kept in a
+  // callback (rather than inline setState in the effect) so the sync reads as one intentional step.
+  const resetChatState = useCallback(() => {
     chatReqRef.current++;
     setChatOpen(false);
     setChatStatus('idle');
     setChatMessages([]);
     setChatBatch(null);
     setChatIncluded(new Set());
-  }, [doc?.id]);
+  }, []);
+  useEffect(() => {
+    // Deliberate reset-on-doc-change; fires only on a document switch, so the cascade cost is nil.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- see comment above
+    resetChatState();
+  }, [doc?.id, resetChatState]);
 
   const visibleSuggestions = useMemo(
     () => suggestions.filter((s) => !dismissed.has(s.id) && !resolved.has(s.id)),

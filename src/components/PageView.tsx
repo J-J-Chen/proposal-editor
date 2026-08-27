@@ -84,6 +84,7 @@ export function PageView({
                   <small>Preview isn&rsquo;t available for this page.</small>
                 </div>
               ) : (
+                /* eslint-disable-next-line @next/next/no-img-element -- a fixed-size, API-rendered page jpeg; next/image's optimizer adds nothing and its loader/onError contract would fight our /api/page self-heal + fallback. */
                 <img
                   src={pageSrc(hash, n, hasStatic)}
                   alt={`Page ${n} of ${doc.filename}`}
