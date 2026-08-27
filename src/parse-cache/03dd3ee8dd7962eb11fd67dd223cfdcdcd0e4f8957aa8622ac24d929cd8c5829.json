@@ -1,0 +1,474 @@
+{
+  "id": "03dd3ee8dd7962eb11fd67dd223cfdcdcd0e4f8957aa8622ac24d929cd8c5829",
+  "filename": "easy.pdf",
+  "blocks": [
+    {
+      "id": "k8uajp",
+      "type": "heading",
+      "text": "Statement of Qualifications",
+      "page": 1,
+      "level": 1
+    },
+    {
+      "id": "1bco41e",
+      "type": "paragraph",
+      "text": "Prepared for: The City of Dixon Professional Engineering Services",
+      "page": 1
+    },
+    {
+      "id": "duj6dk",
+      "type": "other",
+      "text": "2701 Industrial Drive Jefferson City, MO 65109 573-893-5558",
+      "page": 1
+    },
+    {
+      "id": "os5q82",
+      "type": "other",
+      "text": "May 24, 2025 041-560",
+      "page": 1
+    },
+    {
+      "id": "1kyuelt",
+      "type": "paragraph",
+      "text": "April 14, 2025 Project No. 041-560 City of Dixon 305 S Elm Street Dixon, MO 65459 ATTN: Mary Wiles, Mayor RE: Statement of Qualifications for Professional Engineering Services Dear Mayor Wiles and Selection Committee,",
+      "page": 2
+    },
+    {
+      "id": "11gd4aj",
+      "type": "paragraph",
+      "text": "MECO Engineering Company, Inc. (MECO) is pleased to present qualifications to the City of Dixon, MO for professional engineering services.",
+      "page": 2
+    },
+    {
+      "id": "ok4a7p",
+      "type": "heading",
+      "text": "OUR FIRM",
+      "page": 2,
+      "level": 1
+    },
+    {
+      "id": "nhgftg",
+      "type": "paragraph",
+      "text": "MECO Engineering is celebrating its 40th anniversary this year. This long-spanning career has been built on serving municipalities, such as yours, in a vast span of projects with varying needs, requirements, funding, and challenges. We take pride in gaining the majority of our business from repeat, satisfied customers.",
+      "page": 2
+    },
+    {
+      "id": "1v4zqt2",
+      "type": "paragraph",
+      "text": "MECO currently has seven office locations, with a location conveniently close for all your project needs in Jefferson City, MO, approximately 55 miles from the City of Dixon. This close proximity, as well as our knowledge of the area and ever-changing regulations, allows us to assure you of our ability to serve the City of Dixon, MO in a high-quality, cost-effective manner.",
+      "page": 2
+    },
+    {
+      "id": "10ceut7",
+      "type": "heading",
+      "text": "SERVICES",
+      "page": 2,
+      "level": 1
+    },
+    {
+      "id": "ype3ae",
+      "type": "list-item",
+      "text": "Land Surveying / GIS",
+      "page": 2
+    },
+    {
+      "id": "129vwcm",
+      "type": "list-item",
+      "text": "Land Use and Site Planning",
+      "page": 2
+    },
+    {
+      "id": "s0aeti",
+      "type": "list-item",
+      "text": "General Site Civil Engineering",
+      "page": 2
+    },
+    {
+      "id": "1cnn9dp",
+      "type": "list-item",
+      "text": "Structural Engineering",
+      "page": 2
+    },
+    {
+      "id": "1olw75t",
+      "type": "list-item",
+      "text": "Basic Transportation Design",
+      "page": 2
+    },
+    {
+      "id": "1dls93u",
+      "type": "list-item",
+      "text": "local streets, minor collectors, sidewalks",
+      "page": 2
+    },
+    {
+      "id": "12x0b1s",
+      "type": "list-item",
+      "text": "Bridge Structural Engineering",
+      "page": 2
+    },
+    {
+      "id": "1sku4x8",
+      "type": "list-item",
+      "text": "Water Treatment",
+      "page": 2
+    },
+    {
+      "id": "qb8tkm",
+      "type": "list-item",
+      "text": "Water Distribution",
+      "page": 2
+    },
+    {
+      "id": "atp2qv",
+      "type": "list-item",
+      "text": "Pump, Lift and Vacuum Stations",
+      "page": 2
+    },
+    {
+      "id": "eoy247",
+      "type": "list-item",
+      "text": "Pressurized and/or Vacuum Sanitary System",
+      "page": 2
+    },
+    {
+      "id": "1pazeb4",
+      "type": "list-item",
+      "text": "Sanitary Sewer Collection",
+      "page": 2
+    },
+    {
+      "id": "83gcrg",
+      "type": "list-item",
+      "text": "Wastewater Treatment",
+      "page": 2
+    },
+    {
+      "id": "16z2lbn",
+      "type": "list-item",
+      "text": "Electrical and/or Controls Engineering",
+      "page": 2
+    },
+    {
+      "id": "1nt64ad",
+      "type": "list-item",
+      "text": "Mechanical Engineering",
+      "page": 2
+    },
+    {
+      "id": "i1l1mn",
+      "type": "list-item",
+      "text": "Stormwater Hydrology / Hydraulics",
+      "page": 2
+    },
+    {
+      "id": "swaln8",
+      "type": "list-item",
+      "text": "Creek Bank Stabilization",
+      "page": 2
+    },
+    {
+      "id": "1cgbs1g",
+      "type": "list-item",
+      "text": "Construction Administration and/or management",
+      "page": 2
+    },
+    {
+      "id": "ntf739",
+      "type": "list-item",
+      "text": "Right-of-Way Acquisition and/or Relocation Services",
+      "page": 2
+    },
+    {
+      "id": "3x1305",
+      "type": "list-item",
+      "text": "P&Z Plan Development Review",
+      "page": 2
+    },
+    {
+      "id": "19lt2o8",
+      "type": "other",
+      "text": "2701 Industrial Drive | Jefferson City, MO 65109 | 573-893-5558",
+      "page": 2
+    },
+    {
+      "id": "19vsod7",
+      "type": "other",
+      "text": "2701 Industrial Drive | Jefferson City, MO 65109 | 573-893-5558",
+      "page": 3
+    },
+    {
+      "id": "cbgj3u",
+      "type": "heading",
+      "text": "RELEVANT EXPERIENCE",
+      "page": 3,
+      "level": 1
+    },
+    {
+      "id": "hhx17f",
+      "type": "paragraph",
+      "text": "MECO has the honor of serving as the City Engineer/On-Call Engineer for several municipalities. Some of these include:",
+      "page": 3
+    },
+    {
+      "id": "wtqq9i",
+      "type": "list-item",
+      "text": "City of Ashland, MO",
+      "page": 3
+    },
+    {
+      "id": "afjl5r",
+      "type": "list-item",
+      "text": "City of Bates City, MO",
+      "page": 3
+    },
+    {
+      "id": "s29ah1",
+      "type": "list-item",
+      "text": "City of Boonville, MO",
+      "page": 3
+    },
+    {
+      "id": "jcznii",
+      "type": "list-item",
+      "text": "City of Canton, MO",
+      "page": 3
+    },
+    {
+      "id": "1nppvnx",
+      "type": "list-item",
+      "text": "City of Eldon, MO",
+      "page": 3
+    },
+    {
+      "id": "1928en9",
+      "type": "list-item",
+      "text": "City of Windsor, MO",
+      "page": 3
+    },
+    {
+      "id": "1lmwvr0",
+      "type": "list-item",
+      "text": "City of Stover, MO",
+      "page": 3
+    },
+    {
+      "id": "c9u4rr",
+      "type": "list-item",
+      "text": "City of Tipton, MO",
+      "page": 3
+    },
+    {
+      "id": "dxgnos",
+      "type": "list-item",
+      "text": "University of Missouri - Columbia",
+      "page": 3
+    },
+    {
+      "id": "f1il7w",
+      "type": "paragraph",
+      "text": "This long-spanning career of serving communities has given us experience in projects spanning multiple disciplines and unique challenges. MECO also keeps up to date with state and federal regulatory agencies to assure we are able to serve our clients with the most current standards and practices.",
+      "page": 3
+    },
+    {
+      "id": "8kltdp",
+      "type": "heading",
+      "text": "YOUR TEAM",
+      "page": 3,
+      "level": 1
+    },
+    {
+      "id": "j6d7tq",
+      "type": "paragraph",
+      "text": "MECO currently has 60 professionals with many talents and continue to welcome more team members to our dedicated team as we expand. Our firm is well-positioned and highly qualified to be considered as your consultant and engineer for your selection process based on expertise, knowledge, and experience.",
+      "page": 3
+    },
+    {
+      "id": "yp8rhk",
+      "type": "paragraph",
+      "text": "It is projected that the number of staff used for an awarded project will vary depending on the size and scope of services. It is anticipated that for small projects 3-4 trusted employees will be assigned and larger projects will require 10-12 (+/-) employees. Our Management Team leaders possess the skill and capacity to lead the Project Team to perform the required tasks and complete projects efficiently.",
+      "page": 3
+    },
+    {
+      "id": "msdohq",
+      "type": "paragraph",
+      "text": "Donald J. Jenkins, PE, Vice President MO PE No. PE-2020000059, 10 years experience",
+      "page": 3
+    },
+    {
+      "id": "10pzki3",
+      "type": "paragraph",
+      "text": "Scott E. Vogler, PE, President MO PE No. 022510, 42 years experience",
+      "page": 3
+    },
+    {
+      "id": "1ytsx5k",
+      "type": "paragraph",
+      "text": "David C. Uhlig, PE, Senior Engineer MO PE E-027521, 36 years experience",
+      "page": 3
+    },
+    {
+      "id": "19xsbcc",
+      "type": "paragraph",
+      "text": "Kevin W. Garnett, PE, Vice President MO PE No. 2006023228, IL PE 062.057955, 26 years experience",
+      "page": 3
+    },
+    {
+      "id": "18xw5pp",
+      "type": "paragraph",
+      "text": "Evan Nickels Engineer",
+      "page": 3
+    },
+    {
+      "id": "8kc9e1",
+      "type": "heading",
+      "text": "OUR APPROACH",
+      "page": 4,
+      "level": 1
+    },
+    {
+      "id": "2xdxa6",
+      "type": "paragraph",
+      "text": "MECO’s “Standard of Care” and “Project Approach” is a team-centric based philosophy to ensure that every step of project scope development and design review fully invests the client in each step of the process. MECO does not believe in an engineer-driven project development process; we see the most value in investing our client input in the process, first and foremost. Our clients will never see MECO force a project or a solution upon them. Our clients will always lead the initiative for developing projects and working with our professional staff to determine the best suited solutions to their needs.",
+      "page": 4
+    },
+    {
+      "id": "ha7blc",
+      "type": "paragraph",
+      "text": "You can rely on MECO and our Project Team to provide the attention to detail, prompt response, and a level of commitment to service, experience, knowledge, and expertise that you require and expect of your Engineering Consultant. We never forget that clients have many choices and options in their selection process for a consulting engineering firm. We would be honored to be selected to serve the City of Dixon in this capacity.",
+      "page": 4
+    },
+    {
+      "id": "154bjqc",
+      "type": "paragraph",
+      "text": "For questions, or to meet with your project team, please feel free to contact through phone or email at 573-893-5558 or djenkins@mecoengineering.com.",
+      "page": 4
+    },
+    {
+      "id": "15o0ryr",
+      "type": "paragraph",
+      "text": "Sincerely yours, MECO Engineering Company, Inc. Donald Jenkins, PE Vice President | Project Manager",
+      "page": 4
+    },
+    {
+      "id": "1a5sa26",
+      "type": "other",
+      "text": "2701 Industrial Drive | Jefferson City, MO 65109 | 573-893-5558",
+      "page": 4
+    },
+    {
+      "id": "37rnxd",
+      "type": "other",
+      "text": "MECO Engineering Delivering Engineering Solutions that Work for 40 years",
+      "page": 5
+    },
+    {
+      "id": "d9rvcx",
+      "type": "other",
+      "text": "MECO Engineering Company Hannibal, MO Jefferson City, MO Boonville, MO Fenton, MO Kirksville, MO Branson, MO Pittsfield, IL",
+      "page": 5
+    },
+    {
+      "id": "1ttd6i9",
+      "type": "other",
+      "text": "60 EMPLOYEES including (13) Professional Engineers (PE) Specializing in municipal, environmental, structural/bridge (SE) and mechanical/electrical (MEP) engineering (5) Staff Engineers non-registered (4) Professional Land Surveyors (PLS) (1) Certified Floodplain Manager (CFM)",
+      "page": 5
+    },
+    {
+      "id": "4yxmwz",
+      "type": "other",
+      "text": "PRE-QUALIFIED Missouri Department of Transportation (MoDOT) MoDOT LPA Consultant Illinois Department of Transportation (IDOT) Illinois Capital Development Board (CDB)",
+      "page": 5
+    },
+    {
+      "id": "1spj6wr",
+      "type": "other",
+      "text": "573-893-5558",
+      "page": 5
+    },
+    {
+      "id": "1bd2rnq",
+      "type": "caption",
+      "text": "“Large enough to meet your most complex project needs; small enough to provide the personal service you deserve.”",
+      "page": 6
+    },
+    {
+      "id": "1k6hfii",
+      "type": "other",
+      "text": "Civil and Site Civil Engineering Public Works / Infrastructure Engineering Structural Engineering Bridge Engineering Environmental Engineering Water and Waste Treatment Mechanical/Electrical/Plumbing (MEP) Engineering Including engineering efficiency studies and solutions Roads/Streets/Highways, Sidewalks and Trail Systems Land Use Planning and Development Parks and Recreational Facilities Surveying and Field Services",
+      "page": 6
+    },
+    {
+      "id": "16fnahd",
+      "type": "other",
+      "text": "Who We Are",
+      "page": 6
+    },
+    {
+      "id": "1sfjl7s",
+      "type": "other",
+      "text": "573-893-5558",
+      "page": 6
+    },
+    {
+      "id": "120ejxj",
+      "type": "other",
+      "text": "MECO Engineering Company For 40 years, MECO has been dedicated to serving public and private clients. Our ability to excel is driven by integrity, quality and our commitment to client service.",
+      "page": 6
+    },
+    {
+      "id": "r8h05w",
+      "type": "other",
+      "text": "MECO Engineering Company Kevin Garnett, PE Don Jenkins, PE Corporate Structure",
+      "page": 7
+    },
+    {
+      "id": "f4sv7p",
+      "type": "other",
+      "text": "MECO Engineering Company is a corporation with principals, owners, a Board of Directors and officers. Scott vogler, pe max middendorf, pe Jim Bensman, PE,SE President Vice-President Vice-President Vice-President Vice-President",
+      "page": 7
+    },
+    {
+      "id": "1lud1im",
+      "type": "other",
+      "text": "MECO Engineering Company, Inc. is registered with the State of Missouri through the Department of Insurance, Financial Institutions and Professional Registration, Division of Professional Registration, Board for Architects, Engineers, Land Surveyors, and Landscape Architects as a Professional Engineering Corporation. Professional Engineering Corporation Missouri Corporate License No. 000898 Expires December 31, 2026",
+      "page": 7
+    },
+    {
+      "id": "hgvcjh",
+      "type": "other",
+      "text": "Professional Land Surveying Corporation Missouri Corporate License No. 000186 Expires December 31, 2026",
+      "page": 7
+    },
+    {
+      "id": "r3wtp1",
+      "type": "other",
+      "text": "MECO Engineering Company, Inc. is registered in the following states to practice engineering and/or surveying: Arkansas Illinois Indiana Iowa Missouri Ohio South Dakota Texas",
+      "page": 7
+    },
+    {
+      "id": "1p7hh9f",
+      "type": "heading",
+      "text": "CORPORATE REGISTRATION",
+      "page": 7,
+      "level": 1
+    },
+    {
+      "id": "1pbq9j1",
+      "type": "other",
+      "text": "We look forward to hearing from you! Thank You",
+      "page": 8
+    },
+    {
+      "id": "1807um2",
+      "type": "other",
+      "text": "Don Jenkins, PE 573-893-5558 djenkins@mecoengineering.com www.mecoengineering.com",
+      "page": 8
+    }
+  ],
+  "meta": {
+    "pages": 8,
+    "parsedAt": "2026-08-27T04:27:23.603Z",
+    "model": "claude-sonnet-4-5"
+  }
+}
