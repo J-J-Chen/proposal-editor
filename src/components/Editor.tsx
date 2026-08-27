@@ -16,7 +16,7 @@ import {
   sectionOf,
   type Pending,
 } from '@/state/editor';
-import { parseDoc, requestEdit } from '@/lib/client';
+import { parseByHash, parseByUpload, requestEdit } from '@/lib/client';
 import { protectedStrings } from '@/lib/entities';
 import { isNoChange } from '@/lib/text/diff';
 import { DocumentView } from './DocumentView';
@@ -26,8 +26,11 @@ import { IconCheck, IconFolder, IconShield } from './icons';
 
 type View = 'open' | 'reading' | 'editor';
 
-/** easy.pdf's known filename; the stub /api/parse ignores the body, the real route caches by hash. */
-const SAMPLE = { hash: 'sample-easy-pdf', filename: 'easy.pdf' };
+/** easy.pdf's real sha256 — cache-hits Track A's committed parse seed (the real 76-block Doc). */
+const SAMPLE = {
+  hash: '03dd3ee8dd7962eb11fd67dd223cfdcdcd0e4f8957aa8622ac24d929cd8c5829',
+  filename: 'easy.pdf',
+};
 const FIRM = 'MECO Engineering Company, Inc.';
 
 function relTime(iso: string): string {
@@ -198,12 +201,15 @@ export function Editor() {
     return () => window.removeEventListener('keydown', onKey);
   }, [view]);
 
-  const load = useCallback(async (req: { hash: string; filename: string }) => {
+  const openDoc = useCallback(async (hash: string, filename: string, file?: File) => {
     setOpenError(null);
     setView('reading');
     try {
-      const d = await parseDoc(req);
-      dispatch({ type: 'LOAD_DOC', doc: d });
+      const r = await parseByHash(hash, filename);
+      // Cache hit → done. Genuine miss (unseen PDF) → upload the bytes for a real parse.
+      const doc = 'doc' in r ? r.doc : file ? await parseByUpload(file) : null;
+      if (!doc) throw new Error('cache miss with no file to upload');
+      dispatch({ type: 'LOAD_DOC', doc });
       setView('editor');
     } catch {
       setView('open');
@@ -211,13 +217,15 @@ export function Editor() {
     }
   }, []);
 
+  const openSample = useCallback(() => openDoc(SAMPLE.hash, SAMPLE.filename), [openDoc]);
+
   const onFile = useCallback(
     async (f: File) => {
       setView('reading');
       const hash = await sha256(f);
-      void load({ hash, filename: f.name });
+      void openDoc(hash, f.name, f);
     },
-    [load],
+    [openDoc],
   );
 
   const onSelect = useCallback((id: string) => {
@@ -336,8 +344,9 @@ export function Editor() {
       .reverse();
   }, [doc, state.history, state.cursor]);
 
+  // Every heading after the first is a section (the first heading is the document title).
   const sectionCount = doc
-    ? doc.blocks.filter((b) => b.type === 'heading' && (b.level ?? 1) >= 2).length
+    ? Math.max(0, doc.blocks.filter((b) => b.type === 'heading').length - 1)
     : 0;
   let statusLeft = 'No proposal open';
   if (view === 'reading') statusLeft = 'Reading your proposal…';
@@ -363,7 +372,7 @@ export function Editor() {
       />
 
       {view === 'open' && (
-        <OpenScreen onSample={() => load(SAMPLE)} onFile={onFile} error={openError} />
+        <OpenScreen onSample={openSample} onFile={onFile} error={openError} />
       )}
       {view === 'reading' && <ReadingScreen />}
       {view === 'editor' && doc && (

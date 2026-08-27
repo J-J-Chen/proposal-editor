@@ -13,6 +13,7 @@ export function DocumentView({
   pulseId: string | null;
   onSelect: (id: string) => void;
 }) {
+  const titleId = doc.blocks.find((b) => b.type === 'heading')?.id;
   return (
     <div className="canvas" id="doc-canvas">
       <article className="page" aria-label={doc.filename}>
@@ -23,6 +24,7 @@ export function DocumentView({
             selected={b.id === selectedId}
             dim={false}
             pulse={b.id === pulseId}
+            isTitle={b.id === titleId}
             onSelect={onSelect}
           />
         ))}
