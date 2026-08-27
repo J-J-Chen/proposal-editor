@@ -132,3 +132,39 @@ export function protectedStrings(text: string, extraNames?: readonly string[]): 
   }
   return out;
 }
+
+/**
+ * Occurrence counts of every protected entity in `text` — NOT de-duped, so two identical phone
+ * numbers count as 2. The basis of the fidelity check: a dropped duplicate must be caught.
+ */
+export function entityCounts(text: string, extraNames?: readonly string[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const e of extractEntities(text, extraNames)) {
+    counts.set(e.text, (counts.get(e.text) ?? 0) + 1);
+  }
+  return counts;
+}
+
+/**
+ * Protected entities whose count DROPS from `before` to `after` — altered or removed. The single
+ * source of truth for entity fidelity, used by the FE confirm gates and the batch backstop.
+ *
+ * Counting *extracted* entities (not a substring `.includes`) is what catches corruption a naive
+ * containment check misses: the `\b`-anchored scanner does not re-extract "041-560" out of
+ * "041-5609", and "$1000" is a different money token than "$100" — so appended-digit tampering
+ * shows up as the original entity's count going to zero; and per-occurrence counting sees a
+ * removed one-of-two duplicate. Returns each dropped entity's text once, in `before`'s order.
+ */
+export function droppedEntities(
+  before: string,
+  after: string,
+  extraNames?: readonly string[],
+): string[] {
+  const beforeCounts = entityCounts(before, extraNames);
+  const afterCounts = entityCounts(after, extraNames);
+  const dropped: string[] = [];
+  for (const [text, n] of beforeCounts) {
+    if ((afterCounts.get(text) ?? 0) < n) dropped.push(text);
+  }
+  return dropped;
+}

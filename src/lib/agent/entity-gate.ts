@@ -15,28 +15,31 @@
  * a bounded repair (re-edit forbidding the change), and only a still-broken edit ships flagged —
  * which the FE surfaces loudly, mirroring the single-block confirm.
  */
-import { protectedStrings } from '@/lib/entities';
+import { droppedEntities, protectedStrings } from '@/lib/entities';
 
 export interface EntityFidelity {
-  /** Protected entities from `before` that appear verbatim in `after`. */
+  /** Protected entities from `before` whose full count survives in `after`. */
   kept: string[];
-  /** Protected entities from `before` that no longer appear verbatim in `after`. */
+  /** Protected entities from `before` whose count DROPS in `after` (altered or removed). */
   dropped: string[];
 }
 
 /**
- * Check that every protected entity present in `before` survives verbatim in `after`.
+ * Check that every protected entity present in `before` survives — in the SAME COUNT — in `after`.
  * `extraNames` extends the known-names list with doc-specific names (e.g. the firm).
+ *
+ * Uses occurrence-COUNTING over the extracted entities (src/lib/entities.ts `droppedEntities`),
+ * not a substring `.includes`: containment silently passes appended-digit tampering
+ * ("041-560" ⊂ "041-5609", "$100" ⊂ "$1000") and a removed one-of-two duplicate. Counting the
+ * `\b`-anchored extractions catches all three.
  */
 export function checkEntityFidelity(
   before: string,
   after: string,
   extraNames?: readonly string[],
 ): EntityFidelity {
-  const kept: string[] = [];
-  const dropped: string[] = [];
-  for (const ent of protectedStrings(before, extraNames)) {
-    (after.includes(ent) ? kept : dropped).push(ent);
-  }
+  const dropped = droppedEntities(before, after, extraNames);
+  const droppedSet = new Set(dropped);
+  const kept = protectedStrings(before, extraNames).filter((s) => !droppedSet.has(s));
   return { kept, dropped };
 }
