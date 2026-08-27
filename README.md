@@ -34,11 +34,10 @@ never committed** — it lives only in `.env.local` (gitignored).
 - **Env vars** (`.env.example`): `BUOYANT_PROXY_TOKEN` (required), `ANTHROPIC_BASE_URL`,
   `OPENAI_BASE_URL` (both default to the hiring proxy; override only if Buoyant moves them).
 - **Models** (overridable via env): edits use `claude-sonnet-4-5` at `temperature: 0.2` (this
-  is editing, not brainstorming); health checks / the cheap structuring pass use
+  is editing, not brainstorming); the cheaper secondary calls (the structuring pass) use
   `claude-haiku-4-5`; the eval's cross-model extractor uses `gpt-4o-mini`.
-- **Graceful degradation:** with no token set, the app still boots — the routes return a clean
-  `503 { error: "AI is not configured" }` and the home screen shows an "AI proxy not ready"
-  badge instead of crashing.
+- **Graceful degradation:** with no token set, the app still boots and the AI routes return a
+  clean `503 { error: "AI is not configured" }` instead of crashing.
 - **One real gotcha, documented in code:** the proxy returns compressed bodies that the SDKs'
   bundled fetch fails to decode, so we send `Accept-Encoding: identity`. See the comment in
   `src/lib/ai.ts` — this cost real debugging time and is exactly the kind of thing a second
@@ -46,9 +45,9 @@ never committed** — it lives only in `.env.local` (gitignored).
 
 **Deploy:** Vercel (Next.js 16 / React 19), personal account. **Live:**
 https://proposal-editor-sandy.vercel.app — deployed commit `5c6a0ae`
-(`5c6a0ae0b164fe79f71f1ae7a622326a03fd81d4`), 2026-08-27. Verified end-to-end on `easy.pdf`
-(open/upload → select → AI edit → keep → undo/redo) via `scripts/e2e-verify.mjs` against the
-live URL.
+(`5c6a0ae0b164fe79f71f1ae7a622326a03fd81d4`), 2026-08-27. `scripts/e2e-verify.mjs` exercises the
+**API layer** (parse + edit routes) against the live URL; the full browser click-through on
+`easy.pdf` (open/upload → select → AI edit → keep → undo/redo) was verified separately by hand.
 
 ---
 
@@ -94,8 +93,9 @@ The load-bearing ones:
   `HistoryEntry { op, at, source, rationale? }`. **Undo/redo is an inverse-command log + a
   cursor** — one array, no second stack. Redo-invalidation (a new edit after an undo) and
   reject-isolation (a rejected proposal can't pollute history) are correct *by construction*, and
-  the log doubles as the demo's audit trail. `insert` is what "Add similar experience" (§6) uses,
-  so its undo is just "remove the block" — no special case.
+  the log doubles as the demo's audit trail. `insert`/`delete` are reserved in the union for
+  structural edits (e.g. the KB "Add similar experience" insert, §7), so when they land undo
+  stays uniform — "remove the block" — with no special case.
 
 - **UX for a Word-native, non-technical user — "recognisable, not identical."** The real audience
   is a proposal manager or city engineer who lives in Microsoft Word. So we borrow Word's
@@ -146,10 +146,11 @@ Speed-first, and *intentional* scope beats feature count. Explicit cuts:
 - **Silent name / number / dollar changes — the catastrophic one.** A proposal that ships with a
   wrong client name or a mangled PE license loses the contract *and* the client. Defenses, in
   layers: (1) the parse can't touch text at all (§2); (2) the edit prompt's #1 rule is verbatim
-  entity preservation; (3) structured output keeps stray prose out of the document; (4) the
-  planned UX makes fidelity *visible* — protected entities carry a gold tint and a "Kept exactly
-  as written" line, and an edit that would touch one triggers a one-question confirm, so a swap is
-  hard to make *by accident*; (5) the §5 eval measures how often we actually hold the line.
+  entity preservation; (3) structured output keeps stray prose out of the document; (4) **the
+  shipped UI flags protected-entity changes for confirmation before Apply**, so a swap can't be
+  applied silently (the eval's 3 misses in §5 are exactly this case — surfaced to the user, not
+  slipped through); the design extends this with a gold protected-entity tint and a "Kept exactly
+  as written" line; (5) the §5 eval measures how often the raw edit route holds the line.
 - **Over-eager edits** — the model "improving" things it wasn't asked to. Mitigated by the
   explicit "do exactly what's asked and nothing more" rule and by tuning toward small, surgical
   edits so a one-word fix reads as one word in the card.
@@ -160,7 +161,7 @@ Speed-first, and *intentional* scope beats feature count. Explicit cuts:
   better than fixture-specific heuristics; a scanned/no-text-layer input is the documented gap.
 - **Model preamble leaking into applied text** — killed structurally by forced-tool output.
 - **KB hallucination — inventing a project that doesn't exist** (the inverse of the fidelity
-  risk). The stretch KB never lets the model invent: a human picks a *real* retrieved past
+  risk). The KB design (§7, not yet built) never lets the model invent: a human picks a *real* retrieved past
   project **before** any generation, and a deterministic check requires every entity to appear
   verbatim, falling back to a template on failure.
 - **Pre-customer checks I'd want:** the §5 fidelity number on a real grid, the preamble/refusal
@@ -208,15 +209,18 @@ trials, over-weighting the hard "rewrite in our voice" / "change tone" cases):
   effectiveness number that rules it out.
 - **Close the loop:** measure → insight → action → re-run.
 
-> **Numbers** — recorded run against the **shipped** route: deploy `5c6a0ae`, editor
-> `claude-sonnet-4-5` @ temp 0.2, 2026-08-27. 31 entity-bearing blocks of the real parsed
+> **Numbers** — recorded run of **raw model / API-route fidelity** (the edit route's output,
+> *before* the UI's protected-entity confirm) against the **shipped** route: deploy `5c6a0ae`,
+> editor `claude-sonnet-4-5` @ temp 0.2, 2026-08-27. 31 entity-bearing blocks of the real parsed
 > `easy.pdf` × the preservation instruction set (`change-tone` / `rewrite-voice` over-sampled
 > 3×) = **279 trials**. Extraction is deterministic-regex ground truth for closed-class entities
 > (`$` figures, `MO PE No.`, project #, years) plus a cross-model **gpt-4o-mini** diff-aware pass
 > for open-class names, so the Anthropic editor never grades itself.
 >
 > **Violations (3 — the honest lead):** all *reformats* of the PE-license string under
-> formalizing instructions (no invented or swapped values):
+> formalizing instructions (no invented or swapped values) — and all three are protected-entity
+> changes the **shipped UI flags for confirmation before Apply**, so user-facing fidelity is
+> higher than this raw route number:
 > - `[make-formal]` `MO PE No. 022510` → "Missouri Professional Engineer No. 022510"
 > - `[rewrite-voice]` `MO PE No. 022510` → "Missouri PE No. 022510"
 > - `[rewrite-voice]` `MO PE No. 2006023228` dropped in a bio rewrite
@@ -231,9 +235,10 @@ trials, over-weighting the hard "rewrite in our voice" / "change tone" cases):
 >
 > **Caveat + next action:** fidelity alone has a perverse optimum (a no-op scores 100%) — the
 > effectiveness numbers rule that out. The 3 misses are the same failure mode: `MO PE No.`
-> reformatted under "make formal / rewrite," which the deterministic extractor already flags. The
-> fix is a `MO PE No.` normalization/confirm guard in the edit post-check (would take
-> rewrite-voice to 93/93) — flagged for the next iteration, not yet applied. Reproduce:
+> reformatted under "make formal / rewrite," which the deterministic extractor already flags — and
+> which the UI's protected-entity confirm already surfaces to the user before Apply. A further
+> route-level `MO PE No.` normalization guard in the edit post-check (would take rewrite-voice to
+> 93/93) is flagged for the next iteration, not yet applied. Reproduce:
 > `node scripts/eval/run.mjs --base <url> --sha <sha> --out eval.json` (artifact not committed —
 > it contains verbatim proposal text).
 
@@ -241,23 +246,16 @@ trials, over-weighting the hard "rewrite in our voice" / "change tone" cases):
 
 ## 6. What I added beyond the brief, and why
 
-- **Entity fidelity as a *visible* trust surface, not just a guardrail.** The same before/after
-  entity extractor that scores the eval also drives the in-UI "Kept exactly as written" line and
-  the gold protected-entity tint. It turns the required evaluation into the product's strongest
-  on-brand trust beat: the user *sees* what was protected on every edit.
-- **Grounded rationales — the "why" behind a suggestion.** When the app explains *why* it
-  suggests an edit, the reason is one of two **grounded** forms: a plain-words **rubric check**,
-  or a **real, verbatim KB citation with provenance** — never free-form LLM justification (the
-  brief's "impressive but ungrounded" trap). Grounded reasons are verifiable *and* teach firm
-  conventions to a new consultant. One rubric spine, two audiences: numbers offline (§5), reasons
-  in the UI.
-- **Proactive "Refine" suggestions** — a rubric-driven list of "places to tighten," each Accept
-  routing through the exact same review-and-apply loop. Same card, same fidelity guarantees.
-- **KB grounding: "Add similar experience"** — retrieve *real* past projects from the firm's own
-  proposals (with provenance shown), let the human pick one **before** any generation, and insert
-  it in the firm's voice with a verbatim entity-fidelity net. The app never invents a project.
-- **Operational polish** — a live AI-proxy health badge, clean 503/400/502 degradation, and a
-  cross-model evaluation harness that doesn't let the editor grade itself.
+- **Entity fidelity as a *visible* trust surface, not just a guardrail.** The shipped UI flags
+  protected-entity changes for confirmation before Apply — so the domain's #1 catastrophic
+  failure can't happen silently. That makes the fidelity the eval (§5) measures something the
+  user can *see* on every edit, not just a number in a report — the product's strongest
+  on-brand trust beat.
+- **Proactive suggestions — "Check my proposal for things to fix."** A rubric-driven list of
+  places to tighten, each one routing through the *exact same* review-and-apply card as a
+  manual edit — same fidelity guarantees, nothing new to learn.
+- **Operational polish** — clean `503`/`400`/`502` degradation on the AI routes, and a
+  cross-model evaluation harness that keeps the editor from grading itself.
 
 ---
 
@@ -265,9 +263,13 @@ trials, over-weighting the hard "rewrite in our voice" / "change tone" cases):
 
 1. **Harden the parse for real layouts** — proper multi-column and table reconstruction, then take
    on `hard.pdf`. This is the biggest generalization risk.
-2. **Ship KB grounding end-to-end** — the "Add similar experience" flow above, moving from the
-   fixed hand-verified corpus toward a **live, user-uploaded KB** (deferred today because trust
-   requires verification time, not because of spend).
+2. **Ship KB grounding + grounded rationales** (both designed, neither built yet) — the "Add
+   similar experience" flow (retrieve *real* past projects, human picks *before* any generation,
+   insert in the firm's voice with a verbatim fidelity net — the app never invents a project),
+   plus the grounded "why" behind each suggestion: a plain-words **rubric check** or a **real,
+   verbatim KB citation with provenance**, never free-form LLM justification. Both reuse one
+   retrieval spine; the corpus moves from fixed + hand-verified toward a **live, user-uploaded
+   KB** (deferred because trust needs verification time, not because of spend).
 3. **The suggestion-outcome feedback loop** — capture Accept/Reject/Adjust signal and pick a
    principled sink for it (ground future edits, personalization, or corpus enrichment) — and only
    *then* add persistence, if it earns its keep.
@@ -282,3 +284,6 @@ trials, over-weighting the hard "rewrite in our voice" / "change tone" cases):
 _Repo conventions (history is intentionally unsquashed so the evolution is visible): all work
 happens in worktrees landed through a local merge queue; `main` only advances via
 `scripts/mq-land.sh` (`--no-ff`). See [`AGENTS.md`](AGENTS.md) and [`docs/`](docs/)._
+
+_**License note:** PDF parsing uses [**mupdf**](https://mupdf.com) (`mupdf@^1.28.0`), which is
+**AGPL-3.0-or-later**; this take-home repo is **source-available** accordingly._
