@@ -3,19 +3,21 @@
 The bar closes when `easy.pdf` works end-to-end **on the deployed app**. Landing to `origin/main`
 is NOT deploy — prod is deployed explicitly, on the owner's say-so.
 
-## Status (live)
-- ✅ Contracts + mock fixture + stub routes on `origin/main`.
-- ✅ **Track C** — real `/api/edit` landed (guardrailed, structured output). Verified locally:
-  `node scripts/e2e-verify.mjs http://localhost:3111` → ALL PASS (parse 15 blocks; edit changes
-  text, preserves MECO, no preamble leak).
-- ✅ **Track A** — real `/api/parse` landed (mupdf extract → heuristics → LLM label-by-line-ref →
-  verbatim assemble; sha256 cache with committed L0 seeds). Mock fixture removed. Verified locally:
-  `e2e-verify` → parse 76 blocks (easy.pdf seed hit); a 12MB unseeded upload live-parses in 36s.
-  The stub→real cutover is done. `/api/parse` accepts JSON `{hash,filename}` (hit or 422
-  `needsUpload`) or a multipart `file` (full parse; 100MB body limit → no Blob).
-- ⏳ **Track B+D** — full FE loop (a0). Builds against the real parse + real edit contracts.
-- ⚠️ **Prod is still the CP1 deploy** — new routes are on main but NOT live. Closing the bar
-  requires one prod deploy.
+## Status — BAR CLOSED (deployed + verified)
+- ✅ **Deployed to prod + verified end-to-end:** https://proposal-editor-sandy.vercel.app.
+  `node scripts/e2e-verify.mjs https://proposal-editor-sandy.vercel.app` → ALL PASS (easy.pdf
+  seed-hit 76 blocks; edit changes text, preserves MECO, no preamble leak).
+- ✅ **Track C** — real `/api/edit` (guardrailed, forced-tool structured output).
+- ✅ **Track A** — real `/api/parse` (mupdf extract → heuristics → LLM label-by-line-ref →
+  verbatim assemble; sha256 cache, committed L0 seeds: easy=76, hard=279). JSON `{hash,filename}`
+  → hit or 422 `needsUpload`; multipart `file` → full parse.
+  NOTE (Codex flag): the multipart path assumes Vercel's 100MB body limit (per current 2026
+  docs). Pending an empirical prod check on a >4.5MB *unseen* upload (delegated to Track A);
+  easy.pdf is unaffected (seed hit). If prod caps at 4.5MB → direct-to-Blob upload or document it.
+- ✅ **Track B+D** — full FE loop (a0): render/select, EditPanel, review card, Keep/Discard,
+  inverse-command undo/redo, protected-entity confirm.
+- ✅ **Track CP5** — name/entity-fidelity eval landed + recorded vs prod (276/279 ≈ 99% raw
+  route fidelity; the UI confirm catches the 3 PE-license misses before Apply).
 
 ## Cutover steps (when A + B/D have landed)
 1. `git fetch origin main` in the integration worktree; `git reset --hard origin/main`.
