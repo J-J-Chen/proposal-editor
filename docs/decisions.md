@@ -121,3 +121,17 @@ easy.pdf's `041-560`), not a project number, and are inconsistent within one doc
 carries both `001-902` and `001-9002`). Copying one verbatim would cite a real-but-wrong-entity
 number that provenance would rubber-stamp.
 **Rejected:** Indexing the cover/letter number as the project number (silently wrong, trust-eroding).
+
+### 2026-08-26 — Suggestion rationale must be grounded (rubric check or real KB citation), not free-form
+**Decision:** When the app shows *why* it suggests an edit, the "why" is one of two grounded forms:
+(L1) a deterministic **rubric check** stated in plain words (from the entity dictionary / voice
+card), or (L2) a **real, verbatim KB citation with provenance** (reusing the CP6 retrieval +
+provenance). Never free-form LLM justification (L3). Degrade gracefully: a KB example where
+retrieval finds an apt one, the rubric reason otherwise, and **never a fabricated reason**.
+**Why:** Grounded reasons are verifiable and *teach* firm conventions to a new consultant; they
+reuse the rubric (shared with the CP5 eval — one spine, two audiences: numbers offline, reasons
+in-UI) and CP6 retrieval, so it's near-zero new machinery. Free-form justification is the brief's
+"impressive but ungrounded" trap — pokeable in the demo, and unverifiable.
+**Rejected:** Free-form LLM "here's why I changed it" prose (plausible but ungrounded); a separate
+rationale model/subsystem (the rubric + retrieval already produce the reason). The suggestion *UX*
+itself is CP7's Refine layer — this entry fixes only that its reasons must be grounded.

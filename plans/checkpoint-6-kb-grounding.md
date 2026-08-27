@@ -51,6 +51,36 @@ Bensman, PE, SE"*, recurring phrasing) — and inject it into the `docContext` o
 call. Cheap, high-payoff, and a clean "why?" answer in the demo. (This is the voice-consistency
 idea, correctly scoped: context every edit carries, not a button.)
 
+## Grounded rationale — the "why" behind a suggestion
+When the app *suggests* an edit (the CP7 "Refine" layer), it should show **why**, grounded in
+evidence a new consultant can verify — turning the tool into a **teacher of the firm's
+conventions** rather than a black box. This is **not the eval**; it's the eval's **user-facing
+twin**. The CP7 rubric is one shared spine: run over many edits it yields the CP5 **numbers**
+(offline); run on *this* block it yields a **reason** (in-UI). Same source of truth, two audiences.
+
+Two grounded forms — difficulty runs *opposite* to intuition:
+- **Level 1 — rubric reason (deterministic, ~free).** The check *is* the reason. From the entity
+  dictionary + voice card: *"You wrote 'MECO Engineering'; your last 4 SOQs say 'MECO Engineering
+  Company.'"* / *"Cite him as 'James D. Bensman, PE, SE' — that's how every past proposal lists
+  him."* No LLM, no hallucination risk.
+- **Level 2 — a real KB example as evidence (reuses CP6 exactly).** Point the same retrieval +
+  provenance at the *rationale*: *"Here's how you've described a comparable project before:
+  '…valued at $1,075,770.35 for the Marion County Commission' (NEMO RPC Bridge SOQ, p.8)."* This
+  is composition, not new machinery — and it's the **safe** way to show reasoning: the "why" is a
+  verifiable quote with a source, not the model's opinion.
+
+**Not built: Level 3 — free-form LLM justification** ("here's why I changed it"). Trivial to
+generate, and exactly the *impressive-but-ungrounded* trap the brief warns against — a grader
+pokes it in the demo. Acceptable only as phrasing over Level 1/2 evidence, never as the source.
+
+**Degrade gracefully:** show a KB example where retrieval finds an apt one; fall back to the rubric
+reason where it doesn't; **never manufacture a reason** (same rule as the insert flow).
+
+**Where it lives:** the suggestion-rationale *UX* is CP7 (the Refine layer); CP6 supplies the
+Level-2 evidence (retrieval + provenance — build steps 1–2) and CP5's rubric supplies the Level-1
+reason. Near-zero new machinery: it surfaces the evidence the system already used to decide. This
+doc owns the mechanism; the UX is a hand-off to CP7.
+
 ## Architecture (deliberately small)
 ```
 OFFLINE (build-time, ~$0 at runtime)              RUNTIME (Vercel Node route)
@@ -113,6 +143,16 @@ interface KbSearchResponse { candidates: KbCandidate[] }
 // Insert — the reserved structural EditOp (see architecture.md "The edit loop"); undo removes it.
 type KbInsertOp = { kind: 'insert'; blockId: string; block: Block; afterId: string };
 // The inserted Block carries KB provenance; the HistoryEntry rationale records the source.
+
+// Grounded rationale — the "why" shown with a suggestion (CP7 UX; CP6/CP5 supply the evidence)
+interface GroundedRationale {
+  reason: string;              // Level 1: a rubric check, in plain words (deterministic)
+  evidence?: {                 // Level 2: a real KB citation, where retrieval finds an apt one
+    quote: string;             // verbatim snippet from a past proposal
+    sourceDoc: string; sourceTitle: string; page: number;
+  };
+  // No free-form LLM justification (Level 3): reason = a rubric check, evidence = a real quote.
+}
 ```
 The insert is the **reserved `'insert'` op** the undo/redo design already carved out — routed
 through `applyOp`/`invertOp`, undo removes the block. No parallel undo mechanism.

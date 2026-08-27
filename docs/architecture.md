@@ -111,8 +111,10 @@ guarded by a deterministic entity-verbatim **fidelity net** (template fallback o
 via the reserved `'insert'` EditOp (undo removes it). A firm **voice card** mined from the KB is
 injected into the `docContext` of *every* edit, not just KB ones. Ingest is programmatic (reuse the
 parser) but the field bindings are **hand-verified**; `projectNumber` is deliberately not indexed
-(the `001-xxx` values are the SOQ's own doc id). Full design + rationale:
-[checkpoint 6](../plans/checkpoint-6-kb-grounding.md).
+(the `001-xxx` values are the SOQ's own doc id). The same retrieval + provenance also power
+**grounded rationales** on suggestions (a real KB quote as the verifiable "why"), with the CP5
+rubric supplying the deterministic reason — never free-form LLM justification. Full design +
+rationale: [checkpoint 6](../plans/checkpoint-6-kb-grounding.md).
 
 ## Boundaries / structure (best-practice, cheaply)
 Keep concerns separated without over-engineering a 4-hour app:
