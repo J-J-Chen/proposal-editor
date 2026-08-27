@@ -244,3 +244,21 @@ silent-failure fear. Selected from a 4-direction critic-scored panel (Word Calm 
 valley, actions stranded far from the text); a "Step X of 4" wizard (Guided Steps — Word isn't a
 wizard; the counter patronises and the "Next" gate stalls users); margin comment-balloons and a
 dual-place preview (coordination cost for user and build).
+
+### 2026-08-26 — Edit route (Track C): non-streaming + forced-tool structured output
+**Decision:** `/api/edit` is **non-streaming JSON** and gets its result via a **forced Anthropic
+tool call** (`submit_edit` → `{newText, rationale}`), not by parsing model prose. Entity guardrail
+is **prompt-only** for CP4; the deterministic entity-verbatim net stays deferred to CP5/CP7. Low
+temperature (0.2), block-scaled `max_tokens`, Anthropic main model for edit quality. Logic lives in
+`src/lib/edit.ts`; the route is a thin 503 (not configured) / 400 (bad input) / 502 (proxy error)
+wrapper.
+**Why:** Forcing a tool call *structurally* prevents preamble ("Sure, here's your paragraph:") from
+landing in applied text — no prose-stripping heuristics to get wrong. Non-streaming because Apply is
+all-or-nothing and the diff needs the whole rewrite to be meaningful, so token streaming buys no UX
+here while complicating tool_use parsing. Verified live on entity-heavy blocks: a tighten and an
+aggressive "make it more impressive" rewrite each preserve every proper noun / project number / $ /
+date; an explicit "change the year to 2024" edit moves only that value.
+**Rejected:** SSE/token streaming (no payoff for an all-or-nothing apply; harder with tool_use);
+JSON-embedded-in-prose output (format/preamble leaks — the exact failure structured output kills);
+building the deterministic fidelity net now (that's CP5's eval + CP7's rubric — the prompt guardrail
+suffices to close the bar).
