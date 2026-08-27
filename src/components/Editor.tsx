@@ -13,6 +13,7 @@ import {
   canUndo,
   editorReducer,
   initialEditorState,
+  opBlockId,
   sectionOf,
   type Pending,
 } from '@/state/editor';
@@ -407,6 +408,27 @@ export function Editor() {
     () => (doc ? (recents.find((r) => r.id === doc.id)?.blobUrl ?? null) : null),
     [doc, recents],
   );
+  // Per-section inline undo/redo: a block that has an applied change (a live op in history) shows a
+  // small control. 'undo' when it currently differs from its original, 'redo' when it's been
+  // reverted back to the original (so the edit can be reapplied). Driven off the same
+  // originalBaseline the Original-PDF overlay uses.
+  const sectionControls = useMemo(() => {
+    const m: Record<string, 'undo' | 'redo'> = {};
+    if (!doc) return m;
+    const touched = new Set<string>();
+    for (let i = 0; i < state.cursor; i++) touched.add(opBlockId(state.history[i].op));
+    for (const b of doc.blocks) {
+      if (!touched.has(b.id)) continue;
+      const orig = originalBaseline[b.id];
+      if (orig === undefined) continue;
+      m[b.id] = b.text !== orig ? 'undo' : 'redo';
+    }
+    return m;
+  }, [doc, originalBaseline, state.history, state.cursor]);
+
+  const sectionStep = useCallback((blockId: string) => {
+    dispatch({ type: 'SECTION_STEP', blockId });
+  }, []);
 
   useEffect(() => {
     if (!toast) return;
@@ -1104,6 +1126,8 @@ export function Editor() {
               <DocumentView
                 doc={doc}
                 selectedId={selectedId}
+                sectionControls={sectionControls}
+                onSectionStep={sectionStep}
                 pulseId={highlightId ?? state.lastChangedId}
                 peekId={peekId}
                 onSelect={onSelect}

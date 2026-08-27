@@ -69,6 +69,8 @@ export type EditorAction =
   | { type: 'KEEP_PENDING' }
   /** Apply a batch of chat-proposed edits as ONE grouped, undo-able transaction. */
   | { type: 'KEEP_BATCH'; batch: Pending[] }
+  /** Per-section inline undo/redo: invert ONE block's most recent change, as a new forward edit. */
+  | { type: 'SECTION_STEP'; blockId: string }
   | { type: 'UNDO' }
   | { type: 'REDO' };
 
@@ -106,7 +108,7 @@ function invertOp(doc: Doc, op: EditOp): Doc {
 }
 
 /** The block a given op targets — for pulsing / scrolling. */
-function opBlockId(op: EditOp): string {
+export function opBlockId(op: EditOp): string {
   return op.kind === 'insert' ? op.block.id : op.blockId;
 }
 
@@ -232,6 +234,37 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         cursor: state.cursor + entries.length,
         pending: null,
         lastChangedId: opBlockId(entries[entries.length - 1].op),
+      };
+    }
+
+    case 'SECTION_STEP': {
+      // Per-section inline undo/redo (Model A): invert the block's MOST RECENT applied change by
+      // appending a NEW forward edit {before: current, after: that change's `before`}. This keeps
+      // the linear history invariant intact, is itself globally undoable/Ctrl+Z-able, and reuses
+      // applyOp. Toggling it flips the section between its edited and pre-edit values. Like any new
+      // edit, it truncates the global redo-future (see docs/decisions.md).
+      if (!state.doc || state.status !== 'idle') return state;
+      const { blockId } = action;
+      let last: EditOp | null = null;
+      for (let i = state.cursor - 1; i >= 0; i--) {
+        if (opBlockId(state.history[i].op) === blockId) {
+          last = state.history[i].op;
+          break;
+        }
+      }
+      if (!last || last.kind !== 'replace') return state; // never touched (or not a replace)
+      const cur = state.doc.blocks.find((b) => b.id === blockId)?.text;
+      if (cur === undefined || cur === last.before) return state; // gone, or already there
+      const op: EditOp = { kind: 'replace', blockId, before: cur, after: last.before };
+      const entry: HistoryEntry = { op, at: new Date().toISOString(), source: 'user' };
+      const history = state.history.slice(0, state.cursor).concat(entry);
+      return {
+        ...state,
+        doc: applyOp(state.doc, op),
+        history,
+        cursor: state.cursor + 1,
+        pending: null,
+        lastChangedId: blockId,
       };
     }
 

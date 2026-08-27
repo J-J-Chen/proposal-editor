@@ -7,6 +7,8 @@ export function DocumentView({
   selectedId,
   pulseId,
   peekId,
+  sectionControls,
+  onSectionStep,
   onSelect,
   onBackgroundClick,
 }: {
@@ -15,6 +17,9 @@ export function DocumentView({
   pulseId: string | null;
   /** A block being previewed from the Refine list (hover) — steady reveal, not a one-shot pulse. */
   peekId: string | null;
+  /** blockId → per-section undo/redo control to show ('undo' can revert, 'redo' can reapply). */
+  sectionControls: Record<string, 'undo' | 'redo'>;
+  onSectionStep: (blockId: string) => void;
   onSelect: (id: string) => void;
   /** Clicking blank space (canvas / page margins, not a block) clears the selection. */
   onBackgroundClick: () => void;
@@ -38,6 +43,8 @@ export function DocumentView({
             pulse={b.id === pulseId}
             peek={b.id === peekId}
             isTitle={b.id === titleId}
+            sectionControl={sectionControls[b.id] ?? null}
+            onSectionStep={onSectionStep}
             onSelect={onSelect}
           />
         ))}
