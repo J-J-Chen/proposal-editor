@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "seed": "node --import ./scripts/_register.mjs --env-file=.env.local scripts/seed-parse.ts"
+    "seed": "node --import ./scripts/_register.mjs --env-file=.env.local scripts/seed-parse.ts",
+    "seed:renders": "node --import ./scripts/_register.mjs scripts/seed-renders.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.121.0",
