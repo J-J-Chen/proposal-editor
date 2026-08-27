@@ -46,3 +46,7 @@ pnpm-debug.log*
 .idea
 .vscode/*
 !.vscode/extensions.json
+
+# eval artifact — contains verbatim proposal text, never commit
+/eval.json
+/scripts/eval/eval.json
