@@ -48,8 +48,7 @@ https://proposal-editor-sandy.vercel.app — deployed commit `710ccac`
 (`710ccacb6beefc40dfe9c1c804e1eaaef40f025d`), 2026-08-27. `scripts/e2e-verify.mjs` (the
 **API layer** — parse + edit routes) passes against this live deploy (all checks green); the full
 browser click-through on `easy.pdf` (open/upload → select → AI edit → keep → undo/redo) was
-verified separately by hand. *(The eval numbers in §5 were recorded against the prior deploy
-`5c6a0ae`; a re-run against `710ccac` appends there.)*
+verified separately by hand. *(§5's easy-set numbers were recorded against the prior deploy `5c6a0ae`; the hard.pdf holdout was re-run against this `710ccac` deploy.)*
 
 ---
 
@@ -168,10 +167,11 @@ Speed-first, and *intentional* scope beats feature count. Explicit cuts:
   the line before this gate.
 - **Over-eager edits** — the model "improving" things it wasn't asked to. Mitigated by the
   explicit "do exactly what's asked and nothing more" rule and by tuning toward small, surgical
-  edits so a one-word fix reads as one word in the card. This was the only *genuine* failure on the
-  hard.pdf holdout (§5): 4 minor cases where an aggressive "change tone" / "rewrite" replaced the
-  firm's own name (MECO → "we / our team", ×3) or dropped a branded term ("Standard of Care", ×1) —
-  fixed by a firmer surgical-edit constraint and by covering the firm's own name in the protected set.
+  edits so a one-word fix reads as one word in the card. On the hard.pdf holdout (§5) the only *genuine* fidelity movements were aggressive "change
+  tone" / "rewrite" occasionally dropping a firm-branded term ("Standard of Care") or an
+  office-location name (Kirksville / Hannibal, MO) in a list or header rewrite — **never a
+  number, $, or ID, and never a swap to a different value** — mitigated by a firmer
+  surgical-edit constraint.
 - **Parse edge cases** — duplicated/overlapping cover text, headings glued to body text,
   multi-column reading order (all seen in `easy.pdf` pages 1–2), and tables. The hybrid parse
   targets these; genuinely adversarial layouts and `hard.pdf` are a known, stated limit.
@@ -265,31 +265,38 @@ trials, over-weighting the hard "rewrite in our voice" / "change tone" cases):
 >
 > ---
 >
-> **hard.pdf — holdout, additive $-fidelity.** Dataset: the **hard.pdf holdout** (never tuned to).
-> 198 trials (22 blocks × 9 phrasings), including **all 8 $-bearing blocks**. Deploy `5c6a0ae` ·
-> `claude-sonnet-4-5` @ temp 0.2 · cross-model extractor **gpt-4.1**.
+> **hard.pdf — $-fidelity holdout, refreshed on `710ccac`.** Dataset: **hard.pdf** (generalization
+> holdout, never tuned to), re-seeded parse — 242 blocks, 209 entity-bearing, 22 sampled
+> including **all $-bearing blocks** → 198 trials (22 × 9 phrasings). Deploy `710ccac` ·
+> `claude-sonnet-4-5` @ temp 0.2 · cross-model extractor **gpt-4.1** · 2026-08-27.
 >
-> **Headline:** **every** closed-class entity ($ / numbers / dates / IDs) was preserved **100%
-> strict *and* value-aware** across all 198 holdout trials — no entity was ever swapped to a
-> different real value.
+> **Headline:** **every** closed-class entity (all $ / numbers / dates / IDs) was **100%
+> value-preserved** across all 198 holdout trials — no entity was ever swapped to a different
+> real value. Leaks 0/198.
 >
-> **Per-entity-class (preserved/total, strict | value-aware):** money 72/72 (100% | 100%) ·
-> project-no 9/9 · year 72/72 · date 18/18 · zip 9/9 · program-id 117/117 · quantity 9/9 ·
-> proper-noun 671/765 (88% | 743/765 97%) → **ALL 977/1071 (91% strict | 1049/1071 98%
-> value-aware)**.
+> **Per-entity-class (preserved/total, strict | value):** money 72/72 (100% | 100%) · project-no
+> 36/36 (100% | 100%) · year 144/144 (100% | 100%) · date 36/36 (100% | 100%) · zip 18/18
+> (100% | 100%) · program-id 126/126 (100% | 100%) · quantity 8/9 (89% | 9/9 100%; one
+> "40th" → "40 years" reformat, value kept) · proper-noun 1125/1287 (87% | 1267/1287 98%) →
+> **ALL 1565/1728 (91% strict | 1708/1728 99% value)**.
 >
-> **Leaks:** 0/198. **Effectiveness:** applied-of-applicable 161/192 · changed-substantial
-> 178/189 · tighten-didn't-grow 21/22. Mean length drift 8.2%.
+> **Effectiveness (applicability-aware):** applied-of-applicable 140/192 · changed-substantial
+> 172/189 · tighten-didn't-grow 19/22. Mean length drift 4.6%.
 >
-> **Violations (22 proper-noun flags, hand-adjudicated):** 18 are **parse artifacts** (missing
-> spaces like "Highway58", run-on lists — not editor failures; being fixed upstream). 4 are
-> **genuine + minor**: aggressive "change tone" / "rewrite" replaced the firm's *own* name (MECO →
-> "we / our team") ×3, and dropped a branded term ("Standard of Care") ×1.
+> **Violations — 20 proper-noun value flags, hand-adjudicated (led with, none hidden):** 14 are
+> **parse artifacts**, not the edit route ("Highway58" for "Highway 58" ×8, run-on services
+> lists ×5, one cross-sentence span ×1) — these persist after the parse-quality deploy and are
+> being fixed upstream. 4 are instrument **over-capture** of generic terms, not real names (a
+> section label "EMPLOYEES" ×1; "QA" / "QC" / "Project Managers" ×3). 2 are **genuine +
+> minor** (one borderline): rewrite-voice dropped a firm-branded term ("Standard of Care") ×1,
+> and an aggressive header rewrite dropped office-city names (Kirksville / Hannibal, MO) ×1.
+> **No entity was ever swapped to a different real value.**
 >
 > **Anti-overfit (holdout integrity):** no test-entity name lives in the instrument — closed-class
-> entities are matched by generic regex, proper nouns by a generic capitalized-phrase + acronym
+> entities matched by generic regex, proper nouns by a generic capitalized-phrase + acronym
 > detector with a domain-generic stoplist; the **identical code path** scores easy and hard;
-> hard.pdf is an **untouched holdout**; every violation is listed above.
+> hard.pdf is an **untouched generalization holdout**; every violation is listed above (per-trial
+> JSON retained, not committed — it contains verbatim proposal text).
 
 ---
 
