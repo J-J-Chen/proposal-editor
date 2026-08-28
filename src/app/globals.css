@@ -178,11 +178,9 @@ button {
   display: flex;
   flex: 1;
   min-height: 0;
-  /* Cap the workspace so the document and its assistant pane stay a cohesive pair and centre on
-     the desk, instead of drifting apart across a growing grey gutter on wide/4K screens. */
+  /* Full width: the assistant pane pins to the right edge of the window. The document stays a
+     comfortable reading width, centred within its own area (see .canvas / .page). */
   width: 100%;
-  max-width: 1760px;
-  margin: 0 auto;
 }
 
 /* ---------------- document canvas ---------------- */
