@@ -222,7 +222,10 @@ export function EditPanel({
           onChange={(e) => setFreeText(e.target.value)}
           placeholder="For example: make the tone more confident"
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submitFree();
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              submitFree();
+            }
           }}
         />
         <div className="chips">
