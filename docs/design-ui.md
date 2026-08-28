@@ -5,6 +5,12 @@ data/model design). Decisions here are logged in [decisions.md](decisions.md); t
 that produced them is the **"Familiar as Word"** design pitch (interactive mockups + the four
 scored directions): <https://claude.ai/code/artifact/acc75563-5a8d-463f-9fbc-97e8623d4404>.
 
+> **Where the UX is heading:** the shipped surface below ("The Assistant") has since evolved, in
+> design, into a single **conversational** surface where *selection = scope* — see
+> [**Evolution: conversational editing**](#evolution-conversational-editing-the-just-ask-direction)
+> further down. That section is the current design direction (prototyped, not yet the shipped UI);
+> everything else in this doc is the shipped baseline it builds on.
+
 ## Who we're designing for (the driver)
 Older, largely **tech-illiterate** users who live in **Microsoft Word** all day and little else
 (a municipal / engineering firm's proposal manager or city engineer). This audience is the whole
@@ -39,6 +45,85 @@ Of four Word-grounded directions (scored: Word Calm 8.3 · Assistant-on-the-Righ
 **Dropped** (each flagged by the critic panel): a literal ribbon / Home-vs-Review tab split; a
 wizard "Step X of 4" counter and mandatory "Next" gate; margin comment-balloons; a dual-place
 preview. Desktop-only for the demo.
+
+## Evolution: conversational editing (the "Just Ask" direction)
+> **Status: designed & prototyped, validated in a design critique — not yet the shipped UI.**
+> Clickable prototype on the real `easy.pdf` raster (every flow live): **"Just Ask"** —
+> <https://claude.ai/code/artifact/2cf2fd0d-c615-46bb-83dc-b155309ea00f>. This supersedes the *pane
+> mechanics* above where they differ; the **principles** (recognisable-not-identical, the calm
+> stacked card, visible fidelity, plain words) are unchanged — this is how they're *arranged*, not
+> a new skin.
+
+"The Assistant" shipped, and real use exposed gaps the owner named. Each pivot below, with the
+reasoning behind it (owner-driven, 2026-08-27):
+
+**1. The AI was hard to find, and whole-document editing was cornered.** *Owner:* "the AI editing
+part is not very clear," and "it's not intuitive to click the top-right to do the entire doc." The
+AI only appeared *after* you selected a paragraph (a discovery cliff), and the whole-doc action sat
+in a corner. For a tech-illiterate, Word-native user, "everything should be dead simple."
+
+**2. → One conversational surface; selection = scope.** *Owner:* "Could we have a single chat
+interface? If something is selected it modifies just that; nothing selected, it does the whole
+thing. Right now it's very disjointed." One persistent ask box replaces the scattered controls. The
+make-or-break risk is *silent wrong scope*, so scope is shown **loudly on a bar directly above the
+input** ("Editing the **whole proposal**" ↔ "Editing **just this paragraph** — [excerpt] — [×
+whole proposal]"), mirrored by the document highlight and captured at send-time. Click a paragraph
+to focus it; deselect to return to the whole proposal.
+
+**3. Per-*change* undo, not per-*section* threads.** *Owner* asked whether each section should carry
+its own chat/history; we agreed that re-fragments the very thing the single surface just unified.
+Kept instead: resolved review cards **collapse to slim one-line undoable receipts** (fat cards
+never pile up), a durable **"Changes you've made"** record with per-change *"Undo this one"* +
+*"Go to this section,"* and the global top-left Undo.
+
+**4. Proactively-found issues get their own surface — separate, but integrated.** *Owner:* "the
+search for issues shouldn't natively be in the chat — too easy to lose them if there are a lot …
+but it still has to feel integrated," then: "below the chat, persistently open … they should still
+**review** the changes instead of instantly fixing them; reviewing should be **consistent** … but
+two panes that look the same need to be **differentiated**." Result: issues get a dedicated surface
+with an **amber "attention" identity** (against the teal chat); "Fix this" runs the **same** Keep/
+Discard review card in place (never an instant apply); the two surfaces are told apart by **colour,
+not layout**.
+
+**5. Onboarding-first: suggestions before manual editing (two tabs).** *Owner:* "after upload the
+first thing they go through are the suggestions, then manual refinement — high-impact, high-
+confidence, saves time. Not required; switch to manual any time. Two tabs on top, defaults to
+fixing issues. Also collects data on good/bad suggestions." Right pane = two tabs: **Suggestions**
+(default) and **Ask for a change**. A 5-lens design critique *validated* defaulting to suggestions
+and forced refinements we adopted: reframe the copy so it never reads as *already changed*
+(**"Suggestions,"** plus a loud **"Nothing has changed yet — you choose each one"**); the default
+pass is **objective grounded fixes only** (placeholders, names, repeats), with subjective voice
+rewrites demoted to an optional **"More ideas"**; **intent overrides** — clicking a paragraph or
+typing jumps straight to *Ask for a change*, scoped; "Edit myself" renamed **"Ask for a change."**
+> **Data caveat (matters for the owner's data goal).** A defaulted, "high-confidence"-framed Keep/
+> Discard queue shown to a non-technical user **manufactures Keeps** — acquiescence, not judgment.
+> The honest signal is the **downstream fate** of a kept edit (did it survive to the exported PDF,
+> or get undone via the receipts), **not** the in-the-moment Keep. Never headline Keep-rate as a
+> KPI; keep Keep/Discard symmetric. This is a backend/logging decision — flagged, not built.
+
+**6. Every review card is a conversation.** *Owner:* "do the review changes allow them to chat about
+it? it should still follow the normal chat — right now there's no back and forth." Keep/Discard was
+a dead end: if the rewrite was *almost* right, the only moves were accept-as-is or retype from
+scratch. Now every review card — chat, whole-doc stepper, and Suggestions tab alike — carries a
+**"Tell me how to adjust it"** row (quick chips *Even shorter / More formal / Plainer words* + a
+free-text box). A tweak rewrites the suggestion **in place**, stacks the asks as a visible thread
+("You asked: ↻ shorter ↻ more formal"), and Keep/Discard then apply to the *latest* wording. The
+back-and-forth is anchored **to the change** (not routed through the main composer) so it behaves
+identically on all three surfaces, keeps the Suggestions queue intact, and never loses which change
+you're discussing. If a tweak wouldn't actually help, the assistant **keeps the wording and says
+why** ("it's already plain enough") instead of faking a change — which also signals it won't
+blindly churn the text.
+
+**What did *not* change (invariants across every pivot):** the calm stacked *"the wording now / the
+suggested new wording"* card; the protected-fact gold tint + un-bypassable confirm; the **Keep this
+change / Discard** verbs; Undo top-left; the plain-words vocabulary; and the single
+review-and-apply loop that every surface reuses. The redesign rearranges these into one
+conversation — it does not replace them.
+
+**Biggest open risk:** whether the reframe is *enough* to avoid first-contact distrust ("did it
+already edit my proposal?") can only be settled by watching one real tech-illiterate Word user
+upload cold. If not, the fallback is a co-visible fixes dock over a single chat (superseded design
+iterations "Six Ways In" and "Two Doors In" — links in the [decision log](decisions.md)).
 
 ## The Word habits we borrow (feature → familiar convention)
 | App feature | The habit we borrow | How it shows up |

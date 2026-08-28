@@ -588,3 +588,49 @@ bundled MECO fixtures use the reviewed profile instead of falling back to docume
 auto-arming; browser-round-tripped facts; embeddings/vector DB for 17 records; model-as-judge or
 automatic voice repair; free-form rationales; KB write-back; raw-PDF commits; retrying an unsafe KB
 draft; a second undo system for inserts.
+
+### 2026-08-27 — UX evolution: one conversational surface (scope-by-selection), onboarding-first suggestions, every review card a conversation
+**Status:** designed & prototyped, validated in a 5-lens design critique — **not yet the shipped
+UI** (the shipped surface is still "The Assistant"). Full narrative + owner reasoning in
+[design-ui.md → Evolution](design-ui.md#evolution-conversational-editing-the-just-ask-direction);
+clickable prototype "Just Ask": <https://claude.ai/code/artifact/2cf2fd0d-c615-46bb-83dc-b155309ea00f>.
+**Decision:** Evolve the editor UX from the shipped "Assistant pane" ([the 2026-08-26 entry](#2026-08-26--ui-direction-the-assistant-familiar-not-clone-right-pane--calm-review-card))
+into a **single conversational surface** built on five owner-driven pivots: (1) **selection = scope**
+— one persistent ask box; a selected paragraph scopes the edit to it, nothing selected edits the
+whole proposal, with scope shown **loudly on a bar above the input** and captured at send-time
+(silent wrong-scope is the make-or-break failure); (2) **per-change undo, not per-section threads**
+— resolved cards collapse to one-line undoable receipts + a durable "Changes you've made" record;
+(3) **issues on their own persistent surface**, differentiated from chat by an **amber "attention"
+identity** (colour, not layout), where "Fix this" runs the **same** Keep/Discard review card (never
+an instant apply); (4) **onboarding-first two tabs** — right pane defaults to **Suggestions** with
+**Ask for a change** one click away, the default pass limited to *objective* grounded fixes
+(placeholders/names/repeats) with voice rewrites demoted to optional "More ideas," copy reframed so
+nothing reads as *already changed* ("Nothing has changed yet — you choose each one"), and intent
+overriding the default (click/type jumps to *Ask for a change*, scoped); (5) **every review card is
+a conversation** — a "Tell me how to adjust it" row (chips + free text) on every card rewrites the
+suggestion in place, stacks the asks as a visible thread, and Keep/Discard apply to the latest
+wording, anchored **to the change** so it behaves identically across chat, the whole-doc stepper,
+and the Suggestions tab. Invariants preserved throughout: the calm stacked card, protected-fact
+gold tint + un-bypassable confirm, Keep/Discard verbs, Undo top-left, plain-words vocabulary, one
+review-and-apply loop.
+**Why (owner reasoning):** the AI was invisible until a paragraph was selected and whole-doc editing
+was cornered ("the AI editing part is not very clear"; "not intuitive to click the top-right to do
+the entire doc"); the audience is tech-illiterate and Word-native, so "everything should be dead
+simple." A single ask box with scope-by-selection removes the disjointedness; front-loading
+high-confidence suggestions saves time and yields good/bad-suggestion signal; making every review a
+back-and-forth means an *almost-right* rewrite is tweaked, not discarded-and-retyped.
+**Data caveat (logged so it isn't lost):** a defaulted, "high-confidence"-framed Keep/Discard queue
+**manufactures Keeps** (acquiescence, not judgment) — the honest quality signal is the *downstream
+fate* of a kept edit (survived to export vs. later undone), **not** the in-the-moment Keep;
+Keep-rate must never be a headline KPI. Backend/logging note, flagged not built.
+**Rejected:** per-section chat threads / per-section undo stacks (re-fragment the unified surface);
+issues living inside the chat (get lost in a long thread) or as a top-bar drawer; "Fix this" as an
+instant apply (breaks review consistency); differentiating the two panes by layout (they read as
+one); bundling voice rewrites into the default suggestion pass (invites reflexive Keeps, corrupts
+the signal); routing refinement through the main composer (only exists in the chat tab, scrolls the
+change out of view). Superseded design iterations: "Six Ways In"
+(<https://claude.ai/code/artifact/ac5db990-8326-4538-9cc4-de61d053bfa5>) and "Two Doors In"
+(<https://claude.ai/code/artifact/934b2580-6e82-4916-b599-11b0679c0daa>); links retained for the
+evolution trail. **Biggest open risk:** only a real tech-illiterate user test settles whether the
+"nothing changed yet" reframe prevents first-contact distrust; fallback = a co-visible fixes dock
+over the single chat.

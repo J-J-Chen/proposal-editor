@@ -169,6 +169,18 @@ load-bearing ones:
   7:1, focus is visible, no critical action is hover-only, and loading or failure states explain
   what is happening in plain language.
 
+- **Where the editing UX is heading — one conversational surface** *(designed & prototyped;
+  **not yet the shipped UI**).* Real use exposed that the AI was hard to find and whole-document
+  editing was cornered, so the next iteration collapses the scattered controls into a **single ask
+  box where selection = scope** (a paragraph selected → edit just it; nothing selected → the whole
+  proposal, scope shown loudly above the input), front-loads **high-confidence suggestions in an
+  onboarding-first Suggestions tab** (with *"Ask for a change"* one click away), and makes **every
+  review card a back-and-forth** — *"tell me how to adjust it"* refines a proposal in place instead
+  of forcing accept-as-is or retype. The calm card, protected-fact confirm, and Keep/Discard loop
+  are unchanged — only rearranged. Full design + owner reasoning:
+  [`docs/design-ui.md` → Evolution](docs/design-ui.md#evolution-conversational-editing-the-just-ask-direction);
+  clickable prototype: [**"Just Ask"**](https://claude.ai/code/artifact/2cf2fd0d-c615-46bb-83dc-b155309ea00f).
+
 - **Expensive work is content-addressed.** `Doc.id` is the sha256 of the PDF bytes; committed parse
   seeds and page rasters make the bundled path deterministic, while bounded in-process caches
   accelerate repeats without becoming a store of record. Suggestions are cached by a
@@ -436,9 +448,13 @@ headline %, and report **raw k/n per instruction** with the entity-bearing denom
 
 ## 7. What I'd build next, given another 8 hours
 
-1. **Polish user flows and UI** — tighten onboarding, selection and deselection, loading and error
-   feedback, and responsive details so the existing end-to-end loop feels obvious and
-   customer-ready before adding more surface area.
+1. **Polish user flows and UI — ship the conversational redesign.** Tighten onboarding, selection
+   and deselection, loading and error feedback, and responsive details so the loop feels obvious and
+   customer-ready. There's already a prototyped, design-validated direction to build against: one
+   conversational surface (selection = scope), an onboarding-first Suggestions tab, and review cards
+   that support back-and-forth refinement — see
+   [`docs/design-ui.md` → Evolution](docs/design-ui.md#evolution-conversational-editing-the-just-ask-direction)
+   and the [**"Just Ask"** prototype](https://claude.ai/code/artifact/2cf2fd0d-c615-46bb-83dc-b155309ea00f).
 2. **Harden the parse for real layouts** — proper multi-column and table reconstruction, then the
    densest `hard.pdf` brochure pages. Biggest generalization risk.
 3. **Strengthen semantic fidelity beyond deterministic anchors.** The hard gate now catches
