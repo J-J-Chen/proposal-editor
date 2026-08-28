@@ -590,10 +590,10 @@ automatic voice repair; free-form rationales; KB write-back; raw-PDF commits; re
 draft; a second undo system for inserts.
 
 ### 2026-08-27 — UX evolution: one conversational surface (scope-by-selection), onboarding-first suggestions, every review card a conversation
-**Status:** designed & prototyped, validated in a 5-lens design critique — **not yet the shipped
-UI** (the shipped surface is still "The Assistant"). Full narrative + owner reasoning in
+**Status:** Shipped — the current editor surface; evolves the earlier "Assistant pane" direction.
+Validated in a 5-lens design critique. Full narrative + owner reasoning in
 [design-ui.md → Evolution](design-ui.md#evolution-conversational-editing-the-just-ask-direction);
-clickable prototype "Just Ask": <https://claude.ai/code/artifact/2cf2fd0d-c615-46bb-83dc-b155309ea00f>.
+interactive walkthrough "Just Ask": <https://claude.ai/code/artifact/2cf2fd0d-c615-46bb-83dc-b155309ea00f>.
 **Decision:** Evolve the editor UX from the shipped "Assistant pane" ([the 2026-08-26 entry](#2026-08-26--ui-direction-the-assistant-familiar-not-clone-right-pane--calm-review-card))
 into a **single conversational surface** built on five owner-driven pivots: (1) **selection = scope**
 — one persistent ask box; a selected paragraph scopes the edit to it, nothing selected edits the
