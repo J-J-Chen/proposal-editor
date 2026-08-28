@@ -920,7 +920,14 @@ export function Editor() {
   }, []);
 
   const runEdit = useCallback(
-    async (block: Block, instruction: string, grounding?: GroundedRationale) => {
+    async (
+      block: Block,
+      instruction: string,
+      grounding?: GroundedRationale,
+      // The suggestion this edit came from (if any). Passed explicitly (not read from state) so the
+      // async no-op/error branches route feedback correctly even though the closure would be stale.
+      suggestionId?: string | null,
+    ) => {
       setNote(null);
       setConfirm(null);
       const myReq = ++reqRef.current;
@@ -936,13 +943,33 @@ export function Editor() {
 
       if (!result.ok) {
         dispatch({ type: 'CANCEL_THINKING' });
-        setNote({ kind: 'warn', text: result.message });
+        // From a suggestion the pane flips back to the RefinePanel, where `note` (EditPanel-only)
+        // never shows — use a toast so the failure is never silent. The suggestion stays in the
+        // list to retry.
+        if (suggestionId) {
+          setToast(result.message);
+          setActiveSuggestionId(null);
+        } else {
+          setNote({ kind: 'warn', text: result.message });
+        }
         return;
       }
       const after = result.res.newText;
       if (isNoChange(block.text, after)) {
         dispatch({ type: 'CANCEL_THINKING' });
-        setNote({ kind: 'info', text: 'This already looks good — I didn’t find anything to change.' });
+        // A real no-op (e.g. a "be more specific" suggestion with no in-doc facts to cite). From a
+        // suggestion, toast the reason AND resolve it so it leaves the list instead of sitting there
+        // looking broken; from a single-block ask, the inline note is visible in EditPanel.
+        if (suggestionId) {
+          setToast('This already looks good — there’s nothing to change here.');
+          setResolved((prev) => new Set(prev).add(suggestionId));
+          setActiveSuggestionId(null);
+        } else {
+          setNote({
+            kind: 'info',
+            text: 'This already looks good — I didn’t find anything to change.',
+          });
+        }
         return;
       }
 
@@ -1608,7 +1635,7 @@ export function Editor() {
       setActiveSuggestionId(s.id);
       setLastInstruction(s.instruction);
       dispatch({ type: 'SELECT', blockId: s.blockId }); // keeps refineOpen (not a doc click)
-      void runEdit(block, s.instruction, { reason: s.why, evidence: s.evidence });
+      void runEdit(block, s.instruction, { reason: s.why, evidence: s.evidence }, s.id);
     },
     [doc, runEdit],
   );
