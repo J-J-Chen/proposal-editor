@@ -92,7 +92,50 @@ export function EditPanel({
 }) {
   const [freeText, setFreeText] = useState('');
 
-  // ---- rest (nothing selected) ----
+  const header = (
+    <div className="pane-head">
+      <div className="pane-ico">
+        <IconAssistant />
+      </div>
+      <div>
+        <div className="pane-h">
+          {selectedBlock ? (
+            <>
+              Working on: {section ?? 'this section'}
+              <span className="pane-sub">“{echo(selectedBlock.text)}”</span>
+            </>
+          ) : (
+            <>
+              Reviewing a new section
+              {section && <span className="pane-sub">After: {section}</span>}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  // ---- reviewing a change ---- (FIRST, so an inserted section — which has NO selected block —
+  // still shows its review card. A doc-scoped "Add experience" insert lands here with selectedBlock
+  // null; without this ahead of the !selectedBlock guard the pending would be orphaned.)
+  if (pending) {
+    return (
+      <aside className="pane">
+        {onBack && <BackToSuggestions onBack={onBack} />}
+        {header}
+        <DiffView
+          pending={pending}
+          onKeep={onKeep}
+          onDiscard={onDiscard}
+          followUps={followUps}
+          refining={refining}
+          onRefine={onRefine}
+        />
+      </aside>
+    );
+  }
+
+  // ---- rest (nothing selected, nothing pending) ----
   if (!selectedBlock) {
     return (
       <aside className="pane">
@@ -117,21 +160,7 @@ export function EditPanel({
     );
   }
 
-  const header = (
-    <div className="pane-head">
-      <div className="pane-ico">
-        <IconAssistant />
-      </div>
-      <div>
-        <div className="pane-h">
-          Working on: {section ?? 'this section'}
-          <span className="pane-sub">“{echo(selectedBlock.text)}”</span>
-        </div>
-      </div>
-    </div>
-  );
-
-  // ---- thinking ----
+  // ---- thinking ---- (only ever with a selection: an insert composes via kbStatus, not `status`)
   if (status === 'thinking') {
     return (
       <aside className="pane">
@@ -153,24 +182,6 @@ export function EditPanel({
             You asked: {lastInstruction}
           </div>
         )}
-      </aside>
-    );
-  }
-
-  // ---- reviewing a change ----
-  if (pending) {
-    return (
-      <aside className="pane">
-        {onBack && <BackToSuggestions onBack={onBack} />}
-        {header}
-        <DiffView
-          pending={pending}
-          onKeep={onKeep}
-          onDiscard={onDiscard}
-          followUps={followUps}
-          refining={refining}
-          onRefine={onRefine}
-        />
       </aside>
     );
   }

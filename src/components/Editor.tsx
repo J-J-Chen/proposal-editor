@@ -1811,10 +1811,13 @@ export function Editor() {
                     onChoose={chooseSimilar}
                     onBack={closeSimilar}
                   />
-                ) : selectedBlock ? (
+                ) : pending || selectedBlock ? (
+                  // `pending ||` so a doc-scoped insert (no selection) still reaches EditPanel's
+                  // review card; EditPanel renders `pending` ahead of its no-selection guard. The
+                  // header shows the anchor section ("After: RELEVANT EXPERIENCE") when unselected.
                   <EditPanel
                     selectedBlock={selectedBlock}
-                    section={section}
+                    section={selectedBlock ? section : similarSection}
                     status={status}
                     pending={pending}
                     note={note}
