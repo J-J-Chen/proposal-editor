@@ -29,7 +29,11 @@ Start here, then open the docs relevant to your task:
 7. **Log non-obvious decisions** in [docs/decisions.md](docs/decisions.md).
 8. **Port 3111 is reserved** for the shared always-on local test server (one owner, tracking
    `origin/main`) so it's always available to test. Never run `next dev` on 3111 and never kill
-   it — use another port (3112+) for your own dev server.
+   it — use another port (3112+) for your own dev server. **Stop your OWN server by its PID on
+   your port** (`lsof -ti:<yourport> | xargs kill`), NEVER with a name/token pattern:
+   `pkill -f "next dev"`, `pkill -f <portnumber>`, or `pkill -f` on any shared token
+   (`.claude`, `shell-snapshots`, `claude-501`, `/private/tmp`, `node`, `bash`) also match OTHER
+   sessions' processes — including the 3111 server and its watcher — and kill them too.
 9. **Everything through `J-J-Chen`** — all commits/pushes use the personal `J-J-Chen` account
    (repo-local `user.email` = jjchen2019@gmail.com); **no other GitHub identity may appear
    anywhere** (attributions, docs, paths). **Never `gh auth switch` the global account** (it races
