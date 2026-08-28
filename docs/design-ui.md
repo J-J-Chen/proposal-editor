@@ -5,11 +5,11 @@ data/model design). Decisions here are logged in [decisions.md](decisions.md); t
 that produced them is the **"Familiar as Word"** design pitch (interactive mockups + the four
 scored directions): <https://claude.ai/code/artifact/acc75563-5a8d-463f-9fbc-97e8623d4404>.
 
-> **Where the UX is heading:** the shipped surface below ("The Assistant") has since evolved, in
-> design, into a single **conversational** surface where *selection = scope* — see
-> [**Evolution: conversational editing**](#evolution-conversational-editing-the-just-ask-direction)
-> further down. That section is the current design direction (prototyped, not yet the shipped UI);
-> everything else in this doc is the shipped baseline it builds on.
+> **The current editor surface** is a single **conversational** surface where *selection = scope* —
+> see [**Evolution: conversational editing**](#evolution-conversational-editing-the-just-ask-direction)
+> below. "The Assistant" (next section) is the direction it grew from and still supplies the
+> foundation (recognisable-not-identical, the calm stacked card, the token palette); the
+> conversational surface is how those principles are arranged today.
 
 ## Who we're designing for (the driver)
 Older, largely **tech-illiterate** users who live in **Microsoft Word** all day and little else
@@ -23,9 +23,11 @@ missing right-click menu reads as *"broken Word"* instead of "a simpler tool." S
 its **own calm skin** (a blueprint-teal, grounded in the civil-engineering subject — see the token
 palette below), while every *interaction* maps to a Word habit.
 
-## The chosen direction: "The Assistant"
-Of four Word-grounded directions (scored: Word Calm 8.3 · Assistant-on-the-Right 8.2 · Word Classic
-8.0 · Guided Steps 7.5), we lead with a hybrid of the two axis-winners:
+## The foundation: "The Assistant"
+*The first shipped direction — the current [conversational surface](#evolution-conversational-editing-the-just-ask-direction)
+builds directly on it (calm card, visible fidelity, tokens, Word habits).* Of four Word-grounded
+directions (scored: Word Calm 8.3 · Assistant-on-the-Right 8.2 · Word Classic 8.0 · Guided Steps
+7.5), we led with a hybrid of the two axis-winners:
 
 - **Spine — one persistent right-hand Assistant pane.** The single home for every AI moment: the
   quick edit actions, a free-text request, and the stretch "Refine" list all appear there as the
@@ -47,14 +49,14 @@ wizard "Step X of 4" counter and mandatory "Next" gate; margin comment-balloons;
 preview. Desktop-only for the demo.
 
 ## Evolution: conversational editing (the "Just Ask" direction)
-> **Status: designed & prototyped, validated in a design critique — not yet the shipped UI.**
-> Clickable prototype on the real `easy.pdf` raster (every flow live): **"Just Ask"** —
-> <https://claude.ai/code/artifact/2cf2fd0d-c615-46bb-83dc-b155309ea00f>. This supersedes the *pane
-> mechanics* above where they differ; the **principles** (recognisable-not-identical, the calm
-> stacked card, visible fidelity, plain words) are unchanged — this is how they're *arranged*, not
-> a new skin.
+> **This is the current editor surface.** It grew out of "The Assistant" (previous section) as real
+> use exposed the gaps below. Interactive walkthrough on the real `easy.pdf` raster (every flow
+> live): **"Just Ask"** — <https://claude.ai/code/artifact/2cf2fd0d-c615-46bb-83dc-b155309ea00f>. It
+> supersedes the *pane mechanics* of "The Assistant" where they differ; the **principles**
+> (recognisable-not-identical, the calm stacked card, visible fidelity, plain words) are unchanged —
+> this is how they're *arranged*, not a new skin.
 
-"The Assistant" shipped, and real use exposed gaps the owner named. Each pivot below, with the
+"The Assistant" shipped first, and real use exposed gaps the owner named. Each pivot below, with the
 reasoning behind it (owner-driven, 2026-08-27):
 
 **1. The AI was hard to find, and whole-document editing was cornered.** *Owner:* "the AI editing
