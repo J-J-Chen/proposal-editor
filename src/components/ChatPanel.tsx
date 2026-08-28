@@ -13,7 +13,7 @@
 import { useState } from 'react';
 import type { ChatTurn, ProposedEdit } from '@/lib/agent/contract';
 import { DiffBody } from './DiffView';
-import { IconAssistant, IconCheck, IconShield } from './icons';
+import { IconAssistant, IconCheck, IconSearch, IconShield } from './icons';
 
 /** A proposed edit enriched for review: `flagged` (touches a protected entity) + its section. */
 export interface ChatEdit extends ProposedEdit {
@@ -98,6 +98,7 @@ export function ChatPanel({
   batch,
   included,
   onSend,
+  onSimilar,
   onToggleInclude,
   onKeepBatch,
   onDiscardBatch,
@@ -112,6 +113,8 @@ export function ChatPanel({
   /** blockIds currently included in the batch to keep. */
   included: Set<string>;
   onSend: (message: string) => void;
+  /** Open the document-scoped "add experience from a past project" flow (candidate-first, grounded). */
+  onSimilar: () => void;
   onToggleInclude: (blockId: string) => void;
   onKeepBatch: () => void;
   onDiscardBatch: () => void;
@@ -149,10 +152,21 @@ export function ChatPanel({
 
       <div className="chat-log">
         {messages.length === 0 && !batch && status === 'idle' && (
-          <div className="chat-empty">
-            <b>Tell me what you’d like to change.</b> I’ll suggest edits across the whole proposal —
-            you review each one and keep what you like. I won’t change anything until you say so.
-          </div>
+          <>
+            <div className="chat-empty">
+              <b>Tell me what you’d like to change.</b> I’ll suggest edits across the whole proposal —
+              you review each one and keep what you like. I won’t change anything until you say so.
+            </div>
+            <button className="actbtn kb-entry" onClick={onSimilar}>
+              <span className="ai">
+                <IconSearch />
+              </span>
+              <span className="tx">
+                <b>Add experience from a past project</b>
+                <span>Search your firm’s past proposals, then review the paragraph before it’s added</span>
+              </span>
+            </button>
+          </>
         )}
         {messages.map((m, i) => (
           <div key={i} className={`chat-msg ${m.role}`}>

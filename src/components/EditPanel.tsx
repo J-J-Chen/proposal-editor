@@ -68,7 +68,6 @@ export function EditPanel({
   onRefine,
   onCancel,
   onCheck,
-  onSimilar,
   onBack,
 }: {
   selectedBlock: Block | null;
@@ -88,8 +87,6 @@ export function EditPanel({
   onRefine: (text: string) => void;
   onCancel: () => void;
   onCheck: () => void;
-  /** Opens the candidate-first experience search; choosing a result still requires review. */
-  onSimilar: () => void;
   /** Present only during a "Check my proposal" fix — returns to the suggestion list. */
   onBack?: () => void;
 }) {
@@ -202,15 +199,6 @@ export function EditPanel({
           </span>
         </button>
       ))}
-      <button className="actbtn kb-entry" onClick={onSimilar}>
-        <span className="ai">
-          <IconSearch />
-        </span>
-        <span className="tx">
-          <b>Add similar experience</b>
-          <span>Find a real past project, then review the paragraph before adding it</span>
-        </span>
-      </button>
       <div className="freebox">
         <label className="lab" htmlFor="assistant-request">
           Or tell us in your own words

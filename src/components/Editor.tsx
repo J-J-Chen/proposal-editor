@@ -105,6 +105,28 @@ function voiceSamplesFor(doc: Doc, targetId?: string | null): string[] {
   });
 }
 
+/**
+ * Where a document-scoped "Add similar experience" (no paragraph selected) inserts. Appends at the
+ * END of the "Relevant Experience"/Experience section — the block just before the next heading — so
+ * a new experience paragraph joins the existing ones; falls back to the end of the document when
+ * there's no such heading. Returns the anchor Block (its id is the insert's afterId; its text/type
+ * give the compose route nearby context). Heading match is loose: a heading whose text
+ * case-insensitively contains "experience".
+ */
+function resolveInsertTarget(doc: Doc): Block {
+  const blocks = doc.blocks;
+  const headingIdx = blocks.findIndex((b) => b.type === 'heading' && /experience/i.test(b.text));
+  if (headingIdx !== -1) {
+    let end = headingIdx;
+    for (let i = headingIdx + 1; i < blocks.length; i++) {
+      if (blocks[i].type === 'heading') break;
+      end = i;
+    }
+    return blocks[end];
+  }
+  return blocks[blocks.length - 1];
+}
+
 function documentContext(doc: Doc, targetId?: string | null): DocumentContext {
   return {
     docId: doc.id,
@@ -563,6 +585,11 @@ export function Editor() {
     [doc, selectedId],
   );
   const section = doc && selectedId ? sectionOf(doc, selectedId) : null;
+  // "Add similar experience" is document-scoped: with a paragraph selected it anchors after that
+  // block; with nothing selected it anchors at the end of the Experience section (else end of doc).
+  const similarTarget = doc ? (selectedBlock ?? resolveInsertTarget(doc)) : null;
+  const similarSection =
+    doc && similarTarget ? (selectedBlock ? section : sectionOf(doc, similarTarget.id)) : null;
   // Reset the follow-up thread when the proposal under review moves to a different block or clears
   // (Keep/Discard/Undo/reselect). Done during render — React's endorsed "adjust state on change"
   // pattern — keyed on blockId, so a refine turn (new pending, SAME blockId) preserves the thread.
@@ -959,7 +986,7 @@ export function Editor() {
   );
 
   const openSimilar = useCallback(() => {
-    if (!doc || !selectedBlock) return;
+    if (!doc) return; // document-scoped: available with or without a paragraph selected
     reqRef.current++;
     chatReqRef.current++;
     setActiveSuggestionId(null);
@@ -971,7 +998,7 @@ export function Editor() {
     setKbPicked(null);
     setKbStatus('idle');
     setSimilarOpen(true);
-  }, [doc, selectedBlock]);
+  }, [doc]);
 
   const closeSimilar = useCallback(() => {
     kbReqRef.current++;
@@ -1023,8 +1050,9 @@ export function Editor() {
 
   const chooseSimilar = useCallback(
     async (candidate: KbCandidate) => {
-      if (!doc || !selectedBlock || kbStatus !== 'idle') return;
-      const target = selectedBlock;
+      if (!doc || kbStatus !== 'idle') return;
+      // Doc-scoped when nothing is selected: anchor at the end of the Experience section.
+      const target = selectedBlock ?? resolveInsertTarget(doc);
       const baseCursor = state.cursor;
       const myReq = ++kbReqRef.current;
       setKbPicked(candidate.candidateId);
@@ -1753,7 +1781,6 @@ export function Editor() {
                   onRefine={onRefine}
                   onCancel={onCancel}
                   onCheck={runScan}
-                  onSimilar={openSimilar}
                   onBack={backToSuggestions}
                 />
               ) : (
@@ -1772,10 +1799,10 @@ export function Editor() {
               // ---- Ask for a change tab: one conversational surface, selection = scope. ----
               <>
                 <ScopeBar selectedBlock={selectedBlock} onClear={deselect} />
-                {similarOpen && selectedBlock && status === 'idle' && !pending ? (
+                {similarOpen && similarTarget && status === 'idle' && !pending ? (
                   <SimilarExperiencePanel
-                    target={selectedBlock}
-                    section={section}
+                    target={similarTarget}
+                    section={similarSection}
                     candidates={kbCandidates}
                     status={kbStatus}
                     selectedCandidateId={kbPicked}
@@ -1800,7 +1827,6 @@ export function Editor() {
                     onRefine={onRefine}
                     onCancel={onCancel}
                     onCheck={runScan}
-                    onSimilar={openSimilar}
                   />
                 ) : (
                   <ChatPanel
@@ -1809,6 +1835,7 @@ export function Editor() {
                     batch={chatBatch}
                     included={chatIncluded}
                     onSend={sendChat}
+                    onSimilar={openSimilar}
                     onToggleInclude={toggleChatInclude}
                     onKeepBatch={keepChatBatch}
                     onDiscardBatch={discardChatBatch}
