@@ -917,6 +917,10 @@ button {
   border: 1px solid var(--newbox-border);
   border-radius: 12px;
   overflow: hidden;
+  /* A flex item with overflow:hidden gets an automatic min-size of 0, so inside the pane's
+     scrollable flex column it would compress and clip its own content. Pin it to natural height
+     and let the pane scroll instead. */
+  flex-shrink: 0;
   box-shadow: var(--shadow-pane);
 }
 .rc-head {
@@ -1198,6 +1202,9 @@ button {
   border: 1px solid var(--border);
   border-radius: 11px;
   overflow: hidden;
+  /* Natural height, not compressed to fit the pane — see the .rcard note above. Otherwise a full
+     list of suggestions shrinks each card and clips its "why" text. */
+  flex-shrink: 0;
 }
 .refcard-body {
   display: block;
