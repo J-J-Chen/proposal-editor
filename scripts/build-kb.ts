@@ -198,4 +198,3 @@ process.stdout.write(
     `${FIRM_VOICE_RULES.length} voice rules/${FIRM_STYLE_EXAMPLES.length} style examples ` +
     `(${voiceCitationCount} evidence citations) across exactly five PDFs\n`,
 );
-
