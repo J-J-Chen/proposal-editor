@@ -2328,3 +2328,13 @@ div.recent {
   background: var(--accent-tint);
   border-color: var(--newbox-border);
 }
+/* The same control over the Original-PDF overlay, so a changed section carries its per-section undo
+   on that tab too (the app's default view). Regions are tight bboxes with no margin (unlike the
+   document view's blocks), so lift the pill clear of the region's top edge — its bottom just touches
+   the region so it still reads as attached, but it never masks the changed text on a short block.
+   z-index clears the neighbouring region overlays. */
+.sec-ctl.on-orig {
+  top: -23px;
+  right: 2px;
+  z-index: 6;
+}

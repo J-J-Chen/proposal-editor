@@ -1780,6 +1780,8 @@ export function Editor() {
                 pulseId={highlightId ?? state.lastChangedId}
                 peekId={peekId}
                 editedText={editedText}
+                sectionControls={sectionControls}
+                onSectionStep={sectionStep}
                 blobUrl={activeBlobUrl}
                 onSelect={onSelect}
                 onBackgroundClick={deselect}
