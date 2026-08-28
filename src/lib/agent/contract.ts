@@ -36,7 +36,7 @@ export interface ChatRequest {
 /**
  * One proposed per-block edit — the same shape the review card (DiffView) already consumes,
  * so the FE can map each straight onto a Pending. `instruction` is the per-block instruction
- * the planner assigned (drives DiffView's "You asked: …"). PROPOSED only — never applied here.
+ * the planner assigned (carried onto the resulting Pending). PROPOSED only — never applied here.
  */
 export interface ProposedEdit {
   blockId: string;

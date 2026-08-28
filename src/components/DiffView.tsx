@@ -192,7 +192,6 @@ export function DiffView({
         <div className="t">
           {addition ? 'Here is the experience to add' : 'Here is the suggested change'}
         </div>
-        <div className="asked">You asked: {pending.instruction}.</div>
       </div>
 
       <DiffBody
