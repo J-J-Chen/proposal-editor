@@ -95,7 +95,6 @@ export function RefinePanel({
                 <span className={`rf-cat ${s.category}`}>{CAT_LABEL[s.category]}</span>
                 <span className="rf-title">{s.title}</span>
                 <span className="rf-why">{s.why}</span>
-                <span className="rf-where">Hover to see this part · click to jump to it</span>
               </button>
               <div className="rf-act">
                 <button className="mini-keep" onClick={() => onFix(s)}>
