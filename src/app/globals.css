@@ -341,7 +341,144 @@ button {
   margin-top: 30px;
 }
 
-/* ---------------- assistant pane ---------------- */
+/* ---------------- assistant pane (two tabs: Suggestions | Ask for a change) ---------------- */
+/* The right column now holds a persistent tab bar + (on Ask) a scope bar above the active pane.
+   .asst-col owns the width + left border; the inner .pane fills the rest and scrolls. */
+.asst-col {
+  width: clamp(340px, 23vw, 440px);
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--panel);
+  border-left: 1px solid var(--border);
+}
+.asst-col > .pane {
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  border-left: 0;
+}
+/* Suggestions carries an amber "attention" identity so it never reads as the same thing as chat. */
+.asst-col.suggestions > .pane {
+  background: #fbf7ec;
+}
+.asst-tabs {
+  display: flex;
+  gap: 2px;
+  flex: none;
+  padding: 0 8px;
+  background: #fff;
+  border-bottom: 1px solid var(--border);
+}
+.asst-tab {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 0;
+  background: transparent;
+  padding: 13px 10px 11px;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--muted);
+  border-bottom: 2.5px solid transparent;
+  cursor: pointer;
+}
+.asst-tab svg {
+  width: 15px;
+  height: 15px;
+}
+.asst-tab:hover {
+  color: var(--ink);
+}
+.asst-tab.sug.on {
+  color: var(--amber);
+  border-bottom-color: var(--amber);
+}
+.asst-tab.ask.on {
+  color: var(--accent-deep);
+  border-bottom-color: var(--accent);
+}
+.asst-count {
+  background: var(--amber);
+  color: #fff;
+  border-radius: 20px;
+  padding: 0 7px;
+  font-size: 11px;
+  font-weight: 700;
+}
+/* Scope bar — says loudly what the next Ask will touch (selection = scope). */
+.scopebar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 12px 14px 0;
+  padding: 9px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  background: var(--accent-tint);
+  color: var(--accent-deep);
+  border: 1px solid #cfe1e7;
+}
+.scopebar .sb-ico {
+  font-size: 15px;
+  flex: none;
+}
+.scopebar b {
+  font-weight: 700;
+}
+.scopebar .sb-txt {
+  flex: none;
+}
+.scopebar .sb-ex {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-style: italic;
+  font-family: var(--font-doc);
+  opacity: 0.72;
+}
+.scopebar .sb-hint {
+  opacity: 0.62;
+  font-size: 12px;
+}
+.scopebar .sb-x {
+  margin-left: auto;
+  flex: none;
+  border: 1px solid #cfe1e7;
+  background: #fff;
+  color: var(--accent-deep);
+  border-radius: 20px;
+  padding: 5px 11px;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.scopebar .sb-x:hover {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+/* Per-card refine row in the whole-doc batch (parity with the single edit's FollowUp). */
+.bc-refine {
+  margin-top: 10px;
+  border-top: 1px dashed var(--border);
+  padding-top: 9px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.bc-refine-lab {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
 .pane {
   /* Fluid but restrained: the pane holds an intro + a couple of controls, so a wide column just
      reads as empty. Keep it a real sidebar (≈320–420px) across the desktop range; the ≤820px
@@ -1737,11 +1874,19 @@ div.recent {
   .page {
     padding: 32px 22px;
   }
+  .asst-col {
+    width: 100%;
+    border-left: none;
+    border-top: 1px solid var(--border);
+  }
   .pane {
     width: 100%;
     border-left: none;
     border-top: 1px solid var(--border);
     overflow-y: visible;
+  }
+  .asst-col > .pane {
+    border-top: 0;
   }
   .titlebar {
     flex-wrap: wrap;

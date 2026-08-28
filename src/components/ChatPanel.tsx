@@ -36,6 +36,62 @@ const EXAMPLES = [
   'Fix any passive voice',
 ];
 
+const REFINE_CHIPS = ['Shorter', 'More formal', 'Simpler'];
+
+/**
+ * The per-card "tell me how to adjust it" row — the batch-review parity with the single edit's
+ * FollowUp. Re-asks the model for just this block's wording and swaps it in place, so reviewing a
+ * whole-doc change is a back-and-forth, not a take-it-or-leave-it.
+ */
+function BatchRefine({
+  blockId,
+  refining,
+  onRefineEdit,
+}: {
+  blockId: string;
+  refining: boolean;
+  onRefineEdit: (blockId: string, phrase: string) => void;
+}) {
+  const [text, setText] = useState('');
+  const submit = (raw?: string) => {
+    const t = (raw ?? text).trim();
+    if (!t || refining) return;
+    onRefineEdit(blockId, t);
+    setText('');
+  };
+  return (
+    <div className="bc-refine">
+      <div className="bc-refine-lab">Not quite right? Tell me how to adjust this one:</div>
+      <div className="fu-row">
+        <input
+          className="fu-input"
+          value={text}
+          disabled={refining}
+          aria-label="Ask for an adjustment to this change"
+          placeholder="e.g. one sentence shorter"
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              submit();
+            }
+          }}
+        />
+        <button className="fu-send" onClick={() => submit()} disabled={refining || !text.trim()}>
+          {refining ? 'Adjusting…' : 'Adjust'}
+        </button>
+      </div>
+      <div className="chips">
+        {REFINE_CHIPS.map((c) => (
+          <button key={c} className="chip" type="button" disabled={refining} onClick={() => submit(c)}>
+            {c}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function ChatPanel({
   messages,
   status,
@@ -47,6 +103,8 @@ export function ChatPanel({
   onDiscardBatch,
   onClose,
   onPeek,
+  onRefineEdit,
+  refiningEdits,
 }: {
   messages: ChatTurn[];
   status: 'idle' | 'thinking';
@@ -60,6 +118,10 @@ export function ChatPanel({
   onClose: () => void;
   /** Reveal a block in the document while hovering its batch card. */
   onPeek: (blockId: string | null) => void;
+  /** Refine one card's wording in place (the batch parity with the single-edit FollowUp). */
+  onRefineEdit: (blockId: string, phrase: string) => void;
+  /** blockIds whose card is mid-refine. */
+  refiningEdits: Set<string>;
 }) {
   const [text, setText] = useState('');
   const send = () => {
@@ -148,6 +210,13 @@ export function ChatPanel({
                   </div>
                 )}
                 <DiffBody before={e.before} after={e.after} protectedKept={e.protectedKept} />
+                {on && (
+                  <BatchRefine
+                    blockId={e.blockId}
+                    refining={refiningEdits.has(e.blockId)}
+                    onRefineEdit={onRefineEdit}
+                  />
+                )}
               </div>
             );
           })}
