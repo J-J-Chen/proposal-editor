@@ -2,7 +2,17 @@
 // API CONTRACTS — request/response shapes shared by frontend + route handlers.
 // Colocated so both sides import the same types. FROZEN (coordinate to change).
 // ─────────────────────────────────────────────────────────────────────────────
-import type { Block, BlockType, Doc } from './types';
+import type { Block, BlockType, Doc, KbProvenance } from './types';
+
+export interface DocumentContext {
+  headings: string[];
+  firm?: string;
+  docId?: string;
+  /** Short excerpts sampled from the current document, used to match its local voice. */
+  voiceSamples?: string[];
+  /** Optional compact whole-document context for callers that already have it available. */
+  docText?: string;
+}
 
 // POST /api/parse — browser hashes the file, sends the hash (+ uploads bytes on cache miss).
 // Track A (parse) owns the real implementation; Phase-0 stub returns the fixture Doc.
@@ -20,11 +30,18 @@ export interface ParseResponse {
 export interface EditRequest {
   block: { id: string; text: string; type: BlockType };
   instruction: string; // a quick-action ("tighten") or free-text ask
-  docContext?: { headings: string[]; firm?: string };
+  /** Raw human ask used by the hard fact gate when `instruction` also contains reference data. */
+  authoritativeInstruction?: string;
+  /** Original document wording; facts here may return only for an explicit restore/put-back ask. */
+  referenceText?: string;
+  docContext?: DocumentContext;
   kbContext?: string[]; // CP6: retrieved KB snippets to ground the edit
 }
 export interface EditResponse {
   newText: string;
+  /** Model-authored description of the edit; never evidence or a grounded "why". */
+  changeSummary?: string;
+  /** Legacy response field retained while old caches/snapshots age out. */
   rationale?: string;
 }
 
@@ -33,17 +50,38 @@ export interface KbSearchRequest {
   query: string;
   discipline?: string;
   k?: number;
+  docId?: string;
+  excludeSourceDoc?: string;
 }
 export interface KbCandidate {
-  snippetId: string;
+  /** Opaque server-issued handle. The browser sends only this id when composing. */
+  candidateId: string;
+  /** Legacy corpus id, if supplied by an older search implementation. */
+  snippetId?: string;
   sourceDoc: string;
+  sourceTitle: string;
   page: number;
   title: string;
   text: string;
+  quote?: string;
   score: number;
+  discipline: string;
 }
 export interface KbSearchResponse {
   candidates: KbCandidate[];
+}
+
+export interface KbComposeRequest {
+  candidateId: string;
+  target: { id: string; text: string; type: BlockType; page: number };
+  docContext: DocumentContext;
+}
+
+export interface KbComposeResponse {
+  newText: string;
+  candidate: KbCandidate;
+  provenance: KbProvenance;
+  fallbackUsed: boolean;
 }
 
 // POST /api/suggest — the proactive editorial "Refine" pass (Track G / CP7). This track owns it.
@@ -67,6 +105,8 @@ export interface LlmSuggestion {
 
 export interface SuggestRequest {
   doc: Doc; // the parsed Doc (doc.id = content hash → the per-doc cache key)
+  /** Asserted fixture identity + bounded local voice samples, shared with every other edit path. */
+  docContext?: DocumentContext;
 }
 export interface SuggestResponse {
   suggestions: LlmSuggestion[];

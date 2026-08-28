@@ -27,8 +27,7 @@ const QUICK_ACTIONS = [
   { instruction: 'Make it more formal', desc: 'Change how it sounds', Icon: IconFormal },
 ] as const;
 
-// Examples must never invite the model to invent facts (no "add our bridge experience" — there's
-// no KB behind it, so it would fabricate). These only reshape the block's own words.
+// Free-text examples only reshape the block's own words. Experience is a separate, grounded flow.
 const EXAMPLES = ['Make it more formal', 'Make the tone more confident', 'Say this more simply'];
 
 function echo(text: string): string {
@@ -69,6 +68,7 @@ export function EditPanel({
   onRefine,
   onCancel,
   onCheck,
+  onSimilar,
   onBack,
 }: {
   selectedBlock: Block | null;
@@ -88,6 +88,8 @@ export function EditPanel({
   onRefine: (text: string) => void;
   onCancel: () => void;
   onCheck: () => void;
+  /** Opens the candidate-first experience search; choosing a result still requires review. */
+  onSimilar: () => void;
   /** Present only during a "Check my proposal" fix — returns to the suggestion list. */
   onBack?: () => void;
 }) {
@@ -200,6 +202,15 @@ export function EditPanel({
           </span>
         </button>
       ))}
+      <button className="actbtn kb-entry" onClick={onSimilar}>
+        <span className="ai">
+          <IconSearch />
+        </span>
+        <span className="tx">
+          <b>Add similar experience</b>
+          <span>Find a real past project, then review the paragraph before adding it</span>
+        </span>
+      </button>
       <div className="freebox">
         <label className="lab" htmlFor="assistant-request">
           Or tell us in your own words

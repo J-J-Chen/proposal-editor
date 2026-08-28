@@ -418,7 +418,9 @@ request (planner + edits + repairs share one budget; edits spent before repairs;
 are skipped, not made), plus input bounds enforced in the route (message ≤ 4000 chars → 400;
 blocks[] ≤ 300 → 400) and history trimming (≤ 20 turns / ≤ 8000 chars). Per-turn edits lowered
 16 → 8. Truncation is surfaced in the reply ("focused on N sections — ask me to continue"), never
-silent. Dormant on main (no FE), landed for wave-2, no deploy.
+silent. SDK transport retries are disabled and proxy calls time out at 25 seconds, so the call
+budget counts actual proxy attempts and a stalled KB compose can still reach its deterministic
+fallback before the route deadline. Dormant on main (no FE), landed for wave-2, no deploy.
 **Why:** A public endpoint that can be induced into dozens of paid model calls per request is the
 real risk; the ceiling caps worst-case spend/request at ~⅓ of before regardless of what the planner
 returns. Edits-before-repairs keeps coverage (the entity gate still flags any unrepaired drop).
@@ -505,9 +507,10 @@ the draft in place. Built entirely on the frontend: every refine turn is one mor
 call, and the result swaps into the existing `pending` reducer slot via `SET_PENDING`. Keep already
 applies whatever `pending.after` holds, so a whole original→refined-N-times session lands as ONE
 undo entry. A refine turn sends the CURRENT draft as the block text (so "shorter" shortens the
-latest wording) but carries the ORIGINAL in the instruction as reference (so "put the name back"
-can restore a dropped entity). The entity gate re-runs every turn against the ORIGINAL, never the
-intermediate draft.
+latest wording) and carries the ORIGINAL in the dedicated, separately labeled `referenceText`
+field (so "put the name back" can restore a dropped entity without inflating the instruction).
+The raw follow-up is capped at 1,800 characters, remains the only factual authority, and the entity
+gate re-runs every turn against the ORIGINAL, never the intermediate draft.
 **Why:** the tight per-paragraph loop the brief centers on — a consultant refining one section — was
 a dead end (Keep or Discard only). Reusing the propose-only holder keeps undo, the diff baseline,
 and the entity guardrail correct for free, with no backend or contract change to coordinate.
@@ -517,3 +520,71 @@ with a conversation/history field (per-block editor is single-turn by design; ch
 original-as-reference covers the real refinement asks without a contract change); dispatching
 START_THINKING per turn (it wipes `pending` and the diff vanishes — a local `refining` flag keeps
 the card on screen instead).
+
+### 2026-08-27 — Complete KB = exactly five examples, candidate-first, with one facts boundary
+**Decision:** Replace the provisional easy/hard-derived KB with a fixed, read-only corpus distilled
+from **exactly** the five provided `ExampleProposals/kb` PDFs. `easy.pdf` and `hard.pdf` remain
+edit/eval fixtures and are rejected by the KB audit. The committed module contains 17 hand-reviewed
+projects and 50 exact page-bound citations; raw PDFs, local paths, hashes, and the misleading
+`001-…` proposal-cover ids are excluded. `scripts/build-kb.ts` re-extracts the allowlisted files and
+proves every citation against its stated page.
+
+**Decision (interaction):** “Add similar experience” is explicit and candidate-first. Zero-token
+keyword retrieval shows a verbatim quote, source proposal, and page. Only after the human chooses a
+candidate does compose run; the browser sends only an opaque id, which the server resolves back to
+one reviewed record. Public `/api/edit` may not assert `kbContext`. Compose returns an all-add
+pending review, and only Keep creates the existing `insert` EditOp with `source: 'kb'`; provenance
+survives hydration and insertion Undo/Redo. A later rewrite clears the block badge because the
+original quote no longer proves the live paragraph; the replace op records that provenance change,
+so Undo restores both wording and citation. Discard cannot change history.
+
+**Decision (voice/facts):** Store exact voice evidence for audit, but expose only versioned,
+fact-free directives and delexicalized examples to prompts. One resolver/compiler supplies direct
+edits, Refine, chat plan/draft/repair, and KB compose. A positive firm match selects the MECO
+profile; unknown uploads use bounded excerpts from themselves. Project facts are separate and enter
+generation only after the explicit candidate selection above—ordinary edits never receive them.
+
+**Decision (hard boundary + fallback):** Every `runEdit` result passes a deterministic,
+occurrence-counted gate for unauthorized dropped/introduced protected entities, digit-bearing
+facts, engineering identifiers/units, short technical distinctions, likely multi-word proper
+names, and single-token clients/places in explicit factual contexts. Unambiguous category shorthand such as “change the year to 2024” is accepted only for a
+one-old-value/one-explicit-new-value pair. The human instruction—not a chat planner's generated
+instruction—is the authority for factual changes. Follow-up edits likewise send the raw human ask
+as the gate authority while keeping original wording only as quoted model reference; quoted control
+verbs are treated as data. Exception phrases remain binding across add/drop/restore requests. The
+gate also protects spelled quantities, print-style inch/foot marks, quoted one-letter types,
+hyphenated/possessive names, and single-token place subjects in factual sentence openings. Compact
+PDF notation accepts equivalent explicit instructions such as “30 inches,” while a fact used only
+to identify surrounding wording is not itself mutation authority. KB compose adds exact
+selected-project identity and per-fact lexical coverage. Any proxy error or gate miss returns the
+deterministic paragraph
+built only from the reviewed record; there is no retry or runtime judge. Voice drift remains an
+advisory because a false-positive style blocker would discard valid requested edits; qualitative
+entailment is documented as outside what regex can prove.
+
+**Decision (rationales):** Separate “what changed” from “why trust it.” Model-authored output is a
+`changeSummary` only. Grounding is structured: deterministic Refine reason + verbatim document
+evidence, or KB reason + exact quote/source/page. Free-form model justification is never treated as
+evidence.
+
+**Why:** This closes the brief's KB example while keeping the factual authority small enough to
+audit. Human choice prevents cross-project retrieval errors from becoming prose; server resolution
+prevents client-tampered facts; the fallback makes failure safe and demoable without AI. The shared
+voice seam prevents one editing path from drifting while protecting unknown firms from MECO
+contamination.
+
+**Decision (applicability + spend boundary):** Repeated firm-name mentions are insufficient to
+select the firm voice when the document identifies that firm as a subconsultant; unasserted uploads
+also need the legal alias as the direct subject of a proposal/qualifications authorship or submission
+relationship. Preparing a design, drawing, or portion that appears in another firm's proposal does
+not qualify. All public generation inputs share hard shape,
+per-field, and aggregate caps for blocks, ids, instructions, headings, document text, voice samples,
+and chat history before any model call. Search applies raw-length caps before trimming. This keeps
+unknown firms isolated and per-request prompt/spend bounded without adding auth or a database.
+The Refine request carries the same validated document context as direct edit/chat, so the two
+bundled MECO fixtures use the reviewed profile instead of falling back to document-local samples.
+
+**Rejected:** easy/hard as KB sources; automatic fact injection into ordinary edits; free-text
+auto-arming; browser-round-tripped facts; embeddings/vector DB for 17 records; model-as-judge or
+automatic voice repair; free-form rationales; KB write-back; raw-PDF commits; retrying an unsafe KB
+draft; a second undo system for inserts.

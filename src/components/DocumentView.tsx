@@ -1,4 +1,5 @@
 /** Track B — the document: the block model rendered as a clean page on the grey canvas. */
+import { Fragment } from 'react';
 import type { Doc } from '@/lib/types';
 import { BlockView } from './BlockView';
 
@@ -35,18 +36,29 @@ export function DocumentView({
     >
       <article className="page" aria-label={doc.filename}>
         {doc.blocks.map((b) => (
-          <BlockView
-            key={b.id}
-            block={b}
-            selected={b.id === selectedId}
-            dim={false}
-            pulse={b.id === pulseId}
-            peek={b.id === peekId}
-            isTitle={b.id === titleId}
-            sectionControl={sectionControls[b.id] ?? null}
-            onSectionStep={onSectionStep}
-            onSelect={onSelect}
-          />
+          <Fragment key={b.id}>
+            <BlockView
+              block={b}
+              selected={b.id === selectedId}
+              dim={false}
+              pulse={b.id === pulseId}
+              peek={b.id === peekId}
+              isTitle={b.id === titleId}
+              sectionControl={sectionControls[b.id] ?? null}
+              onSectionStep={onSectionStep}
+              onSelect={onSelect}
+            />
+            {b.provenance && (
+              <div
+                className="kb-provenance-badge"
+                aria-label={`Experience source: ${b.provenance.sourceTitle}, page ${b.provenance.page}`}
+                onClick={(event) => event.stopPropagation()}
+              >
+                <span>Experience source</span>
+                {b.provenance.sourceTitle} · page {b.provenance.page}
+              </div>
+            )}
+          </Fragment>
         ))}
       </article>
     </div>

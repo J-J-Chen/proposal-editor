@@ -8,6 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
+    "test:kb": "node --import ./scripts/_register.mjs scripts/test-kb.ts",
+    "kb:audit": "node --import ./scripts/_register.mjs scripts/build-kb.ts",
     "seed": "node --import ./scripts/_register.mjs --env-file=.env.local scripts/seed-parse.ts",
     "seed:renders": "node --import ./scripts/_register.mjs scripts/seed-renders.ts",
     "seed:layout": "node --import ./scripts/_register.mjs scripts/seed-layout.ts"

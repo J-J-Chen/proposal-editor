@@ -1,6 +1,35 @@
 # Checkpoint 6 — KB Grounding (stretch)
 
-> **STATUS — PARTIAL.** `src/kb/` (`voice.ts`/`facts.ts`) exists and powers the firm voice card + Refine voice sourcing; the "Add similar experience" insert UI is **not** shipped. Design below.
+> **STATUS — IMPLEMENTED LOCALLY (2026-08-27); deployment verification remains.** The full
+> candidate-first search → compose → all-add review → insert/undo flow is built. The fixed corpus
+> contains 17 reviewed projects from **exactly the five provided KB examples**; `easy.pdf` and
+> `hard.pdf` are explicitly excluded. Design rationale is preserved below; this implementation
+> note supersedes older filenames/shapes in the original sketch.
+
+### Implementation record
+
+- `src/kb/corpus.ts` is the committed data module: five source descriptors, 17 projects, and 50
+  exact page-bound citations. `scripts/build-kb.ts` re-extracts only the five allowlisted PDFs and
+  fails on any unmatched quote, extra PDF, absolute path, hash, `easy.pdf`/`hard.pdf`, or `001-…`
+  proposal-cover id. Raw PDFs are not committed.
+- `src/kb/voice.ts` holds six evidence-backed rules and six prompt-facing **delexicalized** style
+  examples. One resolver/compiler feeds direct edits, Refine, chat plan/draft/repair, and KB compose;
+  unknown uploads receive their own bounded samples instead of inheriting MECO voice.
+- `POST /api/kb/search` performs deterministic weighted keyword retrieval. Candidate cards expose
+  a verbatim quote, source, and page before generation. `POST /api/kb/compose` accepts only the
+  chosen id and resolves facts server-side; public `/api/edit` cannot supply authoritative KB facts.
+- `runEdit` hard-rejects unauthorized dropped/introduced protected entities, digit-bearing facts,
+  and likely multi-word proper names. KB compose adds selected-project coverage and returns a
+  deterministic source-only paragraph on any AI or gate failure.
+- The result enters the ordinary pending review as an all-add diff. Keep appends the existing
+  `insert` op with `source: 'kb'`; Discard is a no-op; Undo/Redo preserve provenance. Inserted
+  blocks display a source/page badge until a later rewrite clears the stale citation; Undo restores
+  it with the cited wording.
+- Grounding is structured and attributable. Refine uses a deterministic reason plus a verbatim
+  document span; KB insert uses the reviewed quote plus source/page. Model-authored prose is stored
+  only as `changeSummary`, never presented as the reason.
+- Validation: `npm run test:kb`, typecheck, lint, production build, reducer insert/undo/redo smoke,
+  and the five-PDF offline citation audit all pass.
 
 **Goal:** ground edits in the firm's past work. The brief's literal example — *"add a
 paragraph about a past project we did"* — should pull **real** content from the `kb/` corpus,
@@ -93,16 +122,16 @@ ingest 5 kb/*.pdf via the CP2 parser              user: "＋ Add similar experie
   → mine the firm voice card + format exemplars    keyword-overlap over imported chunks[] (in-mem,
   │                                                 ZERO tokens) → candidate cards w/ source line
   ▼                                                     │   human picks ONE
-src/kb/index.json  (committed to git)                   ▼   compose: LLM in-voice (default)
-  chunks[] + voiceCard + exemplars                       │   → fidelity net → template on fail
+src/kb/corpus.ts + voice.ts (committed)                 ▼   compose: LLM in-voice (default)
+  projects[] + voice rules/examples                      │   → fidelity net → template on fail
   no DB · no embeddings · no vector store · no BM25       ▼
   stats · no runtime ingest                          insert-after as a new block (reserved 'insert'
                                                      op) · all-add diff · provenance on block +
                                                      history entry · undo removes it
 ```
 
-- **Fixed, committed index.** The KB is a fixed, read-only 5-doc corpus → a bundled
-  `src/kb/index.json`, versioned in git. No DB, no runtime ingest.
+- **Fixed, committed index.** The KB is a fixed, read-only 5-doc corpus → bundled TypeScript data
+  under `src/kb/`, versioned in git. No DB, no runtime ingest.
 - **Ingest is programmatic + hand-verified.** Reuse the CP2 hybrid parser to extract, then
   **hand-verify the field bindings** (the corpus is small and fact-fidelity matters more than
   full automation). Defensible in code review: *"ingestion is programmatic; I verified bindings
@@ -173,7 +202,7 @@ through `applyOp`/`invertOp`, undo removes the block. No parallel undo mechanism
   `$1,075,770.35` + Marion County Commission client all co-located on one clean page.
 
 ## Build steps (ordered; only after the gate)
-1. **Ingest → `src/kb/index.json`** (M, offline): parse the 5 docs via CP2, hand-verify field
+1. **Ingest → `src/kb/corpus.ts`** (M, offline): parse the 5 docs via CP2, hand-verify field
    bindings, mine `voiceCard` + `formatExemplars`, leave `projectNumber` unset. Commit the JSON.
 2. **`POST /api/kb/search`** (S, runtime): keyword-overlap top-k + coarse discipline filter, zero
    tokens. Smoke-test on real queries.
@@ -219,12 +248,12 @@ through `applyOp`/`invertOp`, undo removes the block. No parallel undo mechanism
 
 ## Deferred → README ("what I'd build next")
 - **Live / user-uploaded KB.** v1 assumes a fixed, read-only 5-doc corpus served from a committed
-  JSON index. Runtime upload would force a heavier path (Blob + first-run parse) — a deliberate,
+  data module. Runtime upload would force a heavier path (Blob + first-run parse) — a deliberate,
   noted deferral, not an oversight.
 - Export edited doc back to PDF/DOCX · graceful `hard.pdf` · multi-paragraph chat.
 
 ## Done when
-A KB-type ask inserts a **real** past-project paragraph — in MECO's voice, every entity verbatim,
-with visible provenance — into `easy.pdf` on the **deployed** app, and undo removes it cleanly.
-Demo: *"a bridge we've done"* → pick Taylor Bridge → insert under "Representative Project" with
-the real `$1,075,770.35` and Marion County client + a source line.
+The implementation acceptance is green locally: *“a bridge we've done”* → pick Taylor Bridge →
+review an attributable paragraph containing the real `$1,075,770.35` and Marion County client →
+Keep inserts it with a source badge → Undo removes it → Redo restores it. The remaining release
+step is to deploy this revision and repeat that browser click-through against the live app.

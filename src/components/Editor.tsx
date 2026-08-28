@@ -7,17 +7,26 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
-import type { Block, Doc, HistoryEntry } from '@/lib/types';
+import type { Block, Doc, GroundedRationale, HistoryEntry, KbProvenance } from '@/lib/types';
+import type { DocumentContext, KbCandidate } from '@/lib/contracts';
 import {
   canRedo,
+  canKeepPending,
   canUndo,
   editorReducer,
   initialEditorState,
-  opBlockId,
   sectionOf,
   type Pending,
 } from '@/state/editor';
-import { parseByHash, parseByUpload, parseByBlobUrl, requestEdit, requestSuggestions } from '@/lib/client';
+import {
+  parseByHash,
+  parseByUpload,
+  parseByBlobUrl,
+  requestEdit,
+  requestKbCompose,
+  requestKbSearch,
+  requestSuggestions,
+} from '@/lib/client';
 import {
   loadRecents,
   touchRecent,
@@ -34,6 +43,7 @@ import { isNoChange } from '@/lib/text/diff';
 import { DocumentView } from './DocumentView';
 import { PageView } from './PageView';
 import { EditPanel } from './EditPanel';
+import { SimilarExperiencePanel } from './SimilarExperiencePanel';
 import { ChangesPanel, StatusBar, Titlebar, type ChangeItem } from './AppChrome';
 import { RefinePanel } from './RefinePanel';
 import { ChatPanel, type ChatBatch, type ChatEdit } from './ChatPanel';
@@ -72,6 +82,45 @@ function firmFor(docId: string): string | undefined {
   return SAMPLES.some((s) => s.hash === docId) ? FIRM : undefined;
 }
 
+/** Sample nearby, substantive prose so every writing path can match the open document's voice. */
+function voiceSamplesFor(doc: Doc, targetId?: string | null): string[] {
+  const targetIndex = targetId ? doc.blocks.findIndex((block) => block.id === targetId) : -1;
+  const prose = doc.blocks
+    .map((block, index) => ({ block, index }))
+    .filter(
+      ({ block }) =>
+        block.text.trim().length >= 60 &&
+        (block.type === 'paragraph' || block.type === 'list-item' || block.type === 'caption'),
+    )
+    .sort((a, b) => {
+      if (targetIndex < 0) return a.index - b.index;
+      const aTarget = a.block.id === targetId ? 1 : 0;
+      const bTarget = b.block.id === targetId ? 1 : 0;
+      return aTarget - bTarget || Math.abs(a.index - targetIndex) - Math.abs(b.index - targetIndex);
+    });
+
+  return prose.slice(0, 4).map(({ block }) => {
+    const clean = block.text.trim().replace(/\s+/g, ' ');
+    return clean.length > 600 ? `${clean.slice(0, 600).trimEnd()}…` : clean;
+  });
+}
+
+function documentContext(doc: Doc, targetId?: string | null): DocumentContext {
+  return {
+    docId: doc.id,
+    headings: doc.blocks.filter((block) => block.type === 'heading').map((block) => block.text),
+    firm: firmFor(doc.id),
+    voiceSamples: voiceSamplesFor(doc, targetId),
+    // Resolver-only applicability signal. This is never copied into a prompt; it lets an uploaded
+    // MECO proposal resolve the same profile as a bundled one even when the selected block omits
+    // the firm name.
+    docText: doc.blocks
+      .map((block) => block.text)
+      .join('\n')
+      .slice(0, 50_000),
+  };
+}
+
 /**
  * Build the instruction for a follow-up refine turn. The block we send is the CURRENT draft
  * (so "shorter" shortens the latest wording, not the original), but we hand the model the
@@ -79,11 +128,11 @@ function firmFor(docId: string): string | undefined {
  * something an earlier turn dropped. The entity guardrail (system prompt + client gate) does
  * the heavy lifting; this just frames the turn.
  */
-function composeRefineInstruction(original: string, phrase: string): string {
+function composeRefineInstruction(phrase: string): string {
   return (
     `This is a follow-up refinement of an edit already under review. Apply this change to the ` +
     `current draft below, changing only what it asks and keeping the rest of the draft: ${phrase}. ` +
-    `For reference, the original text was:\n"""${original}"""`
+    `The original wording is supplied separately as untrusted reference data.`
   );
 }
 
@@ -387,6 +436,13 @@ export function Editor() {
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const [peekId, setPeekId] = useState<string | null>(null);
   const [suggestLoading, setSuggestLoading] = useState(false);
+  // Candidate-first KB flow. Search results are shown before compose; composed prose becomes a
+  // Pending insert and cannot reach the document until the ordinary Keep action runs.
+  const [similarOpen, setSimilarOpen] = useState(false);
+  const [kbCandidates, setKbCandidates] = useState<KbCandidate[]>([]);
+  const [kbStatus, setKbStatus] = useState<'idle' | 'searching' | 'composing'>('idle');
+  const [kbError, setKbError] = useState<string | null>(null);
+  const [kbPicked, setKbPicked] = useState<string | null>(null);
   // Agentic chat ("Ask the assistant") state.
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatTurn[]>([]);
@@ -396,6 +452,7 @@ export function Editor() {
   const reqRef = useRef(0);
   const suggestReqRef = useRef(0); // guards a stale /api/suggest response from a superseded scan
   const chatReqRef = useRef(0); // guards a stale /api/chat response from a superseded turn
+  const kbReqRef = useRef(0); // guards stale search/compose responses and document switches
   // Recent documents (localStorage) + a guard so autosave never fires before the first restore.
   const [recents, setRecents] = useState<RecentDoc[]>([]);
   const hydratedRef = useRef(false);
@@ -445,9 +502,14 @@ export function Editor() {
   // originalBaseline the Original-PDF overlay uses.
   const sectionControls = useMemo(() => {
     const m: Record<string, 'undo' | 'redo'> = {};
-    if (!doc) return m;
+    if (!doc || kbStatus !== 'idle' || refining) return m;
     const touched = new Set<string>();
-    for (let i = 0; i < state.cursor; i++) touched.add(opBlockId(state.history[i].op));
+    for (let i = 0; i < state.cursor; i++) {
+      const op = state.history[i].op;
+      // Structural insertions use global Undo/Redo. Only actual rewrites have a meaningful
+      // original/edited pair for this per-section toggle.
+      if (op.kind === 'replace') touched.add(op.blockId);
+    }
     for (const b of doc.blocks) {
       if (!touched.has(b.id)) continue;
       // Hide the control while THIS block has a review open — clicking it would silently drop the
@@ -458,11 +520,15 @@ export function Editor() {
       m[b.id] = b.text !== orig ? 'undo' : 'redo';
     }
     return m;
-  }, [doc, originalBaseline, state.history, state.cursor, state.pending]);
+  }, [doc, originalBaseline, state.history, state.cursor, state.pending, kbStatus, refining]);
 
-  const sectionStep = useCallback((blockId: string) => {
-    dispatch({ type: 'SECTION_STEP', blockId });
-  }, []);
+  const sectionStep = useCallback(
+    (blockId: string) => {
+      if (kbStatus !== 'idle' || refining) return;
+      dispatch({ type: 'SECTION_STEP', blockId });
+    },
+    [kbStatus, refining],
+  );
 
   useEffect(() => {
     if (!toast) return;
@@ -520,6 +586,9 @@ export function Editor() {
   const deselect = useCallback(() => {
     if (status !== 'idle' || pending || !selectedId) return;
     reqRef.current++;
+    kbReqRef.current++;
+    setSimilarOpen(false);
+    setKbStatus('idle');
     setNote(null);
     setConfirm(null);
     setPeekId(null);
@@ -538,15 +607,17 @@ export function Editor() {
       const mod = e.metaKey || e.ctrlKey;
       if (mod && e.key.toLowerCase() === 'z') {
         e.preventDefault();
+        if (kbStatus !== 'idle' || refining) return;
         dispatch({ type: e.shiftKey ? 'REDO' : 'UNDO' });
       } else if (mod && e.key.toLowerCase() === 'y') {
         e.preventDefault();
+        if (kbStatus !== 'idle' || refining) return;
         dispatch({ type: 'REDO' });
       }
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [view, deselect]);
+  }, [view, deselect, kbStatus, refining]);
 
   const openDoc = useCallback(
     async (
@@ -662,6 +733,9 @@ export function Editor() {
   const goBackstage = useCallback(() => {
     reqRef.current++; // invalidate any in-flight edit response
     chatReqRef.current++; // …and any in-flight chat turn
+    kbReqRef.current++; // …and any experience search/compose request
+    setSimilarOpen(false);
+    setKbStatus('idle');
     setOpenError(null);
     setRefineOpen(false);
     setConfirm(null);
@@ -708,6 +782,12 @@ export function Editor() {
 
   const onSelect = useCallback((id: string) => {
     reqRef.current++; // cancel any in-flight edit for the previous selection
+    kbReqRef.current++; // cancel any experience request for the previous selection
+    setSimilarOpen(false);
+    setKbStatus('idle');
+    setKbCandidates([]);
+    setKbPicked(null);
+    setKbError(null);
     setNote(null);
     setConfirm(null);
     setRefineOpen(false); // a direct doc click leaves the Refine list
@@ -718,18 +798,17 @@ export function Editor() {
   }, []);
 
   const runEdit = useCallback(
-    async (block: Block, instruction: string) => {
+    async (block: Block, instruction: string, grounding?: GroundedRationale) => {
       setNote(null);
       setConfirm(null);
       const myReq = ++reqRef.current;
       const baseCursor = state.cursor;
       dispatch({ type: 'START_THINKING' });
 
-      const headings = doc ? doc.blocks.filter((b) => b.type === 'heading').map((b) => b.text) : [];
       const result = await requestEdit({
         block: { id: block.id, text: block.text, type: block.type },
         instruction,
-        docContext: { headings, firm: doc ? firmFor(doc.id) : undefined },
+        docContext: doc ? documentContext(doc, block.id) : undefined,
       });
       if (myReq !== reqRef.current) return; // stale — user reselected or cancelled
 
@@ -755,9 +834,11 @@ export function Editor() {
         before: block.text,
         after,
         instruction,
-        rationale: result.res.rationale,
+        changeSummary: result.res.changeSummary ?? result.res.rationale,
+        grounding,
         protectedKept,
         baseCursor,
+        docId: doc?.id,
       };
       if (protectedChanged.length > 0) {
         // Name the kind of the first changed entity so the confirm says "phone number" / "license
@@ -782,10 +863,185 @@ export function Editor() {
     [selectedBlock, runEdit],
   );
 
+  const openSimilar = useCallback(() => {
+    if (!doc || !selectedBlock) return;
+    reqRef.current++;
+    chatReqRef.current++;
+    setChatOpen(false);
+    setRefineOpen(false);
+    setActiveSuggestionId(null);
+    setPeekId(null);
+    setNote(null);
+    setConfirm(null);
+    setKbCandidates([]);
+    setKbError(null);
+    setKbPicked(null);
+    setKbStatus('idle');
+    setSimilarOpen(true);
+  }, [doc, selectedBlock]);
+
+  const closeSimilar = useCallback(() => {
+    kbReqRef.current++;
+    setSimilarOpen(false);
+    setKbStatus('idle');
+    setKbCandidates([]);
+    setKbError(null);
+    setKbPicked(null);
+  }, []);
+
+  const searchSimilar = useCallback(
+    async (query: string) => {
+      if (!doc) return;
+      const myReq = ++kbReqRef.current;
+      setKbStatus('searching');
+      setKbError(null);
+      setKbPicked(null);
+      setKbCandidates([]);
+      const result = await requestKbSearch({
+        query,
+        k: 5,
+        docId: doc.id,
+        excludeSourceDoc: doc.filename,
+      });
+      if (myReq !== kbReqRef.current) return;
+      setKbStatus('idle');
+      if (!result.ok) {
+        setKbError(result.message);
+        return;
+      }
+      // Normalize optional legacy fields at the browser boundary, while retaining the server's
+      // opaque candidate id for the compose request.
+      const found = result.res.candidates
+        .map((candidate) => ({
+          ...candidate,
+          candidateId: candidate.candidateId || candidate.snippetId || '',
+          sourceTitle: candidate.sourceTitle || candidate.title,
+          quote: candidate.quote || candidate.text,
+          discipline: candidate.discipline || 'Past experience',
+        }))
+        .filter((candidate) => candidate.candidateId);
+      setKbCandidates(found);
+      if (found.length === 0) {
+        setKbError('No matching past projects found. Try a different project type or service.');
+      }
+    },
+    [doc],
+  );
+
+  const chooseSimilar = useCallback(
+    async (candidate: KbCandidate) => {
+      if (!doc || !selectedBlock || kbStatus !== 'idle') return;
+      const target = selectedBlock;
+      const baseCursor = state.cursor;
+      const myReq = ++kbReqRef.current;
+      setKbPicked(candidate.candidateId);
+      setKbStatus('composing');
+      setKbError(null);
+
+      // Deliberately send only the opaque id, never client-supplied source text. The server resolves
+      // it back to the trusted corpus record before composing.
+      const result = await requestKbCompose({
+        candidateId: candidate.candidateId,
+        target: {
+          id: target.id,
+          text: target.text,
+          type: target.type,
+          page: target.page,
+        },
+        docContext: documentContext(doc, target.id),
+      });
+      if (myReq !== kbReqRef.current) return;
+      setKbStatus('idle');
+      if (!result.ok) {
+        setKbError(result.message);
+        setKbPicked(null);
+        return;
+      }
+
+      const newText = result.res.newText.trim();
+      if (!newText) {
+        setKbError('That project could not be prepared. Choose another result.');
+        setKbPicked(null);
+        return;
+      }
+      const returnedCandidate = result.res.candidate ?? candidate;
+      const supplied = result.res.provenance as Partial<KbProvenance> | undefined;
+      const fallbackUsed = Boolean(result.res.fallbackUsed || supplied?.fallbackUsed);
+      const provenance: KbProvenance = {
+        candidateId: supplied?.candidateId || returnedCandidate.candidateId || candidate.candidateId,
+        title: supplied?.title || returnedCandidate.title || candidate.title,
+        sourceDoc: supplied?.sourceDoc || returnedCandidate.sourceDoc || candidate.sourceDoc,
+        sourceTitle:
+          supplied?.sourceTitle ||
+          returnedCandidate.sourceTitle ||
+          candidate.sourceTitle ||
+          candidate.title,
+        page: supplied?.page || returnedCandidate.page || candidate.page,
+        quote:
+          supplied?.quote ||
+          returnedCandidate.quote ||
+          returnedCandidate.text ||
+          candidate.quote ||
+          candidate.text,
+        discipline:
+          supplied?.discipline || returnedCandidate.discipline || candidate.discipline || 'Experience',
+        fallbackUsed,
+      };
+      const block: Block = {
+        id: `kb-${crypto.randomUUID()}`,
+        type: 'paragraph',
+        text: newText,
+        page: target.page,
+        provenance,
+      };
+      const pendingInsert: Pending = {
+        blockId: target.id,
+        before: '',
+        after: newText,
+        instruction: `Add similar experience: ${provenance.title}`,
+        changeSummary: `Added similar experience: ${provenance.title}`,
+        grounding: {
+          reason: 'This paragraph uses the past project you reviewed and chose before generation.',
+          evidence: provenance.quote,
+          provenance,
+        },
+        source: 'kb',
+        insert: { afterId: target.id, block, provenance },
+        protectedKept: protectedStrings(provenance.quote).filter((value) => newText.includes(value)),
+        baseCursor,
+        docId: doc.id,
+      };
+      setSimilarOpen(false);
+      setKbCandidates([]);
+      setKbPicked(null);
+      setLastInstruction(pendingInsert.instruction);
+      dispatch({ type: 'SET_PENDING', pending: pendingInsert });
+    },
+    [doc, selectedBlock, kbStatus, state.cursor],
+  );
+
   const onKeep = useCallback(() => {
-    const changedId = pending?.blockId;
+    // A review decision supersedes any follow-up request that was still settling. This guard is
+    // also safe when no request is active and prevents a late response from resurrecting Pending.
+    reqRef.current++;
+    setRefining(false);
+    if (!canKeepPending(state)) {
+      dispatch({ type: 'KEEP_PENDING' }); // clears the stale proposal through the reducer guard
+      setNote({
+        kind: 'warn',
+        text: 'This suggestion no longer matches the current document. Nothing was changed.',
+      });
+      return;
+    }
+    const changedId = pending?.insert?.block.id ?? pending?.blockId;
+    const addingExperience = Boolean(pending?.insert);
     dispatch({ type: 'KEEP_PENDING' });
-    setToast('Change saved. You can Undo if you change your mind.');
+    setToast(
+      addingExperience
+        ? 'Experience added. You can Undo if you change your mind.'
+        : 'Change saved. You can Undo if you change your mind.',
+    );
+    if (addingExperience) setDocView('document');
     // The action may concern a paragraph on another PDF page. Reveal the applied patch after the
     // reducer has rendered it instead of leaving the user at the old scroll position.
     if (changedId) {
@@ -802,8 +1058,11 @@ export function Editor() {
       setPeekId(null);
       dispatch({ type: 'SELECT', blockId: null });
     }
-  }, [activeSuggestionId, pending]);
+  }, [activeSuggestionId, pending, state]);
   const onDiscard = useCallback(() => {
+    reqRef.current++;
+    setRefining(false);
+    const addingExperience = Boolean(pending?.insert);
     dispatch({ type: 'DISCARD_PENDING' });
     if (activeSuggestionId) {
       // Leave the suggestion in the list (not resolved) and go back to it.
@@ -811,9 +1070,9 @@ export function Editor() {
       setPeekId(null);
       dispatch({ type: 'SELECT', blockId: null });
     } else {
-      setNote({ kind: 'info', text: 'No changes made.' });
+      setNote({ kind: 'info', text: addingExperience ? 'No experience added.' : 'No changes made.' });
     }
-  }, [activeSuggestionId]);
+  }, [activeSuggestionId, pending]);
   const onCancel = useCallback(() => {
     reqRef.current++;
     dispatch({ type: 'CANCEL_THINKING' });
@@ -837,7 +1096,9 @@ export function Editor() {
     async (phrase: string) => {
       const p = pending;
       const text = phrase.trim();
-      if (!p || !doc || !text || refining) return;
+      // KB prose is reviewed as an attributable whole-paragraph insertion. A follow-up rewrite
+      // would blur that provenance, so the insert review intentionally offers Keep/Discard only.
+      if (!p || p.insert || !doc || !text || refining) return;
       const type = doc.blocks.find((b) => b.id === p.blockId)?.type ?? 'paragraph';
       setNote(null);
       setConfirm(null);
@@ -845,11 +1106,14 @@ export function Editor() {
       setRefining(true);
       setFollowUps((prev) => [...prev, text]);
 
-      const headings = doc.blocks.filter((b) => b.type === 'heading').map((b) => b.text);
       const result = await requestEdit({
         block: { id: p.blockId, text: p.after, type }, // iterate on the CURRENT draft
-        instruction: composeRefineInstruction(p.before, text),
-        docContext: { headings, firm: firmFor(doc.id) },
+        instruction: composeRefineInstruction(text),
+        // The original block travels in a separately labeled reference field. Only the human's
+        // raw follow-up may authorize a factual mutation at the server gate.
+        authoritativeInstruction: text,
+        referenceText: p.before,
+        docContext: documentContext(doc, p.blockId),
       });
       // Superseded (reselect / cancel / a newer refine). Leave `refining` alone: if a newer refine
       // took over it owns the flag; if the proposal cleared, the reset effect already cleared it.
@@ -875,7 +1139,9 @@ export function Editor() {
         before: p.before, // pinned original — the undo baseline
         after,
         instruction: p.instruction, // headline stays the original ask; nudges show as the thread
-        rationale: result.res.rationale,
+        changeSummary: result.res.changeSummary ?? result.res.rationale ?? p.changeSummary,
+        grounding: p.grounding,
+        source: p.source,
         protectedKept,
         baseCursor: p.baseCursor, // pinned — nothing applied yet, cursor hasn't moved
         docId: p.docId,
@@ -891,19 +1157,32 @@ export function Editor() {
     [pending, doc, refining],
   );
 
-  const gotoBlock = useCallback((id: string) => {
-    setShowChanges(false);
-    dispatch({ type: 'SELECT', blockId: id });
-    setTimeout(() => {
-      document
-        .querySelector(`[data-block-id="${id}"]`)
-        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 30);
-  }, []);
+  const gotoBlock = useCallback(
+    (id: string, documentOnly = false) => {
+      setShowChanges(false);
+      if (documentOnly || doc?.blocks.find((block) => block.id === id)?.provenance) {
+        // Inserted KB blocks do not exist on the immutable Original PDF raster. Reveal them in the
+        // live document when navigating from the audit trail.
+        setDocView('document');
+      }
+      // Reuse the normal selection boundary so an experience response anchored to the previous
+      // section cannot arrive after navigation and open a stale insert review.
+      onSelect(id);
+      setTimeout(() => {
+        document
+          .querySelector(`[data-block-id="${id}"]`)
+          ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 30);
+    },
+    [doc, onSelect],
+  );
 
   // ---- Refine ("Check my proposal for things to fix") ----
   const runScan = useCallback(() => {
     if (!doc) return;
+    kbReqRef.current++;
+    setSimilarOpen(false);
+    setKbStatus('idle');
     // Instant, no-spend floor: the deterministic client scan shows immediately…
     const clientScan = scanForRefinements(doc);
     setSuggestions(clientScan);
@@ -919,7 +1198,7 @@ export function Editor() {
     // degrades silently to [] (requestSuggestions swallows it), leaving the client floor intact.
     const myReq = ++suggestReqRef.current;
     setSuggestLoading(true);
-    void requestSuggestions(doc).then((server) => {
+    void requestSuggestions(doc, documentContext(doc)).then((server) => {
       if (myReq !== suggestReqRef.current) return; // a newer scan (or close) superseded this one
       if (server.length) setSuggestions((prev) => mergeSuggestions(doc, prev, server));
       setSuggestLoading(false);
@@ -957,6 +1236,9 @@ export function Editor() {
   // ---- Agentic chat ("Ask the assistant") ----
   const openChat = useCallback(() => {
     reqRef.current++;
+    kbReqRef.current++;
+    setSimilarOpen(false);
+    setKbStatus('idle');
     setRefineOpen(false);
     setActiveSuggestionId(null);
     setPeekId(null);
@@ -988,7 +1270,7 @@ export function Editor() {
         history,
         blocks: doc.blocks,
         selection: selectedId,
-        docContext: { firm: doc ? firmFor(doc.id) : undefined },
+        docContext: documentContext(doc, selectedId),
       }).then((result) => {
         if (myReq !== chatReqRef.current) return; // superseded turn or chat closed
         setChatStatus('idle');
@@ -1056,7 +1338,7 @@ export function Editor() {
       before: e.before,
       after: e.after,
       instruction: e.instruction,
-      rationale: e.rationale,
+      changeSummary: e.changeSummary ?? e.rationale,
       protectedKept: e.protectedKept,
       baseCursor: chatBatch.baseCursor,
       docId: chatBatch.docId,
@@ -1092,11 +1374,17 @@ export function Editor() {
   // callback (rather than inline setState in the effect) so the sync reads as one intentional step.
   const resetChatState = useCallback(() => {
     chatReqRef.current++;
+    kbReqRef.current++;
     setChatOpen(false);
     setChatStatus('idle');
     setChatMessages([]);
     setChatBatch(null);
     setChatIncluded(new Set());
+    setSimilarOpen(false);
+    setKbStatus('idle');
+    setKbCandidates([]);
+    setKbPicked(null);
+    setKbError(null);
   }, []);
   useEffect(() => {
     // Deliberate reset-on-doc-change; fires only on a document switch, so the cascade cost is nil.
@@ -1104,21 +1392,35 @@ export function Editor() {
     resetChatState();
   }, [doc?.id, resetChatState]);
 
-  const visibleSuggestions = useMemo(
-    () => suggestions.filter((s) => !dismissed.has(s.id) && !resolved.has(s.id)),
-    [suggestions, dismissed, resolved],
+  // Every visible recommendation must still quote the current block verbatim. This also protects
+  // against a late server scan that was grounded against the pre-edit document.
+  const freshSuggestions = useMemo(
+    () =>
+      suggestions.filter((suggestion) => {
+        const block = doc?.blocks.find((item) => item.id === suggestion.blockId);
+        return Boolean(block && block.text.includes(suggestion.evidence));
+      }),
+    [suggestions, doc],
   );
-  const reviewedCount = suggestions.length - visibleSuggestions.length;
+  const visibleSuggestions = useMemo(
+    () => freshSuggestions.filter((s) => !dismissed.has(s.id) && !resolved.has(s.id)),
+    [freshSuggestions, dismissed, resolved],
+  );
+  const reviewedCount = freshSuggestions.length - visibleSuggestions.length;
 
   const fixSuggestion = useCallback(
     (s: Suggestion) => {
       if (!doc) return;
       const block = doc.blocks.find((b) => b.id === s.blockId);
-      if (!block) return;
+      if (!block || !block.text.includes(s.evidence)) {
+        // A click can race the render that filters stale recommendations after a Keep.
+        setSuggestions((previous) => previous.filter((item) => item.id !== s.id));
+        return;
+      }
       setActiveSuggestionId(s.id);
       setLastInstruction(s.instruction);
       dispatch({ type: 'SELECT', blockId: s.blockId }); // keeps refineOpen (not a doc click)
-      void runEdit(block, s.instruction);
+      void runEdit(block, s.instruction, { reason: s.why, evidence: s.evidence });
     },
     [doc, runEdit],
   );
@@ -1139,16 +1441,30 @@ export function Editor() {
 
   const changeItems: ChangeItem[] = useMemo(() => {
     if (!doc) return [];
-    return state.history
-      .slice(0, state.cursor)
+    const liveHistory = state.history.slice(0, state.cursor);
+    const insertedIds = new Set(
+      liveHistory
+        .filter((entry) => entry.op.kind === 'insert')
+        .map((entry) => (entry.op.kind === 'insert' ? entry.op.block.id : '')),
+    );
+    return liveHistory
       .map((e) => {
         const blockId = e.op.kind === 'insert' ? e.op.block.id : e.op.blockId;
         const sec = sectionOf(doc, blockId);
         return {
           blockId,
-          summary: sec ? `Edited ${sec}` : 'Edited a section',
+          documentOnly: insertedIds.has(blockId),
+          summary:
+            e.changeSummary ??
+            e.rationale ??
+            (e.source === 'kb'
+              ? `Added experience${sec ? ` to ${sec}` : ''}`
+              : sec
+                ? `Edited ${sec}`
+                : 'Edited a section'),
           when: relTime(e.at),
-          rationale: e.rationale,
+          grounding: e.grounding,
+          provenance: e.provenance,
         };
       })
       .reverse();
@@ -1163,6 +1479,9 @@ export function Editor() {
   else if (view === 'editor') {
     if (status === 'thinking') statusLeft = 'Working on it…';
     else if (pending) statusLeft = 'Reviewing a change';
+    else if (similarOpen && kbStatus === 'searching') statusLeft = 'Searching past proposals…';
+    else if (similarOpen && kbStatus === 'composing') statusLeft = 'Preparing experience…';
+    else if (similarOpen) statusLeft = 'Choosing past experience';
     else if (refineOpen)
       statusLeft = `${visibleSuggestions.length} suggestion${visibleSuggestions.length === 1 ? '' : 's'} to review`;
     else if (selectedId) statusLeft = '1 section selected';
@@ -1176,13 +1495,31 @@ export function Editor() {
         mode={view === 'editor' ? 'editor' : 'backstage'}
         docName={doc?.filename ?? 'Proposal Editor'}
         onHome={view === 'editor' ? goBackstage : undefined}
-        canUndo={canUndo(state)}
-        canRedo={canRedo(state)}
-        undoTip={canUndo(state) ? 'Undo your last change' : 'Nothing to undo yet'}
-        redoTip={canRedo(state) ? 'Redo' : 'Nothing to redo yet'}
+        canUndo={kbStatus === 'idle' && !refining && canUndo(state)}
+        canRedo={kbStatus === 'idle' && !refining && canRedo(state)}
+        undoTip={
+          kbStatus !== 'idle' || refining
+            ? refining
+              ? 'Finish the current draft first'
+              : 'Finish preparing the experience first'
+            : canUndo(state)
+              ? 'Undo your last change'
+              : 'Nothing to undo yet'
+        }
+        redoTip={
+          kbStatus !== 'idle' || refining
+            ? 'Finish the current draft first'
+            : canRedo(state)
+              ? 'Redo'
+              : 'Nothing to redo yet'
+        }
         chatActive={chatOpen}
-        onUndo={() => dispatch({ type: 'UNDO' })}
-        onRedo={() => dispatch({ type: 'REDO' })}
+        onUndo={() => {
+          if (kbStatus === 'idle' && !refining) dispatch({ type: 'UNDO' });
+        }}
+        onRedo={() => {
+          if (kbStatus === 'idle' && !refining) dispatch({ type: 'REDO' });
+        }}
         onOpenChat={chatOpen ? closeChat : openChat}
         onToggleChanges={() => setShowChanges((v) => !v)}
       />
@@ -1243,6 +1580,18 @@ export function Editor() {
               onClose={closeChat}
               onPeek={peekBlock}
             />
+          ) : similarOpen && selectedBlock && status === 'idle' && !pending ? (
+            <SimilarExperiencePanel
+              target={selectedBlock}
+              section={section}
+              candidates={kbCandidates}
+              status={kbStatus}
+              selectedCandidateId={kbPicked}
+              error={kbError}
+              onSearch={searchSimilar}
+              onChoose={chooseSimilar}
+              onBack={closeSimilar}
+            />
           ) : refineOpen && status === 'idle' && !pending ? (
             <RefinePanel
               suggestions={visibleSuggestions}
@@ -1270,6 +1619,7 @@ export function Editor() {
               onRefine={onRefine}
               onCancel={onCancel}
               onCheck={runScan}
+              onSimilar={openSimilar}
               onBack={refineOpen && activeSuggestionId ? backToSuggestions : undefined}
             />
           )}

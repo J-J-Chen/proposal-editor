@@ -22,10 +22,11 @@ idea: **make the edit loop fast, and make it structurally hard to corrupt a fact
 | 4. AI proposes; user sees the change and decides | A calm **old → new → diff** card; **Keep this change** / **Discard** |
 | 5. Applied changes reflect; compose; undo | Applied in place; edits compose; full **Undo/Redo** |
 
-**The pass/fail bar is met:** `easy.pdf` works end-to-end on the deployed app. Beyond it, two of
-the brief's stretch goals are shipped — **multi-paragraph chat** (an agentic assistant that edits
-across sections at once) and **hard-fixture handling** (`hard.pdf` parses, previews, and was run
-through the eval). The README's seven required sections follow.
+**The pass/fail bar is met:** `easy.pdf` works end-to-end on the deployed app. Beyond it, three of
+the brief's stretch goals are implemented — **multi-paragraph chat**, **hard-fixture handling**,
+and a reviewed **five-proposal knowledge base** whose “Add similar experience” flow retrieves a
+real project, shows its source before generation, and inserts only after human review. The
+README's seven required sections follow.
 
 ---
 
@@ -37,7 +38,9 @@ cp .env.example .env.local     # then paste your Buoyant proxy token (sent separ
 npm run dev                     # http://localhost:3000
 ```
 
-Other scripts: `npm run build` · `npm run start` · `npm run lint` · `npm run typecheck`.
+Other scripts: `npm run build` · `npm run start` · `npm run lint` · `npm run typecheck` ·
+`npm run test:kb`. To re-audit every committed KB quote against the source PDFs, run
+`npm run kb:audit -- /path/to/ExampleProposals/kb`.
 
 **Stack:** Next.js `16.3.3` (App Router) · React `19` · TypeScript · `mupdf` for parsing ·
 `@anthropic-ai/sdk` + `openai` (both pointed at the Buoyant proxy) · `@vercel/blob`. No database.
@@ -54,12 +57,13 @@ only in `.env.local` (gitignored).
   `BLOB_READ_WRITE_TOKEN` (Vercel Blob — used only for the large-PDF upload path on a parse-cache
   miss).
 - **Models** (overridable via env): every live LLM call — edits, the parse structuring pass, the
-  Refine suggestions, and the chat assistant — uses `claude-sonnet-4-5` at `temperature: 0.2`
+  Refine suggestions, chat, and KB paragraph shaping — uses `claude-sonnet-4-5` at `temperature: 0.2`
   (this is editing, not brainstorming); a smaller `claude-haiku-4-5` is configured but currently
   unused. The eval's extractor runs **cross-model** on the *other* provider (`gpt-4o-mini` /
   `gpt-4.1`) so the editor never grades itself.
-- **Graceful degradation:** with no token set, the app still boots and the AI routes return a
-  clean `503 { error: "AI is not configured" }` instead of crashing.
+- **Graceful degradation:** with no token set, the app still boots and ordinary AI routes return a
+  clean `503 { error: "AI is not configured" }` instead of crashing. KB search remains available,
+  and KB compose returns a deterministic paragraph made only from the reviewed project record.
 - **One real gotcha, documented in code:** the proxy returns compressed bodies the SDKs' bundled
   fetch fails to decode, so we send `Accept-Encoding: identity`. See the comment in
   `src/lib/ai.ts` — this cost real debugging time and is exactly the kind of thing a second
@@ -95,8 +99,9 @@ load-bearing ones:
   tractable.
 
 - **The edit loop: one guardrailed, structured route.** `POST /api/edit` takes
-  `{ block, instruction, docContext?, kbContext? }` and returns `{ newText, rationale? }`
-  (`src/lib/edit.ts`). Two commitments make it safe: (1) the system prompt's **rule #1** —
+  `{ block, instruction, docContext?, kbContext? }` and returns `{ newText, changeSummary? }`
+  (`src/lib/edit.ts`); non-empty `kbContext` is server-managed and rejected on this public route.
+  Two commitments make it safe: (1) the system prompt's **rule #1** —
   *preserve verbatim every proper noun, name, project/contract number, dollar amount, date, and
   quantity unless the instruction explicitly says to change that specific value* (rule #2: do
   exactly what's asked, nothing more); (2) **forced-tool structured output** — the model must
@@ -108,10 +113,11 @@ load-bearing ones:
   proposals, separate from applied history; only an explicit **Keep** creates an `EditOp`.
   Suggestions and chat reuse that contract, so no AI path silently mutates the document. Safety is
   defense-in-depth: after the entity-safe parse, prompt guardrail, and structured output, a
-  deterministic before/after gate catches protected names, licenses, project numbers, and dollar
-  figures that were altered or dropped. Gold highlighting and an extra confirmation turn that
-  backstop into something the user can inspect rather than an invisible model promise. Known gaps
-  — fabricated new entities and unseen proper names — stay explicit in §4.
+  deterministic before/after gate blocks unauthorized dropped or introduced protected entities,
+  digit- or word-bearing quantities, engineering notation, and likely proper names before a model
+  result crosses the API boundary. Gold highlighting makes the surviving facts inspectable rather
+  than leaving fidelity as an invisible model promise. The remaining qualitative-claim and single-token-name limits are
+  explicit in §4.
 
 - **Two surfaces, one model.** The same block model backs a pixel-faithful **Original PDF** view
   (mupdf page rasters — the default on open) *and* a clean semantic **Document** view. Where a
@@ -124,7 +130,7 @@ load-bearing ones:
 
 - **One `EditOp` union powers AI edits, manual edits, KB inserts, *and* undo/redo.** Edits are
   `replace | insert | delete` ops (`src/lib/types.ts`); each applied op is a
-  `HistoryEntry { op, at, source, rationale? }`. **Undo/redo is an inverse-command log + a
+  `HistoryEntry { op, at, source, changeSummary?, grounding?, provenance? }`. **Undo/redo is an inverse-command log + a
   cursor** — one array, no second stack. Redo-invalidation and reject-isolation are correct *by
   construction*, and the log doubles as the demo's audit trail. Chat's multi-edit batches apply
   and undo as **one grouped transaction**.
@@ -140,13 +146,16 @@ load-bearing ones:
   document map and selects the minimum relevant blocks; each selected block then passes through
   the existing guarded editor and deterministic entity gate. The user reviews the batch and Keeps
   or Discards it as one grouped transaction. Input bounds and a hard shared model-call budget cap
-  the cost of the public endpoint regardless of what the planner returns.
+  the cost of the public endpoint regardless of what the planner returns; SDK retries are disabled
+  so one budgeted call is one proxy attempt.
 
-- **Voice and facts have separate trust boundaries.** A committed, read-only firm voice card
-  steers suggestion tone, while the closed firm-facts corpus is reference-only and is not fed into
-  generation. A future retrieve-and-insert flow requires a human to choose a real,
-  provenance-backed project *before* generation. This reinforces the firm's register without
-  creating a surface for invented facts or laundering unreviewed output into canonical data.
+- **Voice and facts have separate trust boundaries.** A versioned, fact-free voice profile—derived
+  from exactly the five approved KB proposals—flows through direct edits, Refine, chat planning,
+  chat drafting/repair, and KB compose. Unknown uploads use bounded samples from themselves, never
+  MECO's profile by default. Project facts enter generation only through the explicit **Add similar
+  experience** action: deterministic search shows provenance, the human picks one candidate, and
+  the server resolves that opaque id back to one reviewed record. A hard fact/entity gate and a
+  deterministic source-only fallback bound composition; ordinary edits never receive KB facts.
 
 - **UX for a Word-native, non-technical user — "recognisable, not identical."** The audience is a
   proposal manager or city engineer who lives in Word. So we borrow Word's **habits and plain
@@ -209,13 +218,12 @@ Speed-first, and *intentional* scope beats feature count. Explicit cuts:
 - **KB *write-back* / enrichment** — accepted edits are **not** written back into the knowledge
   base. The KB stays **read-only grounding**; laundering unreviewed model output into "canonical
   past work" is a trust hazard, not a feature.
-- **The full KB retrieve-and-insert flow ("Add a paragraph about a past project")** — the firm's
-  *voice* is already distilled into the KB and grounds the editorial suggestions (§6), and the edit
-  route exposes a `kbContext` hook — but the interactive *retrieval-and-insert* of a specific past
-  project (feeding real snippets through that hook) ships only when the corpus is hand-verified.
-  This is a *time + trust* cut, not a budget one (the owner was explicit spend isn't the
-  constraint): a curated corpus is what makes grounding trustworthy, and better to ship the core
-  loop rock-solid than a half-verified KB that cites a real-but-wrong project. (§7.)
+- **Live / user-uploaded KB ingestion and KB write-back.** The implemented product KB is deliberately
+  fixed and read-only: 17 reviewed projects distilled from exactly the five provided KB examples.
+  `easy.pdf` and `hard.pdf` are edit/eval fixtures and are explicitly excluded as KB sources.
+  Runtime ingestion, embeddings, and promoting accepted model text into canonical past work would
+  widen the trust boundary; the offline audit plus human-reviewed corpus buys more reliability for
+  this assignment.
 - **Manual free-text typing into the document.** Every edit flows through the reviewed AI loop
   (select → instruct → diff → Keep); you can't click into a block and just type. Deliberate: the
   whole safety model — the entity-fidelity gate, the structured diff, the inverse-command audit log
@@ -245,11 +253,11 @@ Speed-first, and *intentional* scope beats feature count. Explicit cuts:
   misses in §5 are caught here), and the same signal shows in-document as a gold "kept exactly"
   tint. The **chat** assistant runs the identical gate: a batch edit that would touch a protected
   entity is flagged, **off by default**, and can't be applied without an explicit opt-in.
-  *Caveat:* the gate catches **alter/drop** of entities in the original, not a **fabricated new**
-  entity the original didn't contain (a model-guardrail concern, §7); and **name** protection is
-  corpus-based (`KNOWN_NAMES`) while PE-license / project # / $ / phone protection is regex-based
-  and generalizes — so on an *unseen* proposal, numbers and licenses stay protected but a novel
-  person name is not yet auto-shielded (open-class coverage is a §7 item).
+  The current server gate also occurrence-counts **introduced** digit-bearing values and likely
+  multi-word proper names, and rejects them unless the human instruction or an explicitly selected
+  authoritative project supplies them. It intentionally does not pretend regex can prove semantic
+  entailment: a novel single-token name or unsupported qualitative adjective can still evade a
+  deterministic detector, which is why every result remains a proposal for human review.
 - **Over-eager edits** — the model "improving" what it wasn't asked to. Mitigated by the explicit
   "do exactly what's asked and nothing more" rule and tuning toward small, surgical edits. On the
   `hard.pdf` holdout (§5) the only *genuine* fidelity movements were an aggressive rewrite/tighten
@@ -264,9 +272,13 @@ Speed-first, and *intentional* scope beats feature count. Explicit cuts:
 - **Model preamble leaking into applied text** — killed structurally by forced-tool output (0
   leaks across both eval runs).
 - **KB hallucination — inventing a project that doesn't exist** (the inverse of the fidelity
-  risk). The retrieve-and-insert design (§7) never lets the model invent: a human picks a *real*
-  retrieved project **before** any generation, and a deterministic check requires every entity to
-  appear verbatim, falling back to a template on failure.
+  risk). Search ranks only 17 reviewed records from the five approved source proposals. The human
+  sees a verbatim quote and page, then picks a project **before** generation; compose accepts only
+  its opaque id and resolves facts server-side. Required identity/scope anchors and fact/entity
+  checks run after composition, with a deterministic source-only paragraph on any miss or proxy
+  failure. The inserted block keeps its source/page badge through save and insertion Undo/Redo. A
+  later rewrite clears a citation that no longer proves the live wording; undoing that rewrite
+  restores it.
 - **Security hardening before real customer documents** — this is a public, unauthenticated
   take-home, not yet a production trust boundary. It already keeps provider credentials
   server-side, stores uploads privately, restricts upload tokens to declared PDFs up to 25 MB,
@@ -332,11 +344,13 @@ headline %, and report **raw k/n per instruction** with the entity-bearing denom
 > tighten-didn't-grow 27/31 · cross-model "instruction applied?" 93/120 (hard, substantial).
 > **Leaks:** 0/279 preamble/fence. Mean length drift 8.6%.
 >
-> **Caveat + next action:** fidelity alone has a perverse optimum (a no-op scores 100%) — the
+> **Historical caveat:** fidelity alone has a perverse optimum (a no-op scores 100%) — the
 > effectiveness numbers rule that out. The 3 misses are the same failure mode (`MO PE No.`
 > reformatted), caught by the deterministic gate before Keep, so none reach the document silently.
-> Two follow-ups flagged (not yet applied): a route-level `MO PE No.` normalization, and — the
-> real remaining gap — a guardrail against a **fabricated new** entity the gate can't see.
+> Since this run, `runEdit` gained a route-level hard gate for unauthorized dropped **and
+> introduced** protected entities, digit-bearing facts, and likely multi-word proper names. Those
+> checks are covered by `npm run test:kb`; the published percentages above remain the honest prior
+> deployed run and are not relabeled as measurements of the new gate.
 > Reproduce: `node scripts/eval/run.mjs --base <url> --sha <sha> --out eval.json` (artifact not
 > committed — it contains verbatim proposal text).
 >
@@ -392,7 +406,7 @@ headline %, and report **raw k/n per instruction** with the entity-bearing denom
   proposes a **batch** of per-block edits, each shown in the same review card, applied and undone
   as **one grouped transaction**, and each subject to the same protected-entity gate (flagged
   off-by-default). `/api/chat` has a hard model-call ceiling and input bounds so a paid endpoint
-  can't be run away with.
+  can't be run away with; transport retries are disabled and proxy calls have a 25-second timeout.
 - **Edit directly on the Original PDF** — the view a proposal now *opens* on. Beyond a read-only
   render, it's interactive wherever a page-layout map exists (both bundled samples): click a
   paragraph on the raster and edit it in place through the same loop, so a reviewer who thinks in
@@ -409,7 +423,13 @@ headline %, and report **raw k/n per instruction** with the entity-bearing denom
   outcome tells us whether a rubric rule produces genuinely useful suggestions, while
   human-approved wording can reinforce the firm's voice profile. That improves both rubric and
   data quality without promoting unreviewed model output into canonical source material.
-- **Operational polish** — clean `503`/`400`/`502` degradation on the AI routes, and a cross-model
+- **A candidate-first, attributable experience library.** “Add similar experience” performs a
+  zero-token search over 17 hand-reviewed projects distilled only from the five provided KB PDFs.
+  Candidate cards show a verbatim quote, source proposal, and page before generation; the browser
+  then sends only the chosen id. Composed prose goes through the same voice/fidelity boundary and
+  all-add review as an edit, retains a source badge until that wording is later edited, and uses
+  the existing insert op so Discard is a no-op and Undo/Redo work without a parallel state system.
+- **Operational polish** — clean `503`/`400`/`422`/`502` degradation on the AI routes, and a cross-model
   evaluation harness that keeps the editor from grading itself.
 
 ---
@@ -421,23 +441,18 @@ headline %, and report **raw k/n per instruction** with the entity-bearing denom
    customer-ready before adding more surface area.
 2. **Harden the parse for real layouts** — proper multi-column and table reconstruction, then the
    densest `hard.pdf` brochure pages. Biggest generalization risk.
-3. **Close the two fidelity gaps the confirm gate can't see.** (a) It catches *alter/drop* of
-   entities in the original but not a **fabricated new** name or number the model invents — add a
-   model-side guardrail plus a post-edit check for entities in the output but not the input (KB
-   hallucination is one instance). (b) **Name** protection is a fixed `KNOWN_NAMES` roster —
-   generalize it (NER) so an open-class person name in an *unseen* proposal is protected the way
-   the license / project # / $ / phone regexes already are.
-4. **Ship the KB retrieve-and-insert flow + grounded rationales.** The "Add similar experience"
-   flow (retrieve *real* past projects, human picks *before* any generation, insert in the firm's
-   voice with a verbatim fidelity net), plus a grounded "why" behind each suggestion — a plain
-   **rubric check** or a **verbatim KB citation with provenance**, never free-form justification.
-   Both reuse one retrieval spine; the corpus moves from fixed + hand-verified toward a live,
-   user-uploaded KB (deferred because trust needs verification time, not spend).
-5. **Close the rubric → KB feedback loop.** Capture the Keep/Discard/Adjust signal on every
-   suggestion and edit and feed it back into the KB — **starting with today's static, hand-verified
-   KB** and letting confirmed outcomes enrich it over time (which phrasings the firm actually keeps,
-   which it rejects), so the rubric and the grounding sharpen with use. Add persistence only once
-   this signal earns it.
+3. **Strengthen semantic fidelity beyond deterministic anchors.** The hard gate now catches
+   unauthorized dropped/introduced numbers and likely multi-word proper names, but it cannot prove
+   that a qualitative claim is entailed or recognize every novel single-token person/place. Add a
+   high-precision NER/entailment layer and measure its false-positive rate before making it block.
+4. **Evolve the fixed five-source KB deliberately.** Add an authenticated, review-before-publish
+   ingestion workflow with per-fact citations and corpus versioning. Keep new documents quarantined
+   until every candidate field validates against its page; do not silently mix edit fixtures or
+   user uploads into the trusted index.
+5. **Use review outcomes to calibrate recommendations.** Capture Keep/Discard/Adjust as separate
+   evaluation data so low-value rubric rules and voice suggestions can be tuned. Do not promote
+   those outcomes into the canonical project-fact corpus; project evidence remains reviewed and
+   page-cited through the ingestion workflow above.
 6. **Export back to PDF / DOCX** so the edited proposal leaves the tool in a format the firm sends.
 7. **Put the eval in CI** — run the fidelity grid on every deploy and fail the build on a
    regression, so the guardrail can't silently rot.

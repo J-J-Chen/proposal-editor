@@ -61,7 +61,8 @@ ProposedEdit {
   before: string
   after: string
   instruction: string                // the per-block instruction the planner assigned
-  rationale?: string
+  changeSummary?: string             // what changed; never treated as a grounded "why"
+  rationale?: string                 // legacy saved-response compatibility only
   protectedKept: string[]            // entities preserved verbatim → "Kept exactly as written"
   warnings?: string[]                // entities changed DESPITE the guardrail — flag loudly before Keep
 }
@@ -73,7 +74,7 @@ required), `502` proxy/model failure.
 ### FE mapping (for a0)
 
 Each `ProposedEdit` maps straight onto a `Pending` for `DiffView`:
-`{ blockId, before, after, instruction, rationale, protectedKept, baseCursor }`. The batch shares
+`{ blockId, before, after, instruction, changeSummary, protectedKept, baseCursor }`. The batch shares
 one `baseCursor`. Suggested reducer additions (a0's call): a `pendingBatch: Pending[]` (or a
 `groupId` on `HistoryEntry`) so N Kept edits apply/undo as one transaction. An edit with a
 non-empty `warnings` should get the same loud treatment as the single-block confirm modal.

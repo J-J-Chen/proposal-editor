@@ -11,7 +11,15 @@
  * `EditOp`/`HistoryEntry` from src/lib/types.ts — `replace` is what the AI edit loop emits;
  * `insert`/`delete` are handled too (reserved for the KB-insert feature).
  */
-import type { Doc, EditOp, HistoryEntry } from '@/lib/types';
+import type {
+  Block,
+  Doc,
+  EditOp,
+  EditSource,
+  GroundedRationale,
+  HistoryEntry,
+  KbProvenance,
+} from '@/lib/types';
 
 /** An AI proposal awaiting the user's Keep/Discard (FE-only; never enters history). */
 export interface Pending {
@@ -20,7 +28,13 @@ export interface Pending {
   after: string;
   /** The plain instruction that produced it ("Make it more formal") — for the echo + audit. */
   instruction: string;
+  /** Legacy model summary; optional so old saved snapshots still hydrate. */
   rationale?: string;
+  changeSummary?: string;
+  grounding?: GroundedRationale;
+  source?: EditSource;
+  /** When present, Keep inserts this reviewed block instead of replacing blockId. */
+  insert?: { afterId: string | null; block: Block; provenance: KbProvenance };
   /** Protected names/numbers found in the block — shown as "Kept exactly as written". */
   protectedKept: string[];
   /** Guards against applying after the user undid mid-review. */
@@ -79,7 +93,12 @@ function applyOp(doc: Doc, op: EditOp): Doc {
     case 'replace':
       return {
         ...doc,
-        blocks: doc.blocks.map((b) => (b.id === op.blockId ? { ...b, text: op.after } : b)),
+        blocks: doc.blocks.map((b) => {
+          if (b.id !== op.blockId) return b;
+          const next = { ...b, text: op.after };
+          if (op.provenanceChange) next.provenance = op.provenanceChange.after;
+          return next;
+        }),
       };
     case 'insert': {
       const blocks = doc.blocks.slice();
@@ -97,7 +116,12 @@ function invertOp(doc: Doc, op: EditOp): Doc {
     case 'replace':
       return {
         ...doc,
-        blocks: doc.blocks.map((b) => (b.id === op.blockId ? { ...b, text: op.before } : b)),
+        blocks: doc.blocks.map((b) => {
+          if (b.id !== op.blockId) return b;
+          const previous = { ...b, text: op.before };
+          if (op.provenanceChange) previous.provenance = op.provenanceChange.before;
+          return previous;
+        }),
       };
     case 'insert':
       return { ...doc, blocks: doc.blocks.filter((b) => b.id !== op.block.id) };
@@ -143,6 +167,21 @@ export function lastApplied(s: EditorState): HistoryEntry | null {
   return s.cursor > 0 ? s.history[s.cursor - 1] : null;
 }
 
+/** True only while the reviewed proposal still targets the exact document/base it was made for. */
+export function canKeepPending(state: EditorState): boolean {
+  const p = state.pending;
+  const doc = state.doc;
+  if (!p || !doc || p.baseCursor !== state.cursor) return false;
+  if (p.docId && p.docId !== doc.id) return false;
+  if (p.insert) {
+    return (
+      (p.insert.afterId === null || doc.blocks.some((block) => block.id === p.insert?.afterId)) &&
+      !doc.blocks.some((block) => block.id === p.insert?.block.id)
+    );
+  }
+  return doc.blocks.some((block) => block.id === p.blockId && block.text === p.before);
+}
+
 export function editorReducer(state: EditorState, action: EditorAction): EditorState {
   switch (action.type) {
     case 'LOAD_DOC':
@@ -179,15 +218,42 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
     case 'KEEP_PENDING': {
       const p = state.pending;
       if (!p || !state.doc) return state;
-      // Stale guard: the user undid mid-review, so this proposal's base is gone.
-      if (p.baseCursor !== state.cursor) return { ...state, pending: null };
+      if (!canKeepPending(state)) return { ...state, pending: null };
 
-      const op: EditOp = { kind: 'replace', blockId: p.blockId, before: p.before, after: p.after };
+      let op: EditOp;
+      if (p.insert) {
+        const insert = p.insert;
+        op = {
+          kind: 'insert',
+          afterId: insert.afterId,
+          block: {
+            ...insert.block,
+            text: p.after,
+            provenance: insert.provenance,
+          },
+        };
+      } else {
+        const current = state.doc.blocks.find((block) => block.id === p.blockId);
+        op = {
+          kind: 'replace',
+          blockId: p.blockId,
+          before: p.before,
+          after: p.after,
+          // Once wording from a cited insert is changed, that citation no longer proves the live
+          // paragraph. Record the transition in the op so Undo/Redo remain lossless.
+          provenanceChange: current?.provenance
+            ? { before: current.provenance, after: undefined }
+            : undefined,
+        };
+      }
       const entry: HistoryEntry = {
         op,
         at: new Date().toISOString(),
-        source: 'ai',
+        source: p.source ?? (p.insert ? 'kb' : 'ai'),
         rationale: p.rationale,
+        changeSummary: p.changeSummary,
+        grounding: p.grounding,
+        provenance: p.insert?.provenance,
       };
       // Redo-invalidation: drop any abandoned redo future, then append.
       const history = state.history.slice(0, state.cursor).concat(entry);
@@ -197,7 +263,7 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         history,
         cursor: state.cursor + 1,
         pending: null,
-        lastChangedId: p.blockId,
+        lastChangedId: opBlockId(op),
       };
     }
 
@@ -220,9 +286,25 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         // is TRUE (the caller's toast can't overstate).
         const cur = doc.blocks.find((b) => b.id === p.blockId);
         if (!cur || cur.text !== p.before) continue;
-        const op: EditOp = { kind: 'replace', blockId: p.blockId, before: p.before, after: p.after };
+        const op: EditOp = {
+          kind: 'replace',
+          blockId: p.blockId,
+          before: p.before,
+          after: p.after,
+          provenanceChange: cur.provenance
+            ? { before: cur.provenance, after: undefined }
+            : undefined,
+        };
         doc = applyOp(doc, op);
-        entries.push({ op, at, source: 'ai', rationale: p.rationale, groupId });
+        entries.push({
+          op,
+          at,
+          source: p.source ?? 'ai',
+          rationale: p.rationale,
+          changeSummary: p.changeSummary,
+          grounding: p.grounding,
+          groupId,
+        });
       }
       if (entries.length === 0) return { ...state, pending: null }; // nothing applied — no false history
       // Redo-invalidation: drop any abandoned redo future, then append the whole group.
@@ -253,9 +335,21 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         }
       }
       if (!last || last.kind !== 'replace') return state; // never touched (or not a replace)
-      const cur = state.doc.blocks.find((b) => b.id === blockId)?.text;
+      const currentBlock = state.doc.blocks.find((b) => b.id === blockId);
+      const cur = currentBlock?.text;
       if (cur === undefined || cur === last.before) return state; // gone, or already there
-      const op: EditOp = { kind: 'replace', blockId, before: cur, after: last.before };
+      const op: EditOp = {
+        kind: 'replace',
+        blockId,
+        before: cur,
+        after: last.before,
+        provenanceChange: last.provenanceChange
+          ? {
+              before: currentBlock?.provenance,
+              after: last.provenanceChange.before,
+            }
+          : undefined,
+      };
       const entry: HistoryEntry = { op, at: new Date().toISOString(), source: 'user' };
       const history = state.history.slice(0, state.cursor).concat(entry);
       return {

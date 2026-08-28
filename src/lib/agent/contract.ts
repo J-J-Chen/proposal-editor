@@ -10,6 +10,7 @@
 // undo-able transaction. See docs/agentic-chat.md.
 // ─────────────────────────────────────────────────────────────────────────────
 import type { Block } from '@/lib/types';
+import type { DocumentContext } from '@/lib/contracts';
 
 /** One prior turn of the conversation, for multi-turn context. */
 export interface ChatTurn {
@@ -29,7 +30,7 @@ export interface ChatRequest {
   /** Optional selected blockId, to bias scope toward the user's current focus. */
   selection?: string | null;
   /** Passthrough to the per-block guardrail for voice/consistency. */
-  docContext?: { firm?: string };
+  docContext?: DocumentContext;
 }
 
 /**
@@ -43,6 +44,9 @@ export interface ProposedEdit {
   after: string;
   /** The single-block instruction the planner assigned to this block. */
   instruction: string;
+  /** Model-authored description of the change, not a grounded rationale. */
+  changeSummary?: string;
+  /** Legacy field retained for older cached responses. */
   rationale?: string;
   /** Protected names/numbers found in `before` that survived verbatim in `after`. */
   protectedKept: string[];

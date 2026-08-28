@@ -19,11 +19,14 @@ and one real evaluation.
 - ✅ Generalizes to an unseen SOQ-style PDF (doesn't crash / degrades gracefully).
 - ✅ README: all 7 sections filled, one evaluation run with real numbers.
 - ✅ Clean, legible commit history (no squashing).
+- ✅ Fixed five-example KB: retrieve a cited project, human-select before generation, review an
+  attributable insert, and undo/redo it. (`easy.pdf`/`hard.pdf` remain fixtures, not KB sources.)
 
 ## Non-goals (explicitly cut — see also [decisions.md](decisions.md))
 Pixel-perfect PDF fidelity · export-back-to-PDF · robust multi-column/table handling &
 `hard.pdf` · multi-paragraph chat · DB / auth / multi-user · OCR · exhaustive test suites ·
-KB enrichment / write-back (the product KB stays read-only grounding — see [decisions.md](decisions.md)).
+KB enrichment / write-back (the implemented five-example product KB stays read-only grounding — see
+[decisions.md](decisions.md)).
 Any of these can become a goal later; today they are out.
 
 ## How we'll know it's working (if shipped to prod)

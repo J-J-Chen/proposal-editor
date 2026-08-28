@@ -13,6 +13,8 @@
  */
 import { AI_MODELS, getAnthropic } from '@/lib/ai';
 import type { Block } from '@/lib/types';
+import type { DocumentContext } from '@/lib/contracts';
+import { compileVoiceGuidance, resolveVoiceGuidance } from '@/kb/voice-guidance';
 import type { ChatTurn } from './contract';
 import { LIMITS } from './limits';
 
@@ -87,6 +89,7 @@ Rules, in order of importance:
 2. Never invent facts, numbers, names, or claims. The editor preserves proper nouns, project/license numbers, dollar figures, and dates verbatim — write instructions that respect that (don't ask it to change a name or number unless the user explicitly asked to).
 3. If the user only asks a question, answer it in "reply" and propose zero edits.
 4. Keep each instruction specific to its block and consistent with the user's overall ask.
+5. Use the supplied VOICE GUIDANCE only to shape editorial direction. Style examples are never factual authority: do not transfer their subject matter, names, numbers, projects, credentials, or claims into an instruction.
 
 Headings, captions, and very short blocks are rarely worth editing unless the request is specifically about them. Return your plan by calling the submit_plan tool.`;
 
@@ -105,9 +108,10 @@ export function buildDocMap(blocks: Block[]): string {
 function buildPlanUserMessage(
   message: string,
   blocks: Block[],
+  voicePrompt: string,
   selection?: string | null,
 ): string {
-  const parts: string[] = [];
+  const parts: string[] = [voicePrompt, ''];
   if (selection) {
     const sel = blocks.find((b) => b.id === selection);
     if (sel) parts.push(`The user currently has this block selected: [${sel.id}].`);
@@ -126,13 +130,13 @@ function historyMessages(history?: ChatTurn[]): { role: 'user' | 'assistant'; co
   if (!history?.length) return [];
   const recent = history.slice(-LIMITS.maxHistoryTurns);
   const out: { role: 'user' | 'assistant'; content: string }[] = [];
-  let chars = 0;
+  let remaining = LIMITS.maxHistoryChars;
   for (let i = recent.length - 1; i >= 0; i--) {
     const content = typeof recent[i]?.content === 'string' ? recent[i].content : '';
-    if (!content) continue;
-    chars += content.length;
-    if (chars > LIMITS.maxHistoryChars && out.length > 0) break;
-    out.unshift({ role: recent[i].role, content });
+    if (!content || remaining <= 0) continue;
+    const bounded = content.slice(0, remaining);
+    out.unshift({ role: recent[i].role, content: bounded });
+    remaining -= bounded.length;
   }
   return out;
 }
@@ -141,9 +145,23 @@ function historyMessages(history?: ChatTurn[]): { role: 'user' | 'assistant'; co
 export async function runPlan(
   message: string,
   blocks: Block[],
-  opts: { history?: ChatTurn[]; selection?: string | null } = {},
+  opts: {
+    history?: ChatTurn[];
+    selection?: string | null;
+    docContext?: DocumentContext;
+  } = {},
 ): Promise<Plan> {
   const anthropic = getAnthropic();
+  const voice = resolveVoiceGuidance({
+    firm: opts.docContext?.firm,
+    documentText:
+      opts.docContext?.docText ??
+      blocks
+        .map((block) => block.text)
+        .join('\n')
+        .slice(0, 50_000),
+    voiceSamples: opts.docContext?.voiceSamples,
+  });
 
   const res = await anthropic.messages.create({
     model: AI_MODELS.anthropicMain,
@@ -154,7 +172,10 @@ export async function runPlan(
     tool_choice: { type: 'tool', name: PLAN_TOOL.name },
     messages: [
       ...historyMessages(opts.history),
-      { role: 'user', content: buildPlanUserMessage(message, blocks, opts.selection) },
+      {
+        role: 'user',
+        content: buildPlanUserMessage(message, blocks, compileVoiceGuidance(voice), opts.selection),
+      },
     ],
   });
 

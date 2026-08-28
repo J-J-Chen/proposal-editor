@@ -1,12 +1,19 @@
-/**
- * KB corpus — a committed, deployable distillation of the firm's own sample proposals.
- *
- * Two cards, both derived from already-committed material (src/parse-cache/*.json), so nothing
- * confidential is published:
- *  - FIRM_VOICE — how the firm writes (steers editorial tone; consumed by src/lib/suggest.ts).
- *  - FIRM_FACTS — a closed, reference-only set of real facts (grounding, never fabrication).
- *
- * See docs/decisions.md for the sourcing + anti-fabrication rationale.
- */
-export { FIRM_VOICE, type FirmVoiceCard } from './voice';
-export { FIRM_FACTS, type FirmFacts, type FirmProject } from './facts';
+/** Fixed, deployable KB distilled exclusively from the five approved product-KB proposals. */
+export {
+  FIRM_PROJECTS,
+  KB_SOURCE_DOCUMENTS,
+  type FirmProject,
+  type KbProvenance,
+  type KbSourceDocument,
+  type KbSourceFilename,
+} from './corpus';
+export { FIRM_FACTS, type FirmFacts } from './facts';
+export {
+  FIRM_STYLE_EXAMPLES,
+  FIRM_VOICE,
+  FIRM_VOICE_RULES,
+  type FirmStyleExample,
+  type FirmStyleRole,
+  type FirmVoiceCard,
+  type FirmVoiceRule,
+} from './voice';

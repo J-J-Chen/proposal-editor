@@ -3,6 +3,7 @@
 'use client';
 
 import { IconAssistant, IconFolder, IconHistory, IconRedo, IconUndo } from './icons';
+import type { GroundedRationale, KbProvenance } from '@/lib/types';
 
 export function Titlebar({
   mode,
@@ -110,9 +111,12 @@ export function StatusBar({ left, saved }: { left: string; saved: boolean }) {
 
 export interface ChangeItem {
   blockId: string;
+  /** True for an inserted block that has no location in the immutable Original PDF. */
+  documentOnly?: boolean;
   summary: string;
   when: string;
-  rationale?: string;
+  grounding?: GroundedRationale;
+  provenance?: KbProvenance;
 }
 
 export function ChangesPanel({
@@ -122,7 +126,7 @@ export function ChangesPanel({
 }: {
   items: ChangeItem[];
   onClose: () => void;
-  onGoto: (blockId: string) => void;
+  onGoto: (blockId: string, documentOnly?: boolean) => void;
 }) {
   return (
     <div className="changes" role="dialog" aria-label="Changes you’ve made">
@@ -143,12 +147,22 @@ export function ChangesPanel({
               </div>
               <div className="when">
                 {it.when}
-                {it.rationale ? ` · ${it.rationale}` : ''}
               </div>
+              {it.grounding && (
+                <div className="change-grounding">
+                  <span>{it.grounding.reason}</span>
+                  <q>{it.grounding.evidence}</q>
+                  {it.provenance && (
+                    <small>
+                      {it.provenance.sourceTitle}, page {it.provenance.page}
+                    </small>
+                  )}
+                </div>
+              )}
               <button
                 className="btn-quiet"
                 style={{ marginTop: 8, padding: '6px 12px', minHeight: 0 }}
-                onClick={() => onGoto(it.blockId)}
+                onClick={() => onGoto(it.blockId, it.documentOnly)}
               >
                 Go to this section
               </button>
