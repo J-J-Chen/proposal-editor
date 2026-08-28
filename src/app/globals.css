@@ -284,6 +284,26 @@ button {
   background: var(--accent-tint);
   box-shadow: inset 0 0 0 2px var(--sel-bar);
 }
+.kb-provenance-badge {
+  width: fit-content;
+  max-width: 100%;
+  margin: -1px 0 11px;
+  padding: 5px 9px;
+  border: 1px solid #b9d9c7;
+  border-radius: 6px;
+  background: #f4faf7;
+  color: #456052;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  line-height: 1.35;
+}
+.kb-provenance-badge span {
+  margin-right: 6px;
+  color: #285d3b;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
 .sel-tag,
 .peek-tag {
   position: absolute;
@@ -475,6 +495,151 @@ button {
   font-size: 13px;
   color: var(--muted);
   margin-top: 1px;
+}
+.actbtn.kb-entry {
+  background: #f4faf7;
+  border-color: #b9d9c7;
+}
+.actbtn.kb-entry .ai {
+  background: #dff1e6;
+  color: var(--keep);
+}
+
+/* Candidate-first experience search. Sources stay visible before generation and review. */
+.kb-panel {
+  gap: 14px;
+}
+.kb-intro,
+.kb-results p {
+  margin: 0;
+  color: #4e5862;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.kb-search {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 14px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.kb-search .lab {
+  color: #2b3138;
+  font-size: 14px;
+  font-weight: 700;
+}
+.kb-search-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+.kb-search-row input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: var(--ink);
+  background: #fbfcfd;
+  font: 14px var(--font-ui);
+}
+.kb-search-row .btn-cta {
+  flex: none;
+  min-height: 44px;
+  padding-inline: 14px;
+  font-size: 14px;
+}
+.kb-search-row button:disabled,
+.pane-back:disabled,
+.kb-candidate button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.kb-progress {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 12px 4px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+.kb-progress .tdots {
+  flex: none;
+}
+.kb-results {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.kb-results-head {
+  color: #2b3138;
+  font-size: 15px;
+  font-weight: 700;
+}
+.kb-candidate {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+}
+.kb-candidate-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+}
+.kb-discipline {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #e7f3ea;
+  color: #285d3b;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.kb-score {
+  color: var(--muted);
+  font-size: 11px;
+}
+.kb-candidate h3 {
+  margin: 10px 0 7px;
+  color: #2b3138;
+  font-size: 16px;
+  line-height: 1.3;
+}
+.kb-candidate blockquote {
+  margin: 0;
+  padding-left: 11px;
+  border-left: 3px solid #b9d9c7;
+  color: #42474e;
+  font-family: var(--font-doc);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.kb-source {
+  margin-top: 9px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.kb-use {
+  margin-top: 11px;
+  min-height: 42px;
+  padding-inline: 14px;
+  font-size: 14px;
+}
+.kb-empty {
+  padding: 16px;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
 }
 
 /* free-text box */
@@ -694,6 +859,35 @@ button {
 }
 .keptline b {
   font-weight: 700;
+}
+.grounding-card {
+  margin: 13px 16px;
+  padding: 12px 13px;
+  border: 1px solid #b9d9c7;
+  border-radius: 9px;
+  background: #f4faf7;
+  color: #33453a;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.grounding-label {
+  margin-bottom: 4px;
+  color: #285d3b;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.grounding-card blockquote {
+  margin: 8px 0;
+  padding-left: 10px;
+  border-left: 3px solid #93c5a7;
+  color: #3f5046;
+}
+.grounding-source {
+  color: #52645a;
+  font-size: 12px;
+  font-weight: 600;
 }
 .pill {
   display: inline-block;
@@ -1469,6 +1663,26 @@ div.recent {
   font-size: 13px;
   margin-top: 2px;
 }
+.change-grounding {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+  padding: 9px 10px;
+  border-left: 3px solid #93c5a7;
+  background: #f4faf7;
+  color: #3f5046;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.change-grounding q {
+  color: #55635b;
+  font-family: var(--font-doc);
+}
+.change-grounding small {
+  color: var(--muted);
+  font-weight: 600;
+}
 .changes-empty {
   padding: 40px 20px;
   text-align: center;
@@ -1553,6 +1767,9 @@ div.recent {
   }
   .waitwrap {
     padding: 20px 12px;
+  }
+  .kb-search-row {
+    flex-direction: column;
   }
 }
 

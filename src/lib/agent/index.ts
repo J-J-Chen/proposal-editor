@@ -22,11 +22,13 @@
  * flagged either way), and once the budget is exhausted we stop calling and say so in the reply.
  */
 import type { Block } from '@/lib/types';
+import type { DocumentContext } from '@/lib/contracts';
 import { runEdit } from '@/lib/edit';
 import { isNoChange } from '@/lib/text/diff';
 import type { ChatRequest, ChatResponse, ProposedEdit } from './contract';
 import { runPlan, type PlannedEdit } from './plan';
 import { checkEntityFidelity } from './entity-gate';
+import { checkFactEntityGate } from '@/lib/voice-gate';
 import { LIMITS, makeCallBudget } from './limits';
 
 /** Edit at most this many blocks concurrently — gentle on the proxy + bounds burst spend. */
@@ -59,45 +61,69 @@ interface EditDraft {
   dropped: string[];
   block: Block;
   instruction: string;
+  authoritativeInstruction: string;
   extraNames: readonly string[];
-  docContext?: { firm?: string };
+  docContext: DocumentContext;
 }
 
 /** Phase 1: one guarded edit call (no retry). Returns null for a no-op or a hard failure. */
 async function draftEdit(
   block: Block,
   instruction: string,
+  authoritativeInstruction: string,
   extraNames: readonly string[],
-  docContext?: { firm?: string },
+  docContext: DocumentContext,
 ): Promise<EditDraft | null> {
   const req = {
     block: { id: block.id, text: block.text, type: block.type },
     instruction,
-    docContext: docContext ? { headings: [], firm: docContext.firm } : undefined,
+    docContext,
   };
 
   let after: string;
-  let rationale: string | undefined;
+  let changeSummary: string | undefined;
   try {
-    const res = await runEdit(req);
+    // The planner's per-block instruction is not factual authority. Only the human's message may
+    // authorize a new/changed entity; selected KB facts travel separately through kbContext.
+    const res = await runEdit(req, { authoritativeInstruction });
     after = res.newText;
-    rationale = res.rationale;
+    changeSummary = res.changeSummary;
   } catch {
     return null; // one block failing must not sink the whole batch
   }
   if (isNoChange(block.text, after)) return null;
 
-  const { kept, dropped } = checkEntityFidelity(block.text, after, extraNames);
+  const { kept } = checkEntityFidelity(block.text, after, extraNames);
+  // `runEdit` has already enforced this same hard gate. Re-evaluate only to keep the existing
+  // warning/repair shape honest for any future non-throwing caller: explicitly authorized entity
+  // changes are not mislabeled as accidental drops.
+  const postGate = checkFactEntityGate({
+    before: block.text,
+    after,
+    authoritativeInstruction,
+    extraNames,
+  });
+  const dropped = postGate.violations
+    .filter((violation) => violation.kind.startsWith('dropped'))
+    .map((violation) => violation.value);
   const proposed: ProposedEdit = {
     blockId: block.id,
     before: block.text,
     after,
     instruction,
-    rationale,
+    changeSummary,
     protectedKept: kept,
     warnings: dropped.length ? dropped.map(warn) : undefined,
   };
-  return { proposed, dropped, block, instruction, extraNames, docContext };
+  return {
+    proposed,
+    dropped,
+    block,
+    instruction,
+    authoritativeInstruction,
+    extraNames,
+    docContext,
+  };
 }
 
 /**
@@ -110,15 +136,17 @@ async function repairEdit(d: EditDraft): Promise<void> {
     instruction: `${d.instruction}\n\nCRITICAL: keep these EXACTLY as written, unchanged and character-for-character: ${d.dropped.join(
       '; ',
     )}.`,
-    docContext: d.docContext ? { headings: [], firm: d.docContext.firm } : undefined,
+    docContext: d.docContext,
   };
   try {
-    const repaired = await runEdit(req);
+    const repaired = await runEdit(req, {
+      authoritativeInstruction: d.authoritativeInstruction,
+    });
     if (isNoChange(d.block.text, repaired.newText)) return;
     const recheck = checkEntityFidelity(d.block.text, repaired.newText, d.extraNames);
     if (recheck.dropped.length <= d.dropped.length) {
       d.proposed.after = repaired.newText;
-      d.proposed.rationale = repaired.rationale ?? d.proposed.rationale;
+      d.proposed.changeSummary = repaired.changeSummary ?? d.proposed.changeSummary;
       d.proposed.protectedKept = recheck.kept;
       d.proposed.warnings = recheck.dropped.length ? recheck.dropped.map(warn) : undefined;
       d.dropped = recheck.dropped;
@@ -131,6 +159,29 @@ async function repairEdit(d: EditDraft): Promise<void> {
 /** Plan a chat turn, then propose (never apply) the resulting batch of guarded, gated edits. */
 export async function runAgent(req: ChatRequest): Promise<ChatResponse> {
   const blocks = req.blocks ?? [];
+  const suppliedContext = req.docContext;
+  const localSamples = blocks
+    .filter((block) => block.type === 'paragraph' && block.text.trim().length >= 120)
+    .sort((a, b) => b.text.length - a.text.length)
+    .slice(0, 3)
+    .map((block) => block.text.trim().slice(0, 600));
+  const docContext: DocumentContext = {
+    headings:
+      suppliedContext?.headings ??
+      blocks.filter((block) => block.type === 'heading').map((block) => block.text),
+    firm: suppliedContext?.firm,
+    docId: suppliedContext?.docId,
+    voiceSamples: suppliedContext?.voiceSamples?.length
+      ? suppliedContext.voiceSamples
+      : localSamples,
+    // Resolver-only applicability signal; never copied into the generated prompt.
+    docText:
+      suppliedContext?.docText ??
+      blocks
+        .map((block) => block.text)
+        .join('\n')
+        .slice(0, 50_000),
+  };
 
   // One hard budget for the whole request; the planner is its first spend.
   const budget = makeCallBudget(LIMITS.maxModelCalls);
@@ -138,6 +189,7 @@ export async function runAgent(req: ChatRequest): Promise<ChatResponse> {
   const plan = await runPlan(req.message, blocks, {
     history: req.history,
     selection: req.selection,
+    docContext,
   });
 
   if (plan.edits.length === 0) {
@@ -146,7 +198,7 @@ export async function runAgent(req: ChatRequest): Promise<ChatResponse> {
 
   const byId = new Map(blocks.map((b) => [b.id, b]));
   // The firm name is a doc-specific protected name the gate should also defend.
-  const extraNames = req.docContext?.firm ? [req.docContext.firm] : [];
+  const extraNames = docContext.firm ? [docContext.firm] : [];
 
   // Drop planned blocks that don't exist, and skip pathologically large ones before any model
   // call (a huge block can't be truncated safely — see limits.maxBlockChars). Count the skips.
@@ -169,7 +221,13 @@ export async function runAgent(req: ChatRequest): Promise<ChatResponse> {
         skippedForBudget++;
         return null;
       }
-      return draftEdit(byId.get(e.blockId)!, e.instruction, extraNames, req.docContext);
+      return draftEdit(
+        byId.get(e.blockId)!,
+        e.instruction,
+        req.message,
+        extraNames,
+        docContext,
+      );
     })
   ).filter((d): d is EditDraft => d !== null);
 

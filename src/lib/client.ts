@@ -5,7 +5,17 @@
  */
 import { upload } from '@vercel/blob/client';
 import type { Doc } from './types';
-import type { EditRequest, EditResponse, ParseResponse, SuggestResponse } from './contracts';
+import type {
+  DocumentContext,
+  EditRequest,
+  EditResponse,
+  KbComposeRequest,
+  KbComposeResponse,
+  KbSearchRequest,
+  KbSearchResponse,
+  ParseResponse,
+  SuggestResponse,
+} from './contracts';
 import type { Suggestion } from '@/refine/scan';
 
 export type ParseByHash = { doc: Doc } | { needsUpload: true };
@@ -58,7 +68,7 @@ export async function parseByBlobUrl(hash: string, filename: string, blobUrl: st
   return data.doc;
 }
 
-export type EditError = 'notConfigured' | 'badRequest' | 'proxyError' | 'network';
+export type EditError = 'notConfigured' | 'badRequest' | 'safety' | 'proxyError' | 'network';
 
 export type EditResult =
   | { ok: true; res: EditResponse }
@@ -82,11 +92,61 @@ export async function requestEdit(req: EditRequest): Promise<EditResult> {
     return { ok: false, kind: 'notConfigured', message: 'The writing helper isn’t set up yet.' };
   if (r.status === 400)
     return { ok: false, kind: 'badRequest', message: 'There’s nothing to change here.' };
+  if (r.status === 422)
+    return {
+      ok: false,
+      kind: 'safety',
+      message: 'I stopped that draft because it changed or added a protected fact.',
+    };
   return {
     ok: false,
     kind: 'proxyError',
     message: 'The helper isn’t responding right now. Your document is safe and nothing changed.',
   };
+}
+
+export type KbRequestResult<T> =
+  | { ok: true; res: T }
+  | { ok: false; message: string };
+
+async function postKb<T>(path: string, body: unknown): Promise<KbRequestResult<T>> {
+  let response: Response;
+  try {
+    response = await fetch(path, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    return {
+      ok: false,
+      message: 'The experience library is unavailable right now. Your document is unchanged.',
+    };
+  }
+
+  if (response.ok) return { ok: true, res: (await response.json()) as T };
+  if (response.status === 400)
+    return { ok: false, message: 'Please try a more specific search.' };
+  if (response.status === 404)
+    return { ok: false, message: 'That past project is no longer available. Search again.' };
+  if (response.status === 503)
+    return { ok: false, message: 'The experience library isn’t set up yet.' };
+  return {
+    ok: false,
+    message: 'The experience library isn’t responding. Your document is unchanged.',
+  };
+}
+
+/** Search returns attributable candidates before any prose is generated. */
+export function requestKbSearch(req: KbSearchRequest): Promise<KbRequestResult<KbSearchResponse>> {
+  return postKb('/api/kb/search', req);
+}
+
+/** Compose from one reviewed, opaque candidate id; this never mutates the document. */
+export function requestKbCompose(
+  req: KbComposeRequest,
+): Promise<KbRequestResult<KbComposeResponse>> {
+  return postKb('/api/kb/compose', req);
 }
 
 /**
@@ -96,12 +156,15 @@ export async function requestEdit(req: EditRequest): Promise<EditResult> {
  * so any failure (unconfigured 503, proxy 5xx, network) degrades SILENTLY to [] — the instant
  * client-scan floor still stands and the user sees no error.
  */
-export async function requestSuggestions(doc: Doc): Promise<Suggestion[]> {
+export async function requestSuggestions(
+  doc: Doc,
+  docContext?: DocumentContext,
+): Promise<Suggestion[]> {
   try {
     const r = await fetch('/api/suggest', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ doc }),
+      body: JSON.stringify({ doc, docContext }),
     });
     if (!r.ok) return [];
     const data = (await r.json()) as SuggestResponse;

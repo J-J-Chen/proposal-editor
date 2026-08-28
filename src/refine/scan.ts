@@ -64,8 +64,8 @@ export function scanForRefinements(doc: Doc): Suggestion[] {
         category: 'placeholder',
         title: 'Remove leftover placeholder text',
         why: `This looks like placeholder text left in the document: “${ellipsize(ph[0])}”.`,
-        instruction: `Remove the leftover placeholder text "${ellipsize(ph[0], 80)}" from this section; keep everything else exactly as written.`,
-        evidence: ellipsize(ph[0]),
+        instruction: `Remove the leftover placeholder text "${ph[0]}" from this section; keep everything else exactly as written.`,
+        evidence: ph[0],
       });
     }
 
@@ -91,7 +91,7 @@ export function scanForRefinements(doc: Doc): Suggestion[] {
         title: 'Remove repeated words',
         why: `“${rep[1]}” is repeated several times in a row here — likely a copy-paste error.`,
         instruction: `Remove the accidentally duplicated words (for example "${rep[1]}" repeated back-to-back) in this section. Keep the meaning and every name and number.`,
-        evidence: ellipsize(rep[0]),
+        evidence: rep[0],
       });
     }
   }

@@ -10,19 +10,18 @@ import { isAiConfigured } from '@/lib/ai';
 import { runAgent } from '@/lib/agent';
 import { LIMITS } from '@/lib/agent/limits';
 import type { ChatRequest, ChatResponse } from '@/lib/agent/contract';
+import {
+  REQUEST_INPUT_LIMITS,
+  validChatHistory,
+  validDocumentBlocks,
+  validDocumentContext,
+} from '@/lib/request-validation';
 
 export const dynamic = 'force-dynamic';
 // A sweeping request fans out to one guarded edit per block; give the batch room to finish.
 export const maxDuration = 120;
 
 export async function POST(req: Request) {
-  if (!isAiConfigured()) {
-    return NextResponse.json(
-      { error: 'AI is not configured (BUOYANT_PROXY_TOKEN is not set)' },
-      { status: 503 },
-    );
-  }
-
   let body: ChatRequest;
   try {
     body = (await req.json()) as ChatRequest;
@@ -32,7 +31,7 @@ export async function POST(req: Request) {
 
   // Input bounds — a public, unauthenticated endpoint must reject oversized payloads before any
   // model call (they drive both prompt size and the fan-out). See src/lib/agent/limits.ts.
-  if (!body?.message?.trim()) {
+  if (typeof body?.message !== 'string' || !body.message.trim()) {
     return NextResponse.json({ error: 'message is required' }, { status: 400 });
   }
   if (body.message.length > LIMITS.maxMessageChars) {
@@ -48,6 +47,26 @@ export async function POST(req: Request) {
     return NextResponse.json(
       { error: `too many blocks (max ${LIMITS.maxBlocks})` },
       { status: 400 },
+    );
+  }
+  if (
+    !validDocumentBlocks(body.blocks) ||
+    !validChatHistory(body.history) ||
+    !validDocumentContext(body.docContext) ||
+    !(
+      body.selection === undefined ||
+      body.selection === null ||
+      (typeof body.selection === 'string' &&
+        body.selection.length <= REQUEST_INPUT_LIMITS.maxBlockIdChars)
+    )
+  ) {
+    return NextResponse.json({ error: 'invalid chat request' }, { status: 400 });
+  }
+
+  if (!isAiConfigured()) {
+    return NextResponse.json(
+      { error: 'AI is not configured (BUOYANT_PROXY_TOKEN is not set)' },
+      { status: 503 },
     );
   }
 

@@ -57,7 +57,10 @@ const PATTERNS: { kind: EntityKind; re: RegExp }[] = [
   { kind: 'projectNo', re: /\bProject\s+No\.?\s*\d{2,3}-\d{2,4}\b/gi },
   { kind: 'projectNo', re: /\b0\d{2}-\d{3}\b/g },
   // Dollar figures
-  { kind: 'money', re: /\$\s?\d[\d,]*(?:\.\d+)?(?:\s?(?:million|billion|M|K))?/gi },
+  {
+    kind: 'money',
+    re: /(?<![A-Za-z0-9])[-+]?\$\s?[-+]?(?:\d[\d,]*(?:\.\d+)?|\.\d+)(?:\s?(?:million|billion|M|K))?/gi,
+  },
   // US phone numbers
   { kind: 'phone', re: /\b\d{3}-\d{3}-\d{4}\b/g },
 ];

@@ -35,13 +35,28 @@ export function isAiConfigured(): boolean {
 // (uncompressed) response avoids the broken decode path. Verified: with the SDK default
 // Accept-Encoding the call errors; with identity it returns cleanly.
 const PROXY_HEADERS = { 'accept-encoding': 'identity' } as const;
+// Chat's 12-call budget can form four sequential waves (plan + 2 edit waves + repair wave).
+// Twenty-five seconds keeps that worst case under its 120-second route limit.
+const PROXY_TIMEOUT_MS = 25_000;
 
 export function getAnthropic(): Anthropic {
   if (!isAiConfigured()) throw new Error('BUOYANT_PROXY_TOKEN is not set');
-  return new Anthropic({ apiKey: TOKEN, baseURL: ANTHROPIC_BASE_URL, defaultHeaders: PROXY_HEADERS });
+  return new Anthropic({
+    apiKey: TOKEN,
+    baseURL: ANTHROPIC_BASE_URL,
+    defaultHeaders: PROXY_HEADERS,
+    maxRetries: 0,
+    timeout: PROXY_TIMEOUT_MS,
+  });
 }
 
 export function getOpenAI(): OpenAI {
   if (!isAiConfigured()) throw new Error('BUOYANT_PROXY_TOKEN is not set');
-  return new OpenAI({ apiKey: TOKEN, baseURL: OPENAI_BASE_URL, defaultHeaders: PROXY_HEADERS });
+  return new OpenAI({
+    apiKey: TOKEN,
+    baseURL: OPENAI_BASE_URL,
+    defaultHeaders: PROXY_HEADERS,
+    maxRetries: 0,
+    timeout: PROXY_TIMEOUT_MS,
+  });
 }

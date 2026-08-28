@@ -12,6 +12,7 @@ import { wordDiff } from '@/lib/text/diff';
 import { IconCheck, IconShield } from './icons';
 
 const SHOW_INLINE_MARKS = true;
+const MAX_FOLLOWUP_CHARS = 1_800;
 
 // Follow-up quick actions — the common ways someone nudges a proposed edit before deciding.
 // The label is the button; the phrase is what we actually ask the model (fuller, so it aims true).
@@ -60,6 +61,7 @@ function FollowUp({
         <input
           className="fu-input"
           value={text}
+          maxLength={MAX_FOLLOWUP_CHARS}
           disabled={refining}
           aria-label="Ask for an adjustment to this change"
           placeholder="e.g. keep the client name, one sentence shorter"
@@ -101,26 +103,28 @@ export function DiffBody({
   before,
   after,
   protectedKept,
+  addition = false,
 }: {
   before: string;
   after: string;
   protectedKept: string[];
+  addition?: boolean;
 }) {
   const segs = SHOW_INLINE_MARKS ? wordDiff(before, after) : null;
   return (
     <>
-      <div className="boxlab">The wording now</div>
-      <div className="oldbox">{before}</div>
+      <div className="boxlab">{addition ? 'In your document now' : 'The wording now'}</div>
+      <div className="oldbox">{addition ? 'No new paragraph yet.' : before}</div>
 
       <div className="boxlab" style={{ marginTop: 9 }}>
-        The suggested new wording
+        {addition ? 'The paragraph to add' : 'The suggested new wording'}
       </div>
       <div className="newbox">{after}</div>
 
       {segs && (
         <>
           <div className="boxlab" style={{ marginTop: 9 }}>
-            What changed
+            {addition ? 'What will be added' : 'What changed'}
           </div>
           <div className="diffbox">
             {segs.map((s, i) =>
@@ -137,14 +141,16 @@ export function DiffBody({
               ),
             )}
           </div>
-          <div className="legend">
-            <span>
-              <span className="rm2">red crossed-out</span> = removed
-            </span>
-            <span>
-              <span className="ad2">green underlined</span> = added
-            </span>
-          </div>
+          {!addition && (
+            <div className="legend">
+              <span>
+                <span className="rm2">red crossed-out</span> = removed
+              </span>
+              <span>
+                <span className="ad2">green underlined</span> = added
+              </span>
+            </div>
+          )}
         </>
       )}
 
@@ -179,10 +185,13 @@ export function DiffView({
   refining: boolean;
   onRefine: (text: string) => void;
 }) {
+  const addition = Boolean(pending.insert);
   return (
     <div className="rcard">
       <div className="rc-head">
-        <div className="t">Here is the suggested change</div>
+        <div className="t">
+          {addition ? 'Here is the experience to add' : 'Here is the suggested change'}
+        </div>
         <div className="asked">You asked: {pending.instruction}.</div>
       </div>
 
@@ -190,17 +199,35 @@ export function DiffView({
         before={pending.before}
         after={pending.after}
         protectedKept={pending.protectedKept}
+        addition={addition}
       />
 
-      <FollowUp followUps={followUps} refining={refining} onRefine={onRefine} />
+      {pending.grounding && (
+        <div className="grounding-card">
+          <div className="grounding-label">Why this is grounded</div>
+          <div>{pending.grounding.reason}</div>
+          <blockquote>“{pending.grounding.evidence}”</blockquote>
+          {pending.grounding.provenance && (
+            <div className="grounding-source">
+              Source: {pending.grounding.provenance.sourceTitle}, page{' '}
+              {pending.grounding.provenance.page}
+              {pending.grounding.provenance.fallbackUsed ? ' · Prepared without AI' : ''}
+            </div>
+          )}
+        </div>
+      )}
+
+      {!addition && (
+        <FollowUp followUps={followUps} refining={refining} onRefine={onRefine} />
+      )}
 
       <div className="rc-actions">
-        <button className="btn-keep" onClick={onKeep}>
+        <button className="btn-keep" onClick={onKeep} disabled={refining}>
           <IconCheck />
-          Keep this change
+          {addition ? 'Add this experience' : 'Keep this change'}
         </button>
-        <button className="btn-discard" onClick={onDiscard}>
-          Discard
+        <button className="btn-discard" onClick={onDiscard} disabled={refining}>
+          {addition ? 'Don’t add it' : 'Discard'}
         </button>
         <span className="rc-under">You can Undo this afterward.</span>
       </div>

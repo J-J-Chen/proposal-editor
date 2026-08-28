@@ -6,10 +6,22 @@ import { NextResponse } from 'next/server';
 import type { SuggestRequest, SuggestResponse } from '@/lib/contracts';
 import { isAiConfigured } from '@/lib/ai';
 import { getSuggestions } from '@/lib/suggest';
+import { validDocumentContext, validSuggestionDoc } from '@/lib/request-validation';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
+  let body: SuggestRequest;
+  try {
+    body = (await req.json()) as SuggestRequest;
+  } catch {
+    return NextResponse.json({ error: 'invalid JSON body' }, { status: 400 });
+  }
+
+  if (!validSuggestionDoc(body?.doc) || !validDocumentContext(body.docContext)) {
+    return NextResponse.json({ error: 'doc with id and blocks is required' }, { status: 400 });
+  }
+
   if (!isAiConfigured()) {
     // The client deterministic scan still runs, so the Refine inbox isn't empty without us.
     return NextResponse.json(
@@ -18,19 +30,8 @@ export async function POST(req: Request) {
     );
   }
 
-  let body: SuggestRequest;
   try {
-    body = (await req.json()) as SuggestRequest;
-  } catch {
-    return NextResponse.json({ error: 'invalid JSON body' }, { status: 400 });
-  }
-
-  if (!body?.doc?.id || !Array.isArray(body?.doc?.blocks)) {
-    return NextResponse.json({ error: 'doc with id and blocks is required' }, { status: 400 });
-  }
-
-  try {
-    const { suggestions, cached } = await getSuggestions(body.doc);
+    const { suggestions, cached } = await getSuggestions(body.doc, body.docContext);
     const res: SuggestResponse = { suggestions, cached };
     return NextResponse.json(res);
   } catch (err) {
