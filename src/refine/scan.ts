@@ -31,6 +31,12 @@ export interface Suggestion {
   why: string; // grounded — quotes the actual text
   instruction: string; // seed handed to the edit loop on "Make this fix"
   evidence: string; // the span that triggered it
+  /**
+   * A pre-computed, already-guarded rewrite from the LLM suggest pass (Option B): when present,
+   * "Make this fix" applies it directly (instant review card, no /api/edit round-trip). Absent for
+   * the deterministic client-scan suggestions above, which fall back to /api/edit.
+   */
+  after?: string;
 }
 
 // Leftover placeholder text: [INSERT ...], [Client Name], TBD, Lorem ipsum, XXXX.

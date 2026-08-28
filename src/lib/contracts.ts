@@ -101,6 +101,13 @@ export interface LlmSuggestion {
   why: string; // grounded — built server-side around a verbatim span of the block
   instruction: string; // entity-safe seed handed to /api/edit on "Make this fix"
   evidence: string; // the verbatim span that triggered it
+  /**
+   * The pre-computed, already-guarded rewrite (Option B): the suggest pass ran the same guarded
+   * editor at generation, dropped no-ops + entity-breakers, and returns only survivors — each
+   * carrying its guarded `after`. The FE applies it directly on "Make this fix" (no /api/edit),
+   * still re-running the entity gate on apply. Folds into refine/scan.ts `Suggestion.after`.
+   */
+  after?: string;
 }
 
 export interface SuggestRequest {
