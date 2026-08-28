@@ -1267,19 +1267,6 @@ button {
   line-height: 1.45;
   color: var(--muted);
 }
-/* A quiet hint that appears on hover, when the target section is already lit up in the document. */
-.rf-where {
-  display: block;
-  margin-top: 8px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--accent-deep);
-  opacity: 0;
-  transition: opacity 0.12s;
-}
-.refcard:hover .rf-where {
-  opacity: 1;
-}
 /* "Looking for more…" — shown while the LLM editorial pass runs, below the instant client-scan
    list (or on its own when the scan floor is empty). Calm, muted, with the same dots as the pane. */
 .rf-looking {
