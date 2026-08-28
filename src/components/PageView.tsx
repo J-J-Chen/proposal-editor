@@ -10,6 +10,7 @@ import { useMemo, useState } from 'react';
 import type { Doc } from '@/lib/types';
 import { RENDERED } from '@/parse-cache/renders';
 import { LAYOUT, type BlockRect } from '@/parse-cache/layout';
+import { IconRedo, IconUndo } from './icons';
 
 /**
  * Committed static images for seeded docs; otherwise the on-demand render route (uploads). For an
@@ -28,6 +29,8 @@ export function PageView({
   pulseId,
   peekId,
   editedText,
+  sectionControls = {},
+  onSectionStep,
   blobUrl,
   onSelect,
   onBackgroundClick,
@@ -40,6 +43,14 @@ export function PageView({
   peekId: string | null;
   /** blockId → current text, for blocks whose text differs from the original (patched in place). */
   editedText: Record<string, string>;
+  /**
+   * blockId → per-section undo/redo control to show ('undo' can revert, 'redo' can reapply). Same
+   * map the editable document view uses, so a changed section carries its inline undo on BOTH tabs.
+   * A 'redo' entry exists on a section reverted back to its original — which has no `editedText`
+   * patch — so the control is keyed off THIS map, not off `editedText`.
+   */
+  sectionControls?: Record<string, 'undo' | 'redo'>;
+  onSectionStep?: (blockId: string) => void;
   /** For an uploaded doc: its private Blob URL, so /api/page can self-heal a cold-instance miss. */
   blobUrl?: string | null;
   onSelect?: (id: string) => void;
@@ -108,6 +119,7 @@ export function PageView({
               {interactive &&
                 (regionsByPage[n] ?? []).map(({ id, rect }) => {
                   const patched = editedText[id];
+                  const ctl = onSectionStep ? sectionControls[id] : undefined;
                   const cls =
                     'orig-region' +
                     (id === selectedId ? ' sel' : '') +
@@ -143,6 +155,28 @@ export function PageView({
                         }
                       }}
                     >
+                      {ctl && (
+                        <button
+                          className={`sec-ctl on-orig ${ctl}`}
+                          title={
+                            ctl === 'undo'
+                              ? 'Undo the change to this section'
+                              : 'Redo the change to this section'
+                          }
+                          aria-label={
+                            ctl === 'undo'
+                              ? 'Undo the change to this paragraph'
+                              : 'Redo the change to this paragraph'
+                          }
+                          onClick={(e) => {
+                            e.stopPropagation(); // act on the section, never select/deselect it
+                            onSectionStep?.(id);
+                          }}
+                        >
+                          {ctl === 'undo' ? <IconUndo /> : <IconRedo />}
+                          {ctl === 'undo' ? 'Undo' : 'Redo'}
+                        </button>
+                      )}
                       {patched !== undefined && (
                         <span className="orig-patch" style={{ fontSize: `${rect.size * 100}cqh` }}>
                           {patched}
