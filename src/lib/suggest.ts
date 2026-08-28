@@ -42,7 +42,7 @@ const MAX_BLOCKS_REVIEWED = 50; // bound the prompt (easy.pdf is well under this
 const MAX_BLOCK_CHARS = 600; // truncate any one block in the prompt
 
 /** Bump when the rubric/prompt/schema change materially (invalidates the cache). */
-export const SUGGEST_VERSION = 4;
+export const SUGGEST_VERSION = 5;
 
 /** Validate at most this many candidates concurrently through the guarded editor (gentle on the proxy). */
 const VALIDATE_CONCURRENCY = 4;
@@ -168,23 +168,30 @@ function entitySafeInstruction(base: string, blockText: string): string {
   return withStop + clause;
 }
 
-/** The model may identify an issue, but it never receives factual mutation authority. */
+/**
+ * The model may identify an issue, but it never receives factual mutation authority. The exact
+ * flagged span (`evidence`) is threaded in so the editor aims where the card points — otherwise a
+ * block-scoped "the phrasing identified in this block" has no referent that reaches the editor, and
+ * it can tighten a DIFFERENT span than the card's grounding cites (the card claim ⇔ diff mismatch).
+ */
 function instructionFor(
   category: LlmRefineCategory,
+  evidence: string,
   blockText: string,
 ): string {
+  const span = `“${evidence}”`;
   let seed: string;
   switch (category) {
     case 'wordiness':
-      seed = 'Tighten only the wordy phrasing identified in this block; keep its meaning';
+      seed = `Tighten only the wordy phrase ${span} in this block; keep its meaning and change nothing else`;
       break;
     case 'clarity':
       seed =
-        'Clarify only the vague phrasing identified in this block using facts already present; if no supported clarification is possible, leave it unchanged';
+        `Clarify only the vague phrase ${span} using facts already present in the document; if no supported clarification is possible, leave the block unchanged`;
       break;
     case 'consistency':
       seed =
-        'Standardize only the inconsistent terminology identified in this block using terminology already present';
+        `Standardize only the inconsistent wording ${span} in this block using terminology already present; change nothing else`;
       break;
   }
   return entitySafeInstruction(seed, blockText);
@@ -221,7 +228,7 @@ function toSuggestion(raw: RawItem, byId: Map<string, Block>): Candidate | null 
     category,
     title,
     why: whyFor(category, evidence),
-    instruction: instructionFor(category, block.text),
+    instruction: instructionFor(category, evidence, block.text),
     evidence,
   };
 }
@@ -274,6 +281,8 @@ async function mapPool<T, R>(
  *  - a no-op is dropped — the guarded editor correctly refused to invent (e.g. a "make concrete"
  *    ask with no in-doc facts), which is exactly the dead-end card we must never surface;
  *  - a rewrite that drops any protected entity is dropped (would break a fixed fact);
+ *  - a rewrite that left the FLAGGED span (`evidence`) untouched is dropped — the editor tightened
+ *    something else, so the card's grounding ("why") would not match its diff (card claim ⇔ diff);
  *  - a proxy/model error yields `errored` so the caller can skip caching (a transient failure must
  *    not permanently hide a good suggestion).
  * The surviving `after` is exactly what "Make this fix" would have produced, so the FE applies it
@@ -298,6 +307,10 @@ async function validateCandidate(
   if (isNoChange(block.text, after)) return { suggestion: null, errored: false };
   const dropped = protectedStrings(block.text).filter((e) => !after.includes(e));
   if (dropped.length > 0) return { suggestion: null, errored: false };
+  // Invariant guardrail: the edit must actually change the span the card cites. If the exact
+  // evidence span survived verbatim, the editor changed a different span → grounding wouldn't match
+  // the diff → drop. Makes "what the card claims ⇔ what the diff does" provable even on drift.
+  if (locateVerbatim(after, cand.evidence) !== null) return { suggestion: null, errored: false };
   return { suggestion: { ...cand, after }, errored: false };
 }
 
