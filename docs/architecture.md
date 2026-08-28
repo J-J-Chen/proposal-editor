@@ -69,15 +69,23 @@ they can't corrupt each other:
 - **`pending`** — the AI proposal under diff-review. **Not in history**; Reject just nulls it, so
   a rejected edit is structurally incapable of polluting undo/redo (an invariant, not a rule to remember).
 
-Each entry is the `{ blockId, before, after }` we already had, promoted to a first-class op and
-enriched for the audit trail (`instruction`, `rationale?`, `at`):
+Each entry is a first-class operation plus audit metadata. Model prose describes **what changed**;
+trust evidence is stored separately as structured grounding:
 
 ```ts
-type EditOp = { kind: 'setText'; blockId: string; before: string; after: string };
-  // reserved (NOT built now): 'insert' | 'delete' | 'move' — structural edits widen this additively
+type EditOp =
+  | {
+      kind: 'replace'; blockId: string; before: string; after: string;
+      provenanceChange?: { before?: KbProvenance; after?: KbProvenance };
+    }
+  | { kind: 'insert'; afterId: string | null; block: Block }
+  | { kind: 'delete'; blockId: string; before: Block };
 interface HistoryEntry {
-  id: string; op: EditOp; groupId: string;   // groupId → a future multi-block edit undoes atomically
-  instruction: string; rationale?: string; at: number;   // audit fields
+  op: EditOp; at: string; source: 'ai' | 'user' | 'kb';
+  changeSummary?: string;
+  grounding?: GroundedRationale;
+  provenance?: KbProvenance;
+  groupId?: string; // contiguous chat edits undo/redo atomically
 }
 ```
 
@@ -104,19 +112,35 @@ interface HistoryEntry {
 be untouched. On-brand (the brief foregrounds names), automatable, and yields a real number.
 See [checkpoint 5](../plans/checkpoint-5-eval-readme.md).
 
-## KB grounding (stretch)
-One interaction — **"Add similar experience"**: retrieve real past projects from the 5 `kb/`
-proposals (in-memory keyword overlap over the committed `src/kb/` module (`voice.ts`/`facts.ts`); no DB/vector/BM25
-stats), show provenance on candidate cards, **the human picks one before any generation**, then
-compose the inserted paragraph with the LLM **in MECO's voice** using only that project's facts,
-guarded by a deterministic entity-verbatim **fidelity net** (template fallback on failure). Insert
-via the reserved `'insert'` EditOp (undo removes it). A firm **voice card** mined from the KB is
-injected into the `docContext` of *every* edit, not just KB ones. Ingest is programmatic (reuse the
-parser) but the field bindings are **hand-verified**; `projectNumber` is deliberately not indexed
-(the `001-xxx` values are the SOQ's own doc id). The same retrieval + provenance also power
-**grounded rationales** on suggestions (a real KB quote as the verifiable "why"), with the CP5
-rubric supplying the deterministic reason — never free-form LLM justification. Full design +
-rationale: [checkpoint 6](../plans/checkpoint-6-kb-grounding.md).
+## KB grounding
+One explicit interaction — **“Add similar experience”** — reads a fixed corpus distilled from
+exactly the five `kb/` proposal examples. `easy.pdf` and `hard.pdf` are fixtures, never corpus
+sources. Runtime search is deterministic weighted keyword overlap over 17 hand-reviewed project
+records in `src/kb/corpus.ts`; there is no DB, embedding call, or runtime PDF ingest.
+
+The trust sequence is enforced in the shape of the product: candidate cards expose a verbatim
+quote, source proposal, and page first; **the human chooses one before any generation**; compose
+accepts only its opaque id and resolves the approved facts server-side. The ordinary guarded edit
+service shapes a source-only draft in the resolved document voice. A hard post-generation gate
+occurrence-counts protected entities, digit and spelled-out quantities, engineering notation,
+likely proper names (including corpus punctuation variants), and factual single-token place subjects,
+while a project-specific coverage check retains the chosen title, client, location, and each scope
+claim. Any model error or miss returns the deterministic factual draft—no retry and no partial
+unverified output.
+
+The result enters the same pending review slot as every edit, rendered as an all-add diff. Only
+Keep creates the reserved `insert` EditOp with `source: 'kb'`; Discard is a structural no-op, and
+Undo/Redo remove/restore the block and its provenance. Inserted blocks keep a visible source/page
+badge until their wording is later rewritten; that replace op clears the now-stale badge and
+records the provenance transition so Undo restores it. Ordinary edits never receive project facts.
+
+Voice and facts are separate inputs. `src/kb/voice.ts` holds a versioned profile whose prompt-facing
+rules and examples are fact-free/delexicalized; one compiler supplies it to direct edits, Refine,
+chat planning, chat drafting/repair, and KB compose. The firm profile is used only on a positive
+firm match; unknown uploads use bounded samples from themselves. Visible “why” text is structured
+grounding: a deterministic rubric reason plus document evidence, or the selected KB quote plus
+provenance. Model-authored text is labeled only as a change summary. Full design and validation:
+[checkpoint 6](../plans/checkpoint-6-kb-grounding.md).
 
 ## Boundaries / structure (best-practice, cheaply)
 Keep concerns separated without over-engineering a 4-hour app:

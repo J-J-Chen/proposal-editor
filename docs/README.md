@@ -31,6 +31,11 @@ browser → select a paragraph/section → AI edits it → review diff → apply
 **The architectural bet:** don't edit the PDF — convert it once into a clean, structured,
 editable **block model** and run the whole loop on that. See [architecture.md](architecture.md).
 
+**Product KB:** the read-only grounding corpus is exactly the five provided KB proposal examples
+(17 reviewed projects with page citations). `easy.pdf` and `hard.pdf` are not KB sources. Search is
+candidate-first; facts enter compose only after a human pick. See
+[checkpoint 6](../plans/checkpoint-6-kb-grounding.md).
+
 ## Keep the KB alive
 When you make a non-obvious design decision, **append it to [decisions.md](decisions.md)**.
 When you learn something durable about the fixtures or product, update the relevant doc.

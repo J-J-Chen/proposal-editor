@@ -9,6 +9,18 @@
     `hannibal_demolition_soq.pdf`, `palmyra_modot_tap_soq.pdf`.
 - Firm across all docs: **MECO Engineering Company** — consistent voice, team, conventions.
 
+The committed KB data is a hand-reviewed distillation in `src/kb/`, not the raw PDFs: 17 project
+records with 50 exact page-bound citations, plus a versioned voice profile. **Only those five
+`kb/` files are sources. `easy.pdf` and `hard.pdf` are never included in the KB build.** Re-audit
+the committed records with:
+
+```sh
+npm run kb:audit -- /path/to/ExampleProposals/kb
+```
+
+The audit requires the directory to contain exactly the five allowlisted filenames and rejects
+unmatched citations, proposal-cover `001-…` ids, hashes, and machine-local paths.
+
 > "kb" here = the **product's** knowledge base (past proposals the app grounds edits in).
 > Our internal design/reasoning KB is `docs/` (this folder). Don't conflate them.
 
