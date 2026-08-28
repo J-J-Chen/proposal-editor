@@ -23,6 +23,8 @@
  */
 import { AI_MODELS, getAnthropic } from './ai';
 import { protectedStrings } from './entities';
+import { runEdit } from './edit';
+import { isNoChange } from './text/diff';
 import {
   compileVoiceGuidance,
   resolveVoiceGuidance,
@@ -40,7 +42,10 @@ const MAX_BLOCKS_REVIEWED = 50; // bound the prompt (easy.pdf is well under this
 const MAX_BLOCK_CHARS = 600; // truncate any one block in the prompt
 
 /** Bump when the rubric/prompt/schema change materially (invalidates the cache). */
-export const SUGGEST_VERSION = 3;
+export const SUGGEST_VERSION = 4;
+
+/** Validate at most this many candidates concurrently through the guarded editor (gentle on the proxy). */
+const VALIDATE_CONCURRENCY = 4;
 
 export const SUGGEST_TOOL = {
   name: 'report_suggestions',
@@ -192,8 +197,11 @@ interface RawItem {
   title?: unknown;
 }
 
-/** Validate + ground one raw model item into a Suggestion, or null to drop it. */
-function toSuggestion(raw: RawItem, byId: Map<string, Block>): LlmSuggestion | null {
+/** A grounded suggestion before its rewrite is validated — everything but the pre-computed `after`. */
+type Candidate = Omit<LlmSuggestion, 'after'>;
+
+/** Validate + ground one raw model item into a Candidate, or null to drop it. */
+function toSuggestion(raw: RawItem, byId: Map<string, Block>): Candidate | null {
   const blockId = typeof raw.blockId === 'string' ? raw.blockId : '';
   const category = raw.category as LlmRefineCategory;
   const title = typeof raw.title === 'string' ? raw.title.trim() : '';
@@ -243,6 +251,56 @@ function contentKey(doc: Doc, voice: ResolvedVoiceGuidance): string {
   return `${SUGGEST_VERSION}:${voiceCacheKey(voice)}:${sha256(Buffer.from(canon, 'utf8'))}`;
 }
 
+/** Run async `worker` over `items` with a fixed concurrency cap, preserving input order. */
+async function mapPool<T, R>(
+  items: T[],
+  limit: number,
+  worker: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let next = 0;
+  const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    for (let i = next++; i < items.length; i = next++) {
+      results[i] = await worker(items[i], i);
+    }
+  });
+  await Promise.all(runners);
+  return results;
+}
+
+/**
+ * Validate one candidate by PRE-RUNNING its instruction through the SAME guarded editor as
+ * /api/edit (runEdit), then keeping it only if the rewrite is a real, entity-safe change:
+ *  - a no-op is dropped — the guarded editor correctly refused to invent (e.g. a "make concrete"
+ *    ask with no in-doc facts), which is exactly the dead-end card we must never surface;
+ *  - a rewrite that drops any protected entity is dropped (would break a fixed fact);
+ *  - a proxy/model error yields `errored` so the caller can skip caching (a transient failure must
+ *    not permanently hide a good suggestion).
+ * The surviving `after` is exactly what "Make this fix" would have produced, so the FE applies it
+ * with no second AI round-trip.
+ */
+async function validateCandidate(
+  cand: Candidate,
+  block: Block,
+  docContext: { headings: string[]; firm?: string },
+): Promise<{ suggestion: LlmSuggestion | null; errored: boolean }> {
+  let after: string;
+  try {
+    const res = await runEdit({
+      block: { id: block.id, text: block.text, type: block.type },
+      instruction: cand.instruction,
+      docContext,
+    });
+    after = res.newText;
+  } catch {
+    return { suggestion: null, errored: true };
+  }
+  if (isNoChange(block.text, after)) return { suggestion: null, errored: false };
+  const dropped = protectedStrings(block.text).filter((e) => !after.includes(e));
+  if (dropped.length > 0) return { suggestion: null, errored: false };
+  return { suggestion: { ...cand, after }, errored: false };
+}
+
 /** Compute (or reuse) the grounded LLM suggestions for a document. */
 export async function getSuggestions(
   doc: Doc,
@@ -288,17 +346,35 @@ export async function getSuggestions(
   const input = toolUse.input as { suggestions?: unknown };
   const rawItems = Array.isArray(input.suggestions) ? (input.suggestions as RawItem[]) : [];
 
+  // Phase 1 — grounded candidates (the model flags the issue; the server owns the instruction).
   const byId = new Map(blocks.map((b) => [b.id, b]));
   const seen = new Set<string>();
-  const out: LlmSuggestion[] = [];
+  const candidates: Candidate[] = [];
   for (const raw of rawItems) {
     const s = toSuggestion(raw, byId);
     if (!s || seen.has(s.id)) continue; // dedupe by id (category:blockId)
     seen.add(s.id);
-    out.push(s);
-    if (out.length >= MAX_SUGGESTIONS) break;
+    candidates.push(s);
+    if (candidates.length >= MAX_SUGGESTIONS) break;
+  }
+  if (candidates.length === 0) {
+    cacheSet(key, []);
+    return { suggestions: [], cached: false };
   }
 
-  cacheSet(key, out);
-  return { suggestions: out, cached: false };
+  // Phase 2 — validate each candidate by pre-running the SAME guarded editor, and keep only the
+  // ones that yield a real, entity-safe change. Bounded (≤ MAX_SUGGESTIONS) + concurrency-capped;
+  // the result lands in the per-content cache, so this cost is once per upload, not per interaction.
+  const headings = doc.blocks.filter((b) => b.type === 'heading').map((b) => b.text);
+  const editorContext = { headings, firm: docContext?.firm };
+  const results = await mapPool(candidates, VALIDATE_CONCURRENCY, (c) =>
+    validateCandidate(c, byId.get(c.blockId)!, editorContext),
+  );
+  const suggestions = results
+    .map((r) => r.suggestion)
+    .filter((s): s is LlmSuggestion => s !== null);
+
+  // Cache only a clean run — a transient validation error shouldn't permanently hide good suggestions.
+  if (!results.some((r) => r.errored)) cacheSet(key, suggestions);
+  return { suggestions, cached: false };
 }
