@@ -241,7 +241,10 @@ export function ChatPanel({
               onChange={(e) => setText(e.target.value)}
               placeholder="For example: make the whole proposal more concise"
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) send();
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  send();
+                }
               }}
             />
             <div className="chips">
