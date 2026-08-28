@@ -104,7 +104,9 @@ export interface LlmSuggestion {
   // The validated rewrite, pre-computed at generation time by running `instruction` through the
   // SAME guarded editor as /api/edit and keeping only a real, entity-safe change. Its presence is
   // the guarantee the suggestion is actionable (no-ops + entity-breakers are dropped, never shown),
-  // and lets the FE apply the fix instantly with no second AI round-trip.
+  // and lets the FE apply the fix instantly with no second AI round-trip. REQUIRED: the server
+  // always populates it or drops the suggestion. The FE's merged Suggestion type (refine/scan.ts)
+  // keeps it OPTIONAL because deterministic client-scan suggestions carry no `after`.
   after: string;
 }
 
