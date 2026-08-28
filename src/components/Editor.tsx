@@ -51,7 +51,7 @@ import { scanForRefinements, type Suggestion } from '@/refine/scan';
 import { requestChat } from '@/lib/agent/client';
 import type { ChatTurn } from '@/lib/agent/contract';
 import { RENDERED } from '@/parse-cache/renders';
-import { IconCheck, IconFolder, IconShield } from './icons';
+import { IconAssistant, IconCheck, IconFolder, IconSearch, IconShield } from './icons';
 
 // 'boot' = the first client tick, before we've read localStorage — avoids flashing the Open
 // screen when we're about to restore a document the user was working on.
@@ -387,6 +387,97 @@ function DocViewSwitch({
   );
 }
 
+/** A short, single-line echo of a block's text — for the scope bar / headers. */
+function echoText(text: string, max = 40): string {
+  const t = text.trim().replace(/\s+/g, ' ');
+  return t.length > max ? `${t.slice(0, max).trimEnd()}…` : t;
+}
+
+/** Which tab of the assistant pane is showing. Suggestions is the onboarding-first default. */
+type AsstTab = 'suggestions' | 'ask';
+
+/**
+ * The two-tab header of the assistant pane. Suggestions (amber "attention" identity) is where a
+ * proposal opens — the high-confidence fixes to review first; Ask for a change (teal) is the
+ * conversational surface. One persistent pane, two clearly-different jobs.
+ */
+function AsstTabs({
+  active,
+  suggestionCount,
+  onSuggestions,
+  onAsk,
+}: {
+  active: AsstTab;
+  suggestionCount: number;
+  onSuggestions: () => void;
+  onAsk: () => void;
+}) {
+  return (
+    <div className="asst-tabs" role="tablist" aria-label="Assistant">
+      <button
+        role="tab"
+        aria-selected={active === 'suggestions'}
+        className={`asst-tab sug${active === 'suggestions' ? ' on' : ''}`}
+        onClick={onSuggestions}
+      >
+        <IconSearch />
+        Suggestions
+        {suggestionCount > 0 && <span className="asst-count">{suggestionCount}</span>}
+      </button>
+      <button
+        role="tab"
+        aria-selected={active === 'ask'}
+        className={`asst-tab ask${active === 'ask' ? ' on' : ''}`}
+        onClick={onAsk}
+      >
+        <IconAssistant />
+        Ask for a change
+      </button>
+    </div>
+  );
+}
+
+/**
+ * The scope bar sits above the Ask composer and says — loudly — what the next request will touch.
+ * Selection IS the scope: a paragraph selected → edit just it; nothing selected → the whole
+ * proposal. Making the scope unmistakable is the make-or-break for a single conversational box.
+ */
+function ScopeBar({
+  selectedBlock,
+  onClear,
+}: {
+  selectedBlock: Block | null;
+  onClear: () => void;
+}) {
+  if (selectedBlock) {
+    return (
+      <div className="scopebar para">
+        <span className="sb-ico" aria-hidden="true">
+          ¶
+        </span>
+        <span className="sb-txt">
+          Editing <b>just this paragraph</b>
+        </span>
+        <span className="sb-ex">“{echoText(selectedBlock.text, 30)}”</span>
+        <button className="sb-x" onClick={onClear}>
+          × whole proposal
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="scopebar whole">
+      <span className="sb-ico" aria-hidden="true">
+        ▤
+      </span>
+      <span className="sb-txt">
+        Editing the <b>whole proposal</b>
+      </span>
+      <span className="sb-hint">· click any paragraph to focus on one part</span>
+    </div>
+  );
+}
+
 /**
  * Merge the LLM editorial suggestions onto the deterministic client scan. Dedupe by id (client
  * wins — the two category sets don't overlap anyway), and staleness-guard the server list: drop
@@ -419,6 +510,11 @@ export function Editor() {
   );
   const [toast, setToast] = useState<string | null>(null);
   const [showChanges, setShowChanges] = useState(false);
+  // Which assistant tab is showing. Suggestions is the onboarding-first default (set when a doc
+  // opens); Ask is the conversational surface. Replaces the old mutually-exclusive pane flags as
+  // the top-level right-pane router.
+  const [activeTab, setActiveTab] = useState<AsstTab>('suggestions');
+  const scannedDocRef = useRef<string | null>(null); // guards the one-time onboarding scan per doc
   const [lastInstruction, setLastInstruction] = useState('');
   // Follow-up conversation on the pending proposal: the asks made so far (the review thread) and
   // whether an adjustment is in flight. Distinct from status:'thinking' so the diff card stays up.
@@ -427,8 +523,7 @@ export function Editor() {
   // Tracks which block the follow-up thread belongs to, so we can reset it when the proposal
   // under review changes block or clears (see the render-time guard below).
   const [threadBlockId, setThreadBlockId] = useState<string | null>(null);
-  // Refine ("Check my proposal") state.
-  const [refineOpen, setRefineOpen] = useState(false);
+  // Suggestions ("things to fix") state — shown in the Suggestions tab.
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [resolved, setResolved] = useState<Set<string>>(new Set());
@@ -443,12 +538,14 @@ export function Editor() {
   const [kbStatus, setKbStatus] = useState<'idle' | 'searching' | 'composing'>('idle');
   const [kbError, setKbError] = useState<string | null>(null);
   const [kbPicked, setKbPicked] = useState<string | null>(null);
-  // Agentic chat ("Ask the assistant") state.
-  const [chatOpen, setChatOpen] = useState(false);
+  // Ask-for-a-change (whole-proposal chat) state.
   const [chatMessages, setChatMessages] = useState<ChatTurn[]>([]);
   const [chatStatus, setChatStatus] = useState<'idle' | 'thinking'>('idle');
   const [chatBatch, setChatBatch] = useState<ChatBatch | null>(null);
   const [chatIncluded, setChatIncluded] = useState<Set<string>>(new Set());
+  // blockIds whose batch card is mid-refine (a "tell me how to adjust it" ask is in flight), so
+  // every review card — single OR batch — supports the same back-and-forth.
+  const [chatRefining, setChatRefining] = useState<Set<string>>(new Set());
   const reqRef = useRef(0);
   const suggestReqRef = useRef(0); // guards a stale /api/suggest response from a superseded scan
   const chatReqRef = useRef(0); // guards a stale /api/chat response from a superseded turn
@@ -737,7 +834,6 @@ export function Editor() {
     setSimilarOpen(false);
     setKbStatus('idle');
     setOpenError(null);
-    setRefineOpen(false);
     setConfirm(null);
     setNote(null);
     dispatch({ type: 'CANCEL_THINKING' }); // clears thinking + any pending review card
@@ -790,10 +886,9 @@ export function Editor() {
     setKbError(null);
     setNote(null);
     setConfirm(null);
-    setRefineOpen(false); // a direct doc click leaves the Refine list
-    setChatOpen(false); // …and leaves chat → the single-block Assistant for this block
     setActiveSuggestionId(null); // …so a later Keep isn't misattributed to a stale suggestion
     setPeekId(null);
+    setActiveTab('ask'); // intent override: clicking a paragraph goes straight to Ask, scoped to it
     dispatch({ type: 'SELECT', blockId: id });
   }, []);
 
@@ -867,8 +962,6 @@ export function Editor() {
     if (!doc || !selectedBlock) return;
     reqRef.current++;
     chatReqRef.current++;
-    setChatOpen(false);
-    setRefineOpen(false);
     setActiveSuggestionId(null);
     setPeekId(null);
     setNote(null);
@@ -1177,41 +1270,48 @@ export function Editor() {
     [doc, onSelect],
   );
 
-  // ---- Refine ("Check my proposal for things to fix") ----
-  const runScan = useCallback(() => {
-    if (!doc) return;
+  // ---- Suggestions (the onboarding-first "things to fix" pass) ----
+  // Populate the Suggestions tab: the instant, no-spend deterministic client scan shows first,
+  // then the LLM editorial pass merges in when it returns (any failure degrades silently to []).
+  // Pane-routing lives in the tab bar now, so this only owns the suggestion data. Returns the count
+  // of instant (grounded) fixes so the caller can decide the landing tab.
+  const scanNow = useCallback((d: Doc): number => {
     kbReqRef.current++;
-    setSimilarOpen(false);
-    setKbStatus('idle');
-    // Instant, no-spend floor: the deterministic client scan shows immediately…
-    const clientScan = scanForRefinements(doc);
+    const clientScan = scanForRefinements(d);
     setSuggestions(clientScan);
     setDismissed(new Set());
     setResolved(new Set());
     setActiveSuggestionId(null);
     setPeekId(null);
-    setNote(null);
-    setConfirm(null);
-    dispatch({ type: 'SELECT', blockId: null });
-    setRefineOpen(true);
-    // …then the LLM editorial pass runs in parallel and merges in when it returns. Any failure
-    // degrades silently to [] (requestSuggestions swallows it), leaving the client floor intact.
     const myReq = ++suggestReqRef.current;
     setSuggestLoading(true);
-    void requestSuggestions(doc, documentContext(doc)).then((server) => {
+    void requestSuggestions(d, documentContext(d)).then((server) => {
       if (myReq !== suggestReqRef.current) return; // a newer scan (or close) superseded this one
-      if (server.length) setSuggestions((prev) => mergeSuggestions(doc, prev, server));
+      if (server.length) setSuggestions((prev) => mergeSuggestions(d, prev, server));
       setSuggestLoading(false);
     });
-  }, [doc]);
-
-  const closeRefine = useCallback(() => {
-    suggestReqRef.current++; // drop any in-flight editorial pass
-    setSuggestLoading(false);
-    setRefineOpen(false);
-    setPeekId(null);
-    dispatch({ type: 'SELECT', blockId: null });
+    return clientScan.length;
   }, []);
+
+  // Re-run the scan on demand (kept for the EditPanel rest-state CTA) and show the Suggestions tab.
+  const runScan = useCallback(() => {
+    if (!doc) return;
+    scanNow(doc);
+    setActiveTab('suggestions');
+  }, [doc, scanNow]);
+
+  // Onboarding-first: when a proposal opens, scan it once and land on Suggestions if there are
+  // high-confidence fixes to review; a clean document opens straight on Ask for a change.
+  useEffect(() => {
+    if (view !== 'editor' || !doc) return;
+    if (scannedDocRef.current === doc.id) return;
+    scannedDocRef.current = doc.id;
+    const grounded = scanNow(doc);
+    setActiveTab(grounded > 0 ? 'suggestions' : 'ask');
+  }, [view, doc, scanNow]);
+
+  const showSuggestions = useCallback(() => setActiveTab('suggestions'), []);
+  const showAsk = useCallback(() => setActiveTab('ask'), []);
 
   // Hovering a suggestion reveals its section in the document (steady highlight + gentle scroll).
   const peekBlock = useCallback((id: string | null) => {
@@ -1233,26 +1333,25 @@ export function Editor() {
     dispatch({ type: 'SELECT', blockId: null }); // clears pending + thinking; refineOpen stays → RefinePanel
   }, []);
 
-  // ---- Agentic chat ("Ask the assistant") ----
+  // ---- Ask for a change, whole-proposal (the Titlebar shortcut deselects → whole-doc chat) ----
   const openChat = useCallback(() => {
     reqRef.current++;
     kbReqRef.current++;
     setSimilarOpen(false);
     setKbStatus('idle');
-    setRefineOpen(false);
     setActiveSuggestionId(null);
     setPeekId(null);
     setNote(null);
     setConfirm(null);
-    dispatch({ type: 'SELECT', blockId: null });
-    setChatOpen(true);
+    dispatch({ type: 'SELECT', blockId: null }); // no selection → the whole proposal is the scope
+    setActiveTab('ask');
   }, []);
 
   const closeChat = useCallback(() => {
     chatReqRef.current++; // drop any in-flight turn
-    setChatOpen(false);
     setChatStatus('idle');
     setPeekId(null);
+    setActiveTab('suggestions');
   }, []);
 
   const sendChat = useCallback(
@@ -1360,6 +1459,7 @@ export function Editor() {
   const discardChatBatch = useCallback(() => {
     setChatBatch(null);
     setChatIncluded(new Set());
+    setChatRefining(new Set());
     setChatMessages((prev) => [
       ...prev,
       {
@@ -1369,17 +1469,77 @@ export function Editor() {
     ]);
   }, []);
 
+  // Back-and-forth on ONE card of the whole-doc batch: re-ask /api/edit on that block's current
+  // draft and swap the new wording in place, so a batch review is a conversation too — parity with
+  // the single-block FollowUp. Gated against the ORIGINAL `before` so entity drift can't accrue.
+  const refineChatEdit = useCallback(
+    async (blockId: string, phrase: string) => {
+      const text = phrase.trim();
+      if (!doc || !chatBatch || !text || chatRefining.has(blockId)) return;
+      const edit = chatBatch.edits.find((e) => e.blockId === blockId);
+      if (!edit) return;
+      const type = doc.blocks.find((b) => b.id === blockId)?.type ?? 'paragraph';
+      const batchDocId = chatBatch.docId;
+      setChatRefining((prev) => new Set(prev).add(blockId));
+      const result = await requestEdit({
+        block: { id: blockId, text: edit.after, type }, // iterate on the current draft
+        instruction: composeRefineInstruction(text),
+        authoritativeInstruction: text,
+        referenceText: edit.before,
+        docContext: documentContext(doc, blockId),
+      });
+      setChatRefining((prev) => {
+        const next = new Set(prev);
+        next.delete(blockId);
+        return next;
+      });
+      if (!result.ok) return; // leave the card as-is so the review isn't lost
+      const after = result.res.newText;
+      if (isNoChange(edit.after, after)) return;
+      const changed = droppedEntities(edit.before, after); // gate vs the pinned original
+      const flagged = changed.length > 0;
+      const changedSet = new Set(changed);
+      const protectedKept = protectedStrings(edit.before).filter((s) => !changedSet.has(s));
+      setChatBatch((prev) => {
+        if (!prev || prev.docId !== batchDocId) return prev; // superseded by a new turn / doc switch
+        return {
+          ...prev,
+          edits: prev.edits.map((e) =>
+            e.blockId === blockId
+              ? {
+                  ...e,
+                  after,
+                  protectedKept,
+                  flagged,
+                  changeSummary: result.res.changeSummary ?? e.changeSummary,
+                }
+              : e,
+          ),
+        };
+      });
+      // If a refine newly touches a protected fact, drop it from the kept set (default-off parity).
+      if (flagged) {
+        setChatIncluded((prev) => {
+          const next = new Set(prev);
+          next.delete(blockId);
+          return next;
+        });
+      }
+    },
+    [doc, chatBatch, chatRefining],
+  );
+
   // A new (or reopened) document invalidates any in-flight chat turn and proposed batch — reset
   // the whole chat surface so a proposal from one document can never bleed into another. Kept in a
   // callback (rather than inline setState in the effect) so the sync reads as one intentional step.
   const resetChatState = useCallback(() => {
     chatReqRef.current++;
     kbReqRef.current++;
-    setChatOpen(false);
     setChatStatus('idle');
     setChatMessages([]);
     setChatBatch(null);
     setChatIncluded(new Set());
+    setChatRefining(new Set());
     setSimilarOpen(false);
     setKbStatus('idle');
     setKbCandidates([]);
@@ -1482,10 +1642,10 @@ export function Editor() {
     else if (similarOpen && kbStatus === 'searching') statusLeft = 'Searching past proposals…';
     else if (similarOpen && kbStatus === 'composing') statusLeft = 'Preparing experience…';
     else if (similarOpen) statusLeft = 'Choosing past experience';
-    else if (refineOpen)
+    else if (activeTab === 'suggestions')
       statusLeft = `${visibleSuggestions.length} suggestion${visibleSuggestions.length === 1 ? '' : 's'} to review`;
-    else if (selectedId) statusLeft = '1 section selected';
-    else statusLeft = `Ready · ${sectionCount} sections`;
+    else if (selectedId) statusLeft = 'Editing one paragraph';
+    else statusLeft = `Editing the whole proposal · ${sectionCount} sections`;
   }
   const saved = view === 'editor' && status === 'idle' && !pending && persistOk;
 
@@ -1513,14 +1673,14 @@ export function Editor() {
               ? 'Redo'
               : 'Nothing to redo yet'
         }
-        chatActive={chatOpen}
+        chatActive={activeTab === 'ask'}
         onUndo={() => {
           if (kbStatus === 'idle' && !refining) dispatch({ type: 'UNDO' });
         }}
         onRedo={() => {
           if (kbStatus === 'idle' && !refining) dispatch({ type: 'REDO' });
         }}
-        onOpenChat={chatOpen ? closeChat : openChat}
+        onOpenChat={activeTab === 'ask' ? closeChat : openChat}
         onToggleChanges={() => setShowChanges((v) => !v)}
       />
 
@@ -1567,62 +1727,100 @@ export function Editor() {
               />
             )}
           </div>
-          {chatOpen ? (
-            <ChatPanel
-              messages={chatMessages}
-              status={chatStatus}
-              batch={chatBatch}
-              included={chatIncluded}
-              onSend={sendChat}
-              onToggleInclude={toggleChatInclude}
-              onKeepBatch={keepChatBatch}
-              onDiscardBatch={discardChatBatch}
-              onClose={closeChat}
-              onPeek={peekBlock}
+          <div className={`asst-col ${activeTab}`}>
+            <AsstTabs
+              active={activeTab}
+              suggestionCount={visibleSuggestions.length}
+              onSuggestions={showSuggestions}
+              onAsk={showAsk}
             />
-          ) : similarOpen && selectedBlock && status === 'idle' && !pending ? (
-            <SimilarExperiencePanel
-              target={selectedBlock}
-              section={section}
-              candidates={kbCandidates}
-              status={kbStatus}
-              selectedCandidateId={kbPicked}
-              error={kbError}
-              onSearch={searchSimilar}
-              onChoose={chooseSimilar}
-              onBack={closeSimilar}
-            />
-          ) : refineOpen && status === 'idle' && !pending ? (
-            <RefinePanel
-              suggestions={visibleSuggestions}
-              reviewedCount={reviewedCount}
-              loadingMore={suggestLoading}
-              onFix={fixSuggestion}
-              onDismiss={dismissSuggestion}
-              onGoto={highlightBlock}
-              onPeek={peekBlock}
-              onClose={closeRefine}
-            />
-          ) : (
-            <EditPanel
-              selectedBlock={selectedBlock}
-              section={section}
-              status={status}
-              pending={pending}
-              note={note}
-              lastInstruction={lastInstruction}
-              followUps={followUps}
-              refining={refining}
-              onAction={handleAction}
-              onKeep={onKeep}
-              onDiscard={onDiscard}
-              onRefine={onRefine}
-              onCancel={onCancel}
-              onCheck={runScan}
-              onSimilar={openSimilar}
-              onBack={refineOpen && activeSuggestionId ? backToSuggestions : undefined}
-            />
-          )}
+            {activeTab === 'suggestions' ? (
+              // ---- Suggestions tab: the onboarding-first list, or an inline review card while
+              // fixing one (the SAME calm card + back-and-forth refine as everywhere else). ----
+              activeSuggestionId && (status === 'thinking' || pending) ? (
+                <EditPanel
+                  selectedBlock={selectedBlock}
+                  section={section}
+                  status={status}
+                  pending={pending}
+                  note={note}
+                  lastInstruction={lastInstruction}
+                  followUps={followUps}
+                  refining={refining}
+                  onAction={handleAction}
+                  onKeep={onKeep}
+                  onDiscard={onDiscard}
+                  onRefine={onRefine}
+                  onCancel={onCancel}
+                  onCheck={runScan}
+                  onSimilar={openSimilar}
+                  onBack={backToSuggestions}
+                />
+              ) : (
+                <RefinePanel
+                  suggestions={visibleSuggestions}
+                  reviewedCount={reviewedCount}
+                  loadingMore={suggestLoading}
+                  onFix={fixSuggestion}
+                  onDismiss={dismissSuggestion}
+                  onGoto={highlightBlock}
+                  onPeek={peekBlock}
+                  onClose={showAsk}
+                />
+              )
+            ) : (
+              // ---- Ask for a change tab: one conversational surface, selection = scope. ----
+              <>
+                <ScopeBar selectedBlock={selectedBlock} onClear={deselect} />
+                {similarOpen && selectedBlock && status === 'idle' && !pending ? (
+                  <SimilarExperiencePanel
+                    target={selectedBlock}
+                    section={section}
+                    candidates={kbCandidates}
+                    status={kbStatus}
+                    selectedCandidateId={kbPicked}
+                    error={kbError}
+                    onSearch={searchSimilar}
+                    onChoose={chooseSimilar}
+                    onBack={closeSimilar}
+                  />
+                ) : selectedBlock ? (
+                  <EditPanel
+                    selectedBlock={selectedBlock}
+                    section={section}
+                    status={status}
+                    pending={pending}
+                    note={note}
+                    lastInstruction={lastInstruction}
+                    followUps={followUps}
+                    refining={refining}
+                    onAction={handleAction}
+                    onKeep={onKeep}
+                    onDiscard={onDiscard}
+                    onRefine={onRefine}
+                    onCancel={onCancel}
+                    onCheck={runScan}
+                    onSimilar={openSimilar}
+                  />
+                ) : (
+                  <ChatPanel
+                    messages={chatMessages}
+                    status={chatStatus}
+                    batch={chatBatch}
+                    included={chatIncluded}
+                    onSend={sendChat}
+                    onToggleInclude={toggleChatInclude}
+                    onKeepBatch={keepChatBatch}
+                    onDiscardBatch={discardChatBatch}
+                    onClose={showSuggestions}
+                    onPeek={peekBlock}
+                    onRefineEdit={refineChatEdit}
+                    refiningEdits={chatRefining}
+                  />
+                )}
+              </>
+            )}
+          </div>
         </div>
       )}
 
