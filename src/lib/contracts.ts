@@ -99,8 +99,15 @@ export interface LlmSuggestion {
   category: LlmRefineCategory;
   title: string; // imperative, short
   why: string; // grounded — built server-side around a verbatim span of the block
-  instruction: string; // entity-safe seed handed to /api/edit on "Make this fix"
+  instruction: string; // entity-safe seed handed to /api/edit on "Make this fix" (fallback path)
   evidence: string; // the verbatim span that triggered it
+  // The validated rewrite, pre-computed at generation time by running `instruction` through the
+  // SAME guarded editor as /api/edit and keeping only a real, entity-safe change. Its presence is
+  // the guarantee the suggestion is actionable (no-ops + entity-breakers are dropped, never shown),
+  // and lets the FE apply the fix instantly with no second AI round-trip. REQUIRED: the server
+  // always populates it or drops the suggestion. The FE's merged Suggestion type (refine/scan.ts)
+  // keeps it OPTIONAL because deterministic client-scan suggestions carry no `after`.
+  after: string;
 }
 
 export interface SuggestRequest {

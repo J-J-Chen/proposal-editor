@@ -927,34 +927,47 @@ export function Editor() {
       // The suggestion this edit came from (if any). Passed explicitly (not read from state) so the
       // async no-op/error branches route feedback correctly even though the closure would be stale.
       suggestionId?: string | null,
+      // A pre-computed, already-guarded rewrite (from the suggest pass, Option B). When present we
+      // skip /api/edit entirely — instant review card, no AI wait — and still run every downstream
+      // safety check below. Absent for deterministic-scan suggestions → the /api/edit path.
+      precomputedAfter?: string,
     ) => {
       setNote(null);
       setConfirm(null);
       const myReq = ++reqRef.current;
       const baseCursor = state.cursor;
-      dispatch({ type: 'START_THINKING' });
 
-      const result = await requestEdit({
-        block: { id: block.id, text: block.text, type: block.type },
-        instruction,
-        docContext: doc ? documentContext(doc, block.id) : undefined,
-      });
-      if (myReq !== reqRef.current) return; // stale — user reselected or cancelled
-
-      if (!result.ok) {
-        dispatch({ type: 'CANCEL_THINKING' });
-        // From a suggestion the pane flips back to the RefinePanel, where `note` (EditPanel-only)
-        // never shows — use a toast so the failure is never silent. The suggestion stays in the
-        // list to retry.
-        if (suggestionId) {
-          setToast(result.message);
-          setActiveSuggestionId(null);
-        } else {
-          setNote({ kind: 'warn', text: result.message });
+      // A pre-guarded rewrite applies instantly (no /api/edit, no thinking state); otherwise run
+      // the guarded editor. Either way, everything below (no-op guard, entity gate, confirm, and
+      // the suggestionId feedback path) is shared.
+      let after: string;
+      let changeSummary: string | undefined;
+      if (precomputedAfter !== undefined) {
+        after = precomputedAfter;
+      } else {
+        dispatch({ type: 'START_THINKING' });
+        const result = await requestEdit({
+          block: { id: block.id, text: block.text, type: block.type },
+          instruction,
+          docContext: doc ? documentContext(doc, block.id) : undefined,
+        });
+        if (myReq !== reqRef.current) return; // stale — user reselected or cancelled
+        if (!result.ok) {
+          dispatch({ type: 'CANCEL_THINKING' });
+          // From a suggestion the pane flips back to the RefinePanel, where `note` (EditPanel-only)
+          // never shows — use a toast so the failure is never silent. The suggestion stays in the
+          // list to retry.
+          if (suggestionId) {
+            setToast(result.message);
+            setActiveSuggestionId(null);
+          } else {
+            setNote({ kind: 'warn', text: result.message });
+          }
+          return;
         }
-        return;
+        after = result.res.newText;
+        changeSummary = result.res.changeSummary ?? result.res.rationale;
       }
-      const after = result.res.newText;
       if (isNoChange(block.text, after)) {
         dispatch({ type: 'CANCEL_THINKING' });
         // A real no-op (e.g. a "be more specific" suggestion with no in-doc facts to cite). From a
@@ -983,7 +996,7 @@ export function Editor() {
         before: block.text,
         after,
         instruction,
-        changeSummary: result.res.changeSummary ?? result.res.rationale,
+        changeSummary,
         grounding,
         protectedKept,
         baseCursor,
@@ -1635,7 +1648,9 @@ export function Editor() {
       setActiveSuggestionId(s.id);
       setLastInstruction(s.instruction);
       dispatch({ type: 'SELECT', blockId: s.blockId }); // keeps refineOpen (not a doc click)
-      void runEdit(block, s.instruction, { reason: s.why, evidence: s.evidence }, s.id);
+      // s.after present (LLM suggest pass) → apply the pre-guarded rewrite instantly; absent
+      // (deterministic scan) → runEdit falls back to /api/edit.
+      void runEdit(block, s.instruction, { reason: s.why, evidence: s.evidence }, s.id, s.after);
     },
     [doc, runEdit],
   );
